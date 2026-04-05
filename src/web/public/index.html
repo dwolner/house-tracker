@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>House Tracker — Main Line</title>
+  <script>
+    // Apply saved theme before render to prevent flash
+    if (localStorage.getItem('theme') === 'dark' ||
+        (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    }
+  </script>
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+
+<header>
+  <h1>House Tracker <span>— Main Line</span></h1>
+  <div class="header-meta">
+    <div>Total: <strong id="stat-total">—</strong></div>
+    <div>Fresh (≤7 DOM): <strong id="stat-fresh">—</strong></div>
+    <div>Last poll: <strong id="stat-poll">—</strong></div>
+    <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle dark mode">🌙</button>
+    <button class="poll-btn" id="poll-btn" onclick="triggerPoll()">Poll Now</button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside>
+    <div class="view-tabs">
+      <button class="view-tab active" id="tab-listings" onclick="switchView('listings')">Listings</button>
+      <button class="view-tab" id="tab-map" onclick="switchView('map')">Map</button>
+      <button class="view-tab" id="tab-inventory" onclick="switchView('inventory')">Inventory</button>
+    </div>
+
+    <div id="filters">
+      <div class="filter-group">
+        <label>Min Score</label>
+        <input type="range" id="f-score" min="0" max="100" value="0" oninput="document.getElementById('f-score-val').textContent=this.value; applyFilters()" />
+        <div class="range-val" id="f-score-val">0</div>
+      </div>
+
+      <div class="filter-group">
+        <label>Min Beds</label>
+        <select id="f-beds" onchange="applyFilters()">
+          <option value="0">Any</option>
+          <option value="3">3+</option>
+          <option value="4">4+</option>
+          <option value="5">5+</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>Max Price</label>
+        <input type="number" id="f-price" value="2000000" step="50000" onchange="applyFilters()" />
+      </div>
+
+      <div class="filter-group">
+        <label>Property Type</label>
+        <select id="f-type" onchange="applyFilters()">
+          <option value="">All</option>
+          <option value="single family residential">Single Family Only</option>
+          <option value="townhouse">Townhouse</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>City</label>
+        <div class="city-checks" id="city-checks"></div>
+      </div>
+
+      <div class="filter-group">
+        <label>Open Houses</label>
+        <label class="toggle-label">
+          <input type="checkbox" id="f-open-house" onchange="applyFilters()" />
+          Upcoming open house
+        </label>
+      </div>
+
+      <button class="reset-btn" onclick="resetFilters()">Reset Filters</button>
+    </div>
+  </aside>
+
+  <main>
+    <div id="view-listings">
+      <div class="results-header">
+        <h2>Listings</h2>
+        <span class="results-count" id="results-count"></span>
+      </div>
+      <div class="cards" id="cards"></div>
+    </div>
+
+    <div id="view-map" class="view-hidden">
+      <div class="results-header" style="margin-bottom:16px">
+        <h2>Listing Map</h2>
+        <span class="results-count" id="map-count"></span>
+      </div>
+      <div id="listing-map"></div>
+    </div>
+
+    <div id="view-inventory" class="view-hidden">
+      <div class="chart-section">
+        <h2>Inventory Over Time</h2>
+        <div class="chart-wrap"><canvas id="inventory-chart"></canvas></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>

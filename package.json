@@ -1,0 +1,30 @@
+{
+  "name": "house-tracker",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "web": "tsx src/index.ts",
+    "poll": "tsx src/poller/index.ts",
+    "enrich": "tsx src/enrichment/walk-score.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@fastify/static": "^9.0.0",
+    "better-sqlite3": "^9.4.3",
+    "dotenv": "^17.4.0",
+    "fastify": "^5.8.4",
+    "node-cron": "^4.2.1",
+    "node-fetch": "^3.3.2",
+    "nodemailer": "^8.0.4"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.8",
+    "@types/node": "^20.11.5",
+    "@types/node-cron": "^3.0.11",
+    "@types/nodemailer": "^7.0.11",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}
