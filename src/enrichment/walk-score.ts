@@ -107,9 +107,10 @@ async function runEnrichment(): Promise<void> {
           year_built: null,
           walk_score: walkScore,
           url: listing.url,
-          status: '',
+          status: '', status_label: '',
           next_open_house_start: null,
           next_open_house_end: null,
+          sold_date: null,
         };
         const breakdown = scoreWithBreakdown(asRedfinListing);
         updateListingWalkScore(listing.id, walkScore, breakdown.total, breakdown);
@@ -147,9 +148,10 @@ async function runEnrichment(): Promise<void> {
           walk_score: listing.walk_score,
           school_district: district,
           url: listing.url ?? '',
-          status: '',
+          status: '', status_label: '',
           next_open_house_start: null,
           next_open_house_end: null,
+          sold_date: null,
         };
         const breakdown = scoreWithBreakdown(asRedfinListing);
         updateListingSchoolDistrict(listing.id, district, breakdown.total, breakdown);

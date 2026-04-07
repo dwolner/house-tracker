@@ -23,6 +23,14 @@
 - **Price history sparkline** — small inline chart per card showing price over time
   - `price_history` table already populated, just needs a Chart.js sparkline renderer
 
+## Up Next (Continued)
+
+### Outcomes & Intelligence
+- **Score → outcome correlation** — do high-score listings go pending faster? Visualize as scatter by score band
+- **Score → outcome correlation** — do high-score listings go pending faster? Visualize as scatter by score band
+- **Price history sparkline** — small inline chart per card showing price over time
+  - `price_history` table already populated, just needs a Chart.js sparkline renderer
+
 ## Completed
 
 - [x] Redfin polling — active + coming soon, multiple Main Line regions
@@ -36,6 +44,9 @@
 - [x] Price drop / status change email — batched daily digest from cron, not manual polls
 - [x] Inactive listing detection — listings not seen in 36h marked inactive; score_breakdown pruned after 6 months
 - [x] Open house mode — badge on cards, sidebar filter, sorts by soonest date
+- [x] Pending/under contract tracking — status=130 polled, active→pending transition recorded with `pending_at` + `pending_price`
+- [x] Sold tracking — status=131 polled each region, `sold_at` + `sold_price` recorded for tracked listings
+- [x] Outcomes analytics — Inventory tab shows pending count, sold count, median DOM, list→pending Δ, list→sale Δ, scatter chart (DOM vs price %), full table
 - [x] Map view — Leaflet, score-colored markers, zip code boundaries from Census TIGER, legend
 - [x] View switcher — sidebar tabs for Listings / Map / Inventory
 - [x] King of Prussia added — region 7530, Upper Merion SD scored at 9

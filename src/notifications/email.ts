@@ -81,16 +81,6 @@ function priceChangeHtml(l: NotifyListing): string {
   return `<span style="font-size:11px;color:${color};margin-left:6px">${sign} $${Math.abs(diff).toLocaleString()}</span>`;
 }
 
-function sdAbbr(sd: string | null, score: number): string {
-  if (!sd) return score >= 20 ? 'Lower Merion' : score > 0 ? 'Secondary SD' : '—';
-  if (sd.includes('Lower Merion'))   return 'Lower Merion SD';
-  if (sd.includes('Radnor'))         return 'Radnor SD';
-  if (sd.includes('Tredyffrin'))     return 'Tredyffrin-Easttown SD';
-  if (sd.includes('Haverford'))      return 'Haverford SD';
-  if (sd.includes('Upper Merion'))   return 'Upper Merion Area SD';
-  if (sd.includes('Great Valley'))   return 'Great Valley SD';
-  return sd;
-}
 
 const BREAKDOWN_KEYS = [
   { key: 'propertyType',   label: 'Type',   max: 20 },
@@ -124,24 +114,7 @@ function scoreChipsHtml(l: NotifyListing): string {
   const chips = BREAKDOWN_KEYS.map(({ key, label, max }) => {
     const val = bd[key] ?? 0;
     const { bg, color } = chipColor(key, val, max);
-
-    let display: string;
-    if (key === 'walkability')    display = l.walk_score != null ? String(l.walk_score) : '?';
-    else if (key === 'domPenalty') display = l.days_on_market != null ? `${l.days_on_market}d` : '?';
-    else if (key === 'pricePerSqft') display = l.sqft ? String(Math.round(l.price / l.sqft)) : '?';
-    else if (key === 'schoolDistrict') {
-      const sd = l.school_district ?? '';
-      if (sd.includes('Lower Merion'))      display = 'LM';
-      else if (sd.includes('Radnor'))       display = 'Rad';
-      else if (sd.includes('Tredyffrin'))   display = 'T-E';
-      else if (sd.includes('Haverford'))    display = 'Hav';
-      else if (sd.includes('Upper Merion')) display = 'UM';
-      else if (sd.includes('Great Valley')) display = 'GV';
-      else if (sd)                          display = 'Oth';
-      else                                  display = val >= 20 ? 'LM' : val > 0 ? 'Sec' : '—';
-    } else {
-      display = String(Math.round((val / max) * 100));
-    }
+    const display = String(Math.round((val / max) * 100));
 
     return `<td style="padding:0 1px;text-align:center">
       <div style="background:${bg};color:${color};border-radius:4px;padding:3px 0;font-size:10px;font-weight:700;min-width:28px;text-align:center">${display}</div>
@@ -176,6 +149,7 @@ function buildCard(l: NotifyListing): string {
             <td>
               <div style="font-weight:700;font-size:15px;line-height:1.3;color:${D.text}">${l.address}</div>
               <div style="font-size:12px;color:${D.muted};margin-top:2px">${l.city}, PA ${l.zip}</div>
+              ${l.school_district ? `<div style="font-size:11px;color:${D.accent};margin-top:2px;font-weight:500">${l.school_district}</div>` : ''}
             </td>
             <td style="text-align:right;vertical-align:top;padding-left:12px">
               <div style="display:inline-block;background:${scoreBg};color:${scoreColor};border-radius:8px;width:44px;height:44px;line-height:44px;text-align:center;font-size:17px;font-weight:700">${Math.round(l.score)}</div>
@@ -186,7 +160,7 @@ function buildCard(l: NotifyListing): string {
         <!-- Price -->
         <div style="margin-top:12px">
           <span style="font-size:22px;font-weight:700;color:${D.text}">$${fmt(l.price)}</span>${priceChangeHtml(l)}
-          <div style="font-size:11px;color:${D.muted};margin-top:1px">${sdAbbr(l.school_district, 0)}</div>
+          ${l.days_on_market != null ? `<div style="font-size:11px;color:${D.muted};margin-top:1px">${domText(l.days_on_market)}</div>` : ''}
         </div>
 
         <!-- Stats row -->
@@ -214,9 +188,6 @@ function buildCard(l: NotifyListing): string {
           </tr>
         </table>
 
-        <!-- DOM -->
-        ${l.days_on_market != null ? `<div style="margin-top:8px">${domText(l.days_on_market)}</div>` : ''}
-
         <!-- Score chips -->
         ${scoreChipsHtml(l)}
 
@@ -237,88 +208,47 @@ function buildCard(l: NotifyListing): string {
   </table>`;
 }
 
-function buildHtml(listings: NotifyListing[]): string {
-  const date = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-  const cards = listings.map(buildCard).join('');
+type ChangeWithListing = import('../db/index.js').ChangeWithListing;
 
-  return `<!DOCTYPE html>
-<html>
-<body style="margin:0;padding:0;background:${D.bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-  <table style="width:100%;border-collapse:collapse">
-    <tr>
-      <td style="padding:24px 16px">
-
-        <!-- Header -->
-        <table style="width:100%;max-width:520px;margin:0 auto 24px;border-collapse:collapse">
-          <tr>
-            <td style="background:${D.surface};border:1px solid ${D.border};border-radius:10px;padding:20px 24px">
-              <div style="color:${D.text};font-size:18px;font-weight:700;margin:0">&#127968; House <span style="color:${D.accent}">Tracker</span></div>
-              <div style="color:${D.muted};font-size:13px;margin-top:4px">${listings.length} new listing${listings.length !== 1 ? 's' : ''} · Score ≥ ${NOTIFY_SCORE_THRESHOLD} · ${date}</div>
-            </td>
-          </tr>
-        </table>
-
-        <!-- Cards -->
-        ${cards}
-
-        <!-- Footer -->
-        <table style="width:100%;max-width:520px;margin:0 auto;border-collapse:collapse">
-          <tr>
-            <td style="text-align:center;padding:8px 0">
-              <span style="font-size:11px;color:${D.muted}">Sent by house-tracker</span>
-            </td>
-          </tr>
-        </table>
-
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+function changeBadgeHtml(c: ChangeWithListing): string {
+  if (c.change_type === 'price_drop') {
+    const old = parseInt(c.old_value ?? '0');
+    const diff = old - c.price;
+    return `<div style="margin-bottom:8px">
+      <span style="background:#14532d;color:${D.green};padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700">▼ Price Drop</span>
+      <span style="font-size:12px;color:${D.muted};margin-left:8px">$${old.toLocaleString()} → <strong style="color:${D.text}">$${c.price.toLocaleString()}</strong> <span style="color:${D.green}">−$${diff.toLocaleString()}</span></span>
+    </div>`;
+  }
+  if (c.change_type === 'price_increase') {
+    const old = parseInt(c.old_value ?? '0');
+    const diff = c.price - old;
+    return `<div style="margin-bottom:8px">
+      <span style="background:#7f1d1d;color:${D.red};padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700">▲ Price Increase</span>
+      <span style="font-size:12px;color:${D.muted};margin-left:8px">$${old.toLocaleString()} → <strong style="color:${D.text}">$${c.price.toLocaleString()}</strong> <span style="color:${D.red}">+$${diff.toLocaleString()}</span></span>
+    </div>`;
+  }
+  if (c.change_type === 'now_active') {
+    return `<div style="margin-bottom:8px">
+      <span style="background:#1e3a5f;color:${D.accent};padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700">⚡ Now Active</span>
+      <span style="font-size:12px;color:${D.muted};margin-left:8px">Previously coming soon</span>
+    </div>`;
+  }
+  return '';
 }
 
-function buildChangesHtml(changes: import('../db/index.js').ChangeWithListing[]): string {
+function buildDigestHtml(newListings: NotifyListing[], changes: ChangeWithListing[]): string {
   const date = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const total = newListings.length + changes.length;
 
-  const rows = changes.map(c => {
-    let badge = '';
-    let detail = '';
-    if (c.change_type === 'price_drop') {
-      const old = parseInt(c.old_value ?? '0');
-      const diff = old - c.price;
-      badge = `<span style="background:#14532d;color:${D.green};padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">▼ Price Drop</span>`;
-      detail = `$${old.toLocaleString()} → <strong>$${c.price.toLocaleString()}</strong> <span style="color:${D.green}">−$${diff.toLocaleString()}</span>`;
-    } else if (c.change_type === 'price_increase') {
-      const old = parseInt(c.old_value ?? '0');
-      const diff = c.price - old;
-      badge = `<span style="background:#7f1d1d;color:${D.red};padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">▲ Price Increase</span>`;
-      detail = `$${old.toLocaleString()} → <strong>$${c.price.toLocaleString()}</strong> <span style="color:${D.red}">+$${diff.toLocaleString()}</span>`;
-    } else if (c.change_type === 'now_active') {
-      badge = `<span style="background:#1e3a5f;color:${D.accent};padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">⚡ Now Active</span>`;
-      detail = `Previously coming soon — now active at <strong>$${c.price.toLocaleString()}</strong>`;
-    }
+  const newCards = newListings.map(l => `
+    <div style="margin-bottom:8px">
+      <span style="background:#1a2e1a;color:${D.green};padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700">★ New Listing</span>
+    </div>
+    ${buildCard(l)}`).join('');
 
-    const { bg: scoreBg, color: scoreColor } = scoreColors(c.score);
-    return `
-    <table style="width:100%;max-width:520px;margin:0 auto 12px;border-collapse:collapse;border:1px solid ${D.border};border-radius:10px;background:${D.surface};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-      <tr><td style="padding:14px 16px">
-        <table style="width:100%;border-collapse:collapse">
-          <tr>
-            <td>
-              <div style="margin-bottom:6px">${badge}</div>
-              <div style="font-weight:700;font-size:14px;color:${D.text}">${c.address}</div>
-              <div style="font-size:12px;color:${D.muted};margin-top:2px">${c.city}, PA ${c.zip} · ${c.beds}bd / ${c.baths}ba${c.sqft ? ' · ' + c.sqft.toLocaleString() + ' sqft' : ''}</div>
-              <div style="font-size:13px;color:${D.text};margin-top:8px">${detail}</div>
-            </td>
-            <td style="text-align:right;vertical-align:top;padding-left:12px">
-              <div style="display:inline-block;background:${scoreBg};color:${scoreColor};border-radius:8px;width:40px;height:40px;line-height:40px;text-align:center;font-size:15px;font-weight:700">${Math.round(c.score)}</div>
-            </td>
-          </tr>
-        </table>
-        ${c.url ? `<div style="margin-top:10px"><a href="${c.url}" style="display:inline-block;background:${D.accent};color:#fff;text-decoration:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:500">View on Redfin →</a></div>` : ''}
-      </td></tr>
-    </table>`;
-  }).join('');
+  const changeCards = changes.map(c => `
+    ${changeBadgeHtml(c)}
+    ${buildCard(c)}`).join('');
 
   return `<!DOCTYPE html>
 <html>
@@ -327,10 +257,10 @@ function buildChangesHtml(changes: import('../db/index.js').ChangeWithListing[])
     <table style="width:100%;max-width:520px;margin:0 auto 24px;border-collapse:collapse">
       <tr><td style="background:${D.surface};border:1px solid ${D.border};border-radius:10px;padding:20px 24px">
         <div style="color:${D.text};font-size:18px;font-weight:700">&#127968; House <span style="color:${D.accent}">Tracker</span></div>
-        <div style="color:${D.muted};font-size:13px;margin-top:4px">${changes.length} update${changes.length !== 1 ? 's' : ''} · ${date}</div>
+        <div style="color:${D.muted};font-size:13px;margin-top:4px">${total} update${total !== 1 ? 's' : ''} · Score ≥ ${NOTIFY_SCORE_THRESHOLD} · ${date}</div>
       </td></tr>
     </table>
-    ${rows}
+    ${newCards}${changeCards}
     <table style="width:100%;max-width:520px;margin:0 auto;border-collapse:collapse">
       <tr><td style="text-align:center;padding:8px 0"><span style="font-size:11px;color:${D.muted}">Sent by house-tracker</span></td></tr>
     </table>
@@ -338,57 +268,35 @@ function buildChangesHtml(changes: import('../db/index.js').ChangeWithListing[])
 </body></html>`;
 }
 
-export async function sendChangesDigest(changes: import('../db/index.js').ChangeWithListing[]): Promise<void> {
-  if (!isConfigured() || changes.length === 0) return;
+export async function sendDigest(newListings: NotifyListing[], changes: ChangeWithListing[]): Promise<void> {
+  if (!isConfigured()) {
+    console.log('[notify] SMTP not configured — skipping email');
+    return;
+  }
+  if (newListings.length === 0 && changes.length === 0) return;
 
   const transporter = nodemailer.createTransport({
     host: SMTP_HOST, port: SMTP_PORT, secure: SMTP_PORT === 465,
     auth: { user: SMTP_USER, pass: SMTP_PASS },
   });
 
+  const newCount = newListings.length;
   const priceDrop = changes.filter(c => c.change_type === 'price_drop').length;
   const priceUp   = changes.filter(c => c.change_type === 'price_increase').length;
-  const active    = changes.filter(c => c.change_type === 'now_active').length;
+  const nowActive = changes.filter(c => c.change_type === 'now_active').length;
   const parts = [
-    priceDrop && `${priceDrop} price drop${priceDrop > 1 ? 's' : ''}`,
-    priceUp   && `${priceUp} price increase${priceUp > 1 ? 's' : ''}`,
-    active    && `${active} now active`,
+    newCount   && `${newCount} new`,
+    priceDrop  && `${priceDrop} price drop${priceDrop > 1 ? 's' : ''}`,
+    priceUp    && `${priceUp} price increase${priceUp > 1 ? 's' : ''}`,
+    nowActive  && `${nowActive} now active`,
   ].filter(Boolean);
 
   await transporter.sendMail({
     from: `"House Tracker" <${SMTP_USER}>`,
     to: NOTIFY_TO,
-    subject: `🏠 Listing updates: ${parts.join(' · ')}`,
-    html: buildChangesHtml(changes),
+    subject: `🏠 ${parts.join(' · ')}`,
+    html: buildDigestHtml(newListings, changes),
   });
 
-  console.log(`[notify] sent changes digest: ${parts.join(', ')}`);
-}
-
-export async function sendNewListingsDigest(listings: NotifyListing[]): Promise<void> {
-  if (!isConfigured()) {
-    console.log('[notify] SMTP not configured — skipping email');
-    return;
-  }
-  if (listings.length === 0) return;
-
-  const transporter = nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: SMTP_PORT,
-    secure: SMTP_PORT === 465,
-    auth: { user: SMTP_USER, pass: SMTP_PASS },
-  });
-
-  const subject = listings.length === 1
-    ? `🏠 New listing: ${listings[0].address} (score ${Math.round(listings[0].score)})`
-    : `🏠 ${listings.length} new listings above score ${NOTIFY_SCORE_THRESHOLD}`;
-
-  await transporter.sendMail({
-    from: `"House Tracker" <${SMTP_USER}>`,
-    to: NOTIFY_TO,
-    subject,
-    html: buildHtml(listings),
-  });
-
-  console.log(`[notify] sent digest for ${listings.length} listing(s) to ${NOTIFY_TO}`);
+  console.log(`[notify] sent digest: ${parts.join(', ')}`);
 }

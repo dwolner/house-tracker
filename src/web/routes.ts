@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { getDb, toggleStar } from '../db/index.js';
+import { getDb, toggleStar, getOutcomesData } from '../db/index.js';
 
 export function registerRoutes(app: FastifyInstance) {
   // All listings with optional filters
@@ -17,7 +17,7 @@ export function registerRoutes(app: FastifyInstance) {
     let sql = `
       SELECT id, address, city, state, zip, price, price_at_first_seen, beds, baths,
              sqft, lot_sqft, year_built, walk_score, school_district, property_type, days_on_market,
-             score, score_breakdown, url, first_seen_at, last_seen_at, status, starred,
+             score, score_breakdown, url, first_seen_at, last_seen_at, status, status_label, starred,
              next_open_house_start, next_open_house_end, lat, lng
       FROM listings
       WHERE state = 'PA'
@@ -25,7 +25,7 @@ export function registerRoutes(app: FastifyInstance) {
         AND beds >= ?
         AND price >= ?
         AND price <= ?
-        ${includeInactive ? '' : `AND status != 'inactive'`}
+        ${includeInactive ? '' : `AND status NOT IN ('inactive', '130')`}
     `;
     const params: (string | number)[] = [minScore, minBeds, minPrice, maxPrice];
 
@@ -64,7 +64,7 @@ export function registerRoutes(app: FastifyInstance) {
   // Summary stats
   app.get('/api/stats', () => {
     const db = getDb();
-    const active = `state = 'PA' AND status != 'inactive'`;
+    const active = `state = 'PA' AND status NOT IN ('inactive', '130')`;
     const total = (db.prepare(`SELECT COUNT(*) as n FROM listings WHERE ${active}`).get() as { n: number }).n;
     const avgScore = (db.prepare(`SELECT AVG(score) as v FROM listings WHERE ${active}`).get() as { v: number | null }).v;
     const fresh = (db.prepare(`SELECT COUNT(*) as n FROM listings WHERE ${active} AND days_on_market <= 7`).get() as { n: number }).n;
@@ -92,6 +92,33 @@ export function registerRoutes(app: FastifyInstance) {
   app.post('/api/listings/:id/star', (req) => {
     const { id } = req.params as { id: string };
     return toggleStar(id);
+  });
+
+  // Pending outcomes — analytics data
+  app.get('/api/outcomes', () => getOutcomesData());
+
+  // Trend data: avg list price, sold price, and score per city per month
+  app.get('/api/trends', () => {
+    const db = getDb();
+    const listPrice = db.prepare(`
+      SELECT LOWER(city) as city, strftime('%Y-%m', first_seen_at) as month,
+             ROUND(AVG(price_at_first_seen)) as avg, COUNT(*) as count
+      FROM listings WHERE state = 'PA' AND price_at_first_seen > 0 AND first_seen_at IS NOT NULL
+      GROUP BY city, month ORDER BY month, city
+    `).all();
+    const soldPrice = db.prepare(`
+      SELECT LOWER(city) as city, strftime('%Y-%m', sold_at) as month,
+             ROUND(AVG(sold_price)) as avg, COUNT(*) as count
+      FROM listings WHERE state = 'PA' AND sold_price IS NOT NULL AND sold_at IS NOT NULL
+      GROUP BY city, month ORDER BY month, city
+    `).all();
+    const score = db.prepare(`
+      SELECT LOWER(city) as city, strftime('%Y-%m', first_seen_at) as month,
+             ROUND(AVG(score), 1) as avg, COUNT(*) as count
+      FROM listings WHERE state = 'PA' AND score IS NOT NULL AND first_seen_at IS NOT NULL
+      GROUP BY city, month ORDER BY month, city
+    `).all();
+    return { listPrice, soldPrice, score };
   });
 
   // Trigger a poll manually

@@ -1,11 +1,11 @@
 import 'dotenv/config';
-import { fetchRegionListings, TARGET_REGIONS } from './redfin.js';
-import { upsertListing, logPoll, getDb, markStaleListingsInactive, pruneOldBreakdowns } from '../db/index.js';
+import { fetchRegionListings, fetchRecentlySold, TARGET_REGIONS } from './redfin.js';
+import { upsertListing, markListingSold, logPoll, getDb, markStaleListingsInactive, pruneOldBreakdowns } from '../db/index.js';
 import { scoreWithBreakdown } from '../scoring/index.js';
 import { runEnrichment } from '../enrichment/walk-score.js';
-import { sendNewListingsDigest, NOTIFY_SCORE_THRESHOLD, type NotifyListing } from '../notifications/email.js';
+import { NOTIFY_SCORE_THRESHOLD } from '../notifications/email.js';
 
-export async function runPoll(): Promise<void> {
+export async function runPoll(): Promise<{ newHighScoreIds: string[] }> {
   console.log(`[poll] starting at ${new Date().toISOString()}`);
 
   const newHighScoreIds: string[] = [];
@@ -35,6 +35,18 @@ export async function runPoll(): Promise<void> {
       logPoll(region.name, valid.length, newCount);
       console.log(`[poll] ${region.name}: ${listings.length} listings, ${newCount} new`);
 
+      // Fetch sold listings and update any we've been tracking
+      try {
+        const sold = await fetchRecentlySold(region.region_id, region.region_type);
+        let soldCount = 0;
+        for (const s of sold) {
+          if (markListingSold(s.id, s.price, s.sold_date, s.days_on_market)) soldCount++;
+        }
+        if (soldCount > 0) console.log(`[poll] ${region.name}: marked ${soldCount} listing(s) as sold`);
+      } catch (err) {
+        console.error(`[poll] error fetching sold listings for ${region.name}:`, err);
+      }
+
       // Be polite to Redfin — small delay between regions
       await sleep(1500);
     } catch (err) {
@@ -52,17 +64,7 @@ export async function runPoll(): Promise<void> {
 
   await runEnrichment();
 
-  if (newHighScoreIds.length > 0) {
-    const db = getDb();
-    const placeholders = newHighScoreIds.map(() => '?').join(',');
-    const toNotify = db.prepare(`
-      SELECT id, address, city, zip, price, price_at_first_seen, beds, baths, sqft, lot_sqft,
-             days_on_market, score, score_breakdown, school_district, property_type, walk_score, url
-      FROM listings WHERE id IN (${placeholders})
-      ORDER BY score DESC
-    `).all(...newHighScoreIds) as NotifyListing[];
-    await sendNewListingsDigest(toNotify).catch(err => console.error('[notify] email error:', err));
-  }
+  return { newHighScoreIds };
 }
 
 function sleep(ms: number) {
