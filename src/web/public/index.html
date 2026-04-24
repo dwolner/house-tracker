@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>House Tracker — Main Line</title>
+    <title>House Tracker</title>
     <script>
       // Apply saved theme before render to prevent flash
       if (
@@ -24,7 +24,7 @@
   </head>
   <body>
     <header>
-      <h1>House Tracker <span>— Main Line</span></h1>
+      <h1>House Tracker <span id="locale-label">— Main Line</span></h1>
       <div class="header-meta">
         <div>Total: <strong id="stat-total">—</strong></div>
         <div>Fresh (≤7 DOM): <strong id="stat-fresh">—</strong></div>
@@ -45,6 +45,11 @@
 
     <div class="layout">
       <aside>
+        <div class="locale-tabs">
+          <button class="locale-tab active" data-locale="main-line" onclick="switchLocale('main-line')">PA Main Line</button>
+          <button class="locale-tab" data-locale="san-diego" onclick="switchLocale('san-diego')">San Diego</button>
+        </div>
+
         <div class="view-tabs">
           <button
             class="view-tab active"
@@ -67,7 +72,10 @@
 
         <div id="filters">
           <div class="filter-group">
-            <label>Min Score</label>
+            <div class="filter-label-row">
+              <label>Min Score</label>
+              <span class="filter-val" id="f-score-val">0</span>
+            </div>
             <input
               type="range"
               id="f-score"
@@ -79,7 +87,6 @@
                 applyFilters();
               "
             />
-            <div class="range-val" id="f-score-val">0</div>
           </div>
 
           <div class="filter-group">
@@ -94,13 +101,17 @@
 
           <div class="filter-group">
             <label>Max Price</label>
-            <input
-              type="number"
-              id="f-price"
-              value="2000000"
-              step="50000"
-              onchange="applyFilters()"
-            />
+            <select id="f-price" onchange="applyFilters()">
+              <option value="750000">$750K</option>
+              <option value="1000000">$1M</option>
+              <option value="1250000">$1.25M</option>
+              <option value="1500000">$1.5M</option>
+              <option value="1750000">$1.75M</option>
+              <option value="2000000">$2M</option>
+              <option value="2500000">$2.5M</option>
+              <option value="3000000">$3M</option>
+              <option value="9999999" selected>No limit</option>
+            </select>
           </div>
 
           <div class="filter-group">
@@ -115,19 +126,18 @@
           </div>
 
           <div class="filter-group">
-            <label>City</label>
+            <label id="area-filter-label">City</label>
             <div class="city-checks" id="city-checks"></div>
           </div>
 
           <div class="filter-group">
-            <label>Open Houses</label>
             <label class="toggle-label">
               <input
                 type="checkbox"
                 id="f-open-house"
                 onchange="applyFilters()"
               />
-              Upcoming open house
+              Open houses only
             </label>
           </div>
 

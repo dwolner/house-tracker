@@ -6,6 +6,7 @@ import {
   updateListingSchoolDistrict,
 } from '../db/index.js';
 import { scoreWithBreakdown } from '../scoring/index.js';
+import { getLocale, LOCALES } from '../locales/index.js';
 import type { RedfinListing } from '../poller/redfin.js';
 
 const REDFIN_BASE = 'https://www.redfin.com';
@@ -83,7 +84,9 @@ function sleep(ms: number) {
 }
 
 async function runEnrichment(): Promise<void> {
-  const listings = getListingsMissingWalkScore();
+  const expectedStates = new Set(Object.values(LOCALES).map(l => l.state.toUpperCase()));
+  const listings = getListingsMissingWalkScore()
+    .filter(l => expectedStates.has(l.state?.toUpperCase() ?? ''));
   console.log(`[enrich] ${listings.length} listings need walk score`);
 
   let updated = 0;
@@ -112,7 +115,7 @@ async function runEnrichment(): Promise<void> {
           next_open_house_end: null,
           sold_date: null,
         };
-        const breakdown = scoreWithBreakdown(asRedfinListing);
+        const breakdown = scoreWithBreakdown(asRedfinListing, getLocale(listing.locale_id));
         updateListingWalkScore(listing.id, walkScore, breakdown.total, breakdown);
         console.log(
           `[enrich] ${listing.address}, ${listing.city} — walk: ${walkScore} — score: ${breakdown.total.toFixed(1)}`,
@@ -133,7 +136,8 @@ async function runEnrichment(): Promise<void> {
   console.log(`[enrich] walk scores done — ${updated} updated, ${failed} failed/skipped`);
 
   // --- School district enrichment ---
-  const sdListings = getListingsMissingSchoolDistrict();
+  const sdListings = getListingsMissingSchoolDistrict()
+    .filter(l => expectedStates.has(l.state?.toUpperCase() ?? ''));
   console.log(`[enrich] ${sdListings.length} listings need school district`);
   let sdUpdated = 0, sdFailed = 0;
 
@@ -153,7 +157,7 @@ async function runEnrichment(): Promise<void> {
           next_open_house_end: null,
           sold_date: null,
         };
-        const breakdown = scoreWithBreakdown(asRedfinListing);
+        const breakdown = scoreWithBreakdown(asRedfinListing, getLocale(listing.locale_id));
         updateListingSchoolDistrict(listing.id, district, breakdown.total, breakdown);
         console.log(`[enrich] ${listing.address}, ${listing.city} — district: ${district} — score: ${breakdown.total.toFixed(1)}`);
         sdUpdated++;

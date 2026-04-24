@@ -18,10 +18,9 @@ export function registerRoutes(app: FastifyInstance) {
       SELECT id, address, city, state, zip, price, price_at_first_seen, beds, baths,
              sqft, lot_sqft, year_built, walk_score, school_district, property_type, days_on_market,
              score, score_breakdown, url, first_seen_at, last_seen_at, status, status_label, starred,
-             next_open_house_start, next_open_house_end, lat, lng
+             next_open_house_start, next_open_house_end, lat, lng, locale_id
       FROM listings
-      WHERE state = 'PA'
-        AND score >= ?
+      WHERE score >= ?
         AND beds >= ?
         AND price >= ?
         AND price <= ?
@@ -61,30 +60,39 @@ export function registerRoutes(app: FastifyInstance) {
       .all();
   });
 
-  // Summary stats
-  app.get('/api/stats', () => {
+  // Summary stats — optional ?locale_id=main-line|san-diego to scope
+  app.get('/api/stats', (req) => {
+    const q = req.query as Record<string, string>;
+    const localeId = q.locale_id;
     const db = getDb();
-    const active = `state = 'PA' AND status NOT IN ('inactive', '130')`;
-    const total = (db.prepare(`SELECT COUNT(*) as n FROM listings WHERE ${active}`).get() as { n: number }).n;
-    const avgScore = (db.prepare(`SELECT AVG(score) as v FROM listings WHERE ${active}`).get() as { v: number | null }).v;
-    const fresh = (db.prepare(`SELECT COUNT(*) as n FROM listings WHERE ${active} AND days_on_market <= 7`).get() as { n: number }).n;
+    const active = `status NOT IN ('inactive', '130')`;
+    const lf = localeId ? ` AND locale_id = ?` : '';
+
+    const g1 = (sql: string) => localeId ? db.prepare(sql + lf).get(localeId) : db.prepare(sql).get();
+    const gN = (sql: string) => localeId ? db.prepare(sql + lf).all(localeId) : db.prepare(sql).all();
+
+    const total = (g1(`SELECT COUNT(*) as n FROM listings WHERE ${active}`) as { n: number }).n;
+    const avgScore = (g1(`SELECT AVG(score) as v FROM listings WHERE ${active}`) as { v: number | null }).v;
+    const fresh = (g1(`SELECT COUNT(*) as n FROM listings WHERE ${active} AND days_on_market <= 7`) as { n: number }).n;
     const lastPoll = (db.prepare(`SELECT MAX(polled_at) as v FROM poll_log`).get() as { v: string | null }).v;
-    const cities = db.prepare(`SELECT DISTINCT LOWER(city) as city FROM listings WHERE ${active} ORDER BY city`).all() as { city: string }[];
-    const totalEver = (db.prepare(`SELECT COUNT(*) as n FROM listings WHERE state = 'PA'`).get() as { n: number }).n;
+    const cities = gN(`SELECT DISTINCT LOWER(city) as city FROM listings WHERE ${active} ORDER BY city`) as { city: string }[];
+    const totalEver = localeId
+      ? (db.prepare(`SELECT COUNT(*) as n FROM listings WHERE locale_id = ?`).get(localeId) as { n: number }).n
+      : (db.prepare(`SELECT COUNT(*) as n FROM listings`).get() as { n: number }).n;
     return { total, avgScore, fresh, lastPoll, cities: cities.map(c => c.city), totalEver };
   });
 
   // Send a test email using top listings already in DB
   app.post('/api/test-email', async () => {
-    const { sendNewListingsDigest, NOTIFY_SCORE_THRESHOLD } = await import('../notifications/email.js');
+    const { sendDigest, NOTIFY_SCORE_THRESHOLD } = await import('../notifications/email.js');
     const db = getDb();
     const listings = db.prepare(`
-      SELECT id, address, city, zip, price, price_at_first_seen, beds, baths, sqft, lot_sqft,
+      SELECT id, address, city, state, zip, price, price_at_first_seen, beds, baths, sqft, lot_sqft,
              days_on_market, score, score_breakdown, school_district, property_type, walk_score, url
-      FROM listings WHERE state = 'PA' ORDER BY score DESC LIMIT 5
-    `).all() as Parameters<typeof sendNewListingsDigest>[0];
+      FROM listings ORDER BY score DESC LIMIT 5
+    `).all() as import('../notifications/email.js').NotifyListing[];
     if (listings.length === 0) return { ok: false, error: 'no listings in DB' };
-    await sendNewListingsDigest(listings);
+    await sendDigest(listings, []);
     return { ok: true, sent: listings.length, threshold: NOTIFY_SCORE_THRESHOLD };
   });
 
@@ -101,22 +109,22 @@ export function registerRoutes(app: FastifyInstance) {
   app.get('/api/trends', () => {
     const db = getDb();
     const listPrice = db.prepare(`
-      SELECT LOWER(city) as city, strftime('%Y-%m', first_seen_at) as month,
+      SELECT LOWER(city) as city, locale_id, strftime('%Y-%m', first_seen_at) as month,
              ROUND(AVG(price_at_first_seen)) as avg, COUNT(*) as count
-      FROM listings WHERE state = 'PA' AND price_at_first_seen > 0 AND first_seen_at IS NOT NULL
-      GROUP BY city, month ORDER BY month, city
+      FROM listings WHERE price_at_first_seen > 0 AND first_seen_at IS NOT NULL
+      GROUP BY city, locale_id, month ORDER BY month, city
     `).all();
     const soldPrice = db.prepare(`
-      SELECT LOWER(city) as city, strftime('%Y-%m', sold_at) as month,
+      SELECT LOWER(city) as city, locale_id, strftime('%Y-%m', sold_at) as month,
              ROUND(AVG(sold_price)) as avg, COUNT(*) as count
-      FROM listings WHERE state = 'PA' AND sold_price IS NOT NULL AND sold_at IS NOT NULL
-      GROUP BY city, month ORDER BY month, city
+      FROM listings WHERE sold_price IS NOT NULL AND sold_at IS NOT NULL
+      GROUP BY city, locale_id, month ORDER BY month, city
     `).all();
     const score = db.prepare(`
-      SELECT LOWER(city) as city, strftime('%Y-%m', first_seen_at) as month,
+      SELECT LOWER(city) as city, locale_id, strftime('%Y-%m', first_seen_at) as month,
              ROUND(AVG(score), 1) as avg, COUNT(*) as count
-      FROM listings WHERE state = 'PA' AND score IS NOT NULL AND first_seen_at IS NOT NULL
-      GROUP BY city, month ORDER BY month, city
+      FROM listings WHERE score IS NOT NULL AND first_seen_at IS NOT NULL
+      GROUP BY city, locale_id, month ORDER BY month, city
     `).all();
     return { listPrice, soldPrice, score };
   });
@@ -126,5 +134,32 @@ export function registerRoutes(app: FastifyInstance) {
     const { runPoll } = await import('../poller/index.js');
     runPoll().catch(console.error); // fire and forget
     return { status: 'polling started' };
+  });
+
+  // Trigger a full poll + digest manually
+  app.post('/api/digest', async () => {
+    const { runPoll } = await import('../poller/index.js');
+    const { sendDigest, NOTIFY_SCORE_THRESHOLD } = await import('../notifications/email.js');
+    const { getUnnotifiedChanges, markChangesNotified, getDb } = await import('../db/index.js');
+    const { newHighScoreIds } = await runPoll();
+
+    let newListings: import('../notifications/email.js').NotifyListing[] = [];
+    if (newHighScoreIds.length > 0) {
+      const placeholders = newHighScoreIds.map(() => '?').join(',');
+      newListings = getDb().prepare(`
+        SELECT id, address, city, state, zip, price, price_at_first_seen, beds, baths, sqft, lot_sqft,
+               days_on_market, score, score_breakdown, school_district, property_type, walk_score, url
+        FROM listings WHERE id IN (${placeholders}) ORDER BY score DESC
+      `).all(...newHighScoreIds) as import('../notifications/email.js').NotifyListing[];
+    }
+
+    const changes = getUnnotifiedChanges(NOTIFY_SCORE_THRESHOLD);
+
+    if (newListings.length > 0 || changes.length > 0) {
+      await sendDigest(newListings, changes);
+      markChangesNotified(changes.map(c => c.change_id));
+      return { status: 'digest sent', new_listings: newListings.length, changes: changes.length };
+    }
+    return { status: 'nothing to notify', new_listings: 0, changes: 0 };
   });
 }

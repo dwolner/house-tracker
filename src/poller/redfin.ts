@@ -1,24 +1,5 @@
 import fetch from 'node-fetch';
 
-// Redfin region IDs verified against live data (redfin.com/city/{id}/PA/{name})
-// region_type 6 = city, 5 = neighborhood
-export const TARGET_REGIONS = [
-  // Primary: Lower Merion SD
-  { name: 'Narberth/Penn Valley', region_id: '13565', region_type: 6 },
-  { name: 'Ardmore', region_id: '30811', region_type: 6 },
-  { name: 'Bryn Mawr', region_id: '21717', region_type: 6 },
-  { name: 'Bala Cynwyd', region_id: '36379', region_type: 6 },
-  { name: 'Merion Station', region_id: '36339', region_type: 6 },
-  // Lower Merion township areas — use internal zip-based region IDs (region_type 2)
-  // IDs sourced from /zipcode/19041 and /zipcode/19096 page embeds
-  { name: 'Haverford', region_id: '7344', region_type: 2 },
-  { name: 'Wynnewood', region_id: '7388', region_type: 2 },
-  // Secondary: outside Lower Merion SD
-  { name: 'Wayne', region_id: '37906', region_type: 6 },
-  { name: 'Berwyn', region_id: '31134', region_type: 6 },
-  { name: 'King of Prussia', region_id: '7530', region_type: 2 },
-];
-
 export interface RedfinListing {
   id: string;
   address: string;
@@ -89,6 +70,8 @@ async function fetchListingsByStatus(
   region_id: string,
   region_type: number,
   status: string,
+  minBeds: number,
+  maxPrice: number,
 ): Promise<RedfinListing[]> {
   const params = new URLSearchParams({
     al: '1',
@@ -96,8 +79,8 @@ async function fetchListingsByStatus(
     region_type: String(region_type),
     uipt: '1,2,3', // single family, condo, townhouse
     status,
-    num_beds: '3',
-    max_price: '2000000',
+    num_beds: String(minBeds),
+    max_price: String(maxPrice),
     num_homes: '350',
     v: '8',
   });
@@ -171,18 +154,22 @@ async function fetchListingsByStatus(
 export async function fetchRecentlySold(
   region_id: string,
   region_type: number,
+  minBeds: number,
+  maxPrice: number,
 ): Promise<RedfinListing[]> {
-  return fetchListingsByStatus(region_id, region_type, '131');
+  return fetchListingsByStatus(region_id, region_type, '131', minBeds, maxPrice);
 }
 
 export async function fetchRegionListings(
   region_id: string,
   region_type: number,
+  minBeds: number,
+  maxPrice: number,
 ): Promise<RedfinListing[]> {
   const [active, comingSoon, pending] = await Promise.all([
-    fetchListingsByStatus(region_id, region_type, '9'),   // active
-    fetchListingsByStatus(region_id, region_type, '1'),   // coming soon
-    fetchListingsByStatus(region_id, region_type, '130'), // pending / under contract
+    fetchListingsByStatus(region_id, region_type, '9',   minBeds, maxPrice),
+    fetchListingsByStatus(region_id, region_type, '1',   minBeds, maxPrice),
+    fetchListingsByStatus(region_id, region_type, '130', minBeds, maxPrice),
   ]);
 
   // Deduplicate by MLS# — priority: active > pending > coming soon

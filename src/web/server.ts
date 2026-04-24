@@ -70,9 +70,11 @@ export async function startServer(port = 3000) {
   // This handles the common case where the laptop was asleep at the scheduled time.
   const { getDb } = await import('../db/index.js');
   const today = todayLocal();
+  const localMidnight = new Date();
+  localMidnight.setHours(0, 0, 0, 0);
   const lastPollToday = getDb()
     .prepare(`SELECT id FROM poll_log WHERE polled_at >= ? LIMIT 1`)
-    .get(`${today}T00:00:00.000Z`) as { id: number } | undefined;
+    .get(localMidnight.toISOString()) as { id: number } | undefined;
 
   if (!lastPollToday) {
     console.log(`[startup] no poll recorded for ${today} — running catch-up poll in 5s`);

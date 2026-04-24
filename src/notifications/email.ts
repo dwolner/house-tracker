@@ -11,6 +11,7 @@ export interface NotifyListing {
   id: string;
   address: string;
   city: string;
+  state: string;
   zip: string;
   price: number;
   price_at_first_seen: number | null;
@@ -46,8 +47,14 @@ function isConfigured(): boolean {
 }
 
 function photoUrl(id: string): string | null {
-  if (!id || !id.startsWith('PAMC')) return null;
-  return `https://ssl.cdn-redfin.com/photo/235/mbpaddedwide/${id.slice(-3)}/genMid.${id}_0.jpg`;
+  if (!id) return null;
+  // CDN region codes differ by MLS feed
+  let region: number;
+  if (id.startsWith('PAMC'))                    region = 235; // PA TREND MLS
+  else if (id.startsWith('NDP') || id.startsWith('PTP')) region = 45;  // SD CRMLS
+  else if (/^\d{9}$/.test(id))                  region = 48;  // SD SDMLS (Sandicor)
+  else return null;
+  return `https://ssl.cdn-redfin.com/photo/${region}/mbpaddedwide/${id.slice(-3)}/genMid.${id}_0.jpg`;
 }
 
 function fmt(n: number | null | undefined): string {
@@ -82,39 +89,61 @@ function priceChangeHtml(l: NotifyListing): string {
 }
 
 
-const BREAKDOWN_KEYS = [
-  { key: 'propertyType',   label: 'Type',   max: 20 },
-  { key: 'schoolDistrict', label: 'School', max: 20 },
-  { key: 'walkability',    label: 'Walk',   max: 12 },
-  { key: 'price',          label: 'Price',  max: 12 },
-  { key: 'sqft',           label: 'Sqft',   max: 8  },
-  { key: 'lot',            label: 'Lot',    max: 12 },
-  { key: 'amtrak',         label: 'Train',  max: 8  },
-  { key: 'beds',           label: 'Beds',   max: 4  },
-  { key: 'pricePerSqft',   label: '$/sqft', max: 4  },
-  { key: 'narberthBonus',  label: 'Narb+',  max: 6  },
-  { key: 'domPenalty',     label: 'DOM−',   max: 10 },
-] as const;
+const FACTOR_LABELS: Record<string, string> = {
+  propertyType:      'Type',
+  schoolDistrict:    'School',
+  walkability:       'Walk',
+  price:             'Price',
+  sqft:              'Sqft',
+  lot:               'Lot',
+  transit:           'Transit',
+  beds:              'Beds',
+  pricePerSqft:      '$/sqft',
+  neighborhoodBonus: 'Local+',
+  domPenalty:        'DOM−',
+  // legacy keys from old flat breakdown format
+  amtrak:            'Transit',
+  narberthBonus:     'Local+',
+};
 
-function chipColor(key: string, val: number, max: number): { bg: string; color: string } {
-  if (val === 0) return { bg: D.border, color: D.muted };
-  if (key === 'domPenalty')   return { bg: '#7f1d1d', color: D.red };
-  if (key === 'narberthBonus') return { bg: '#14532d', color: D.green };
-  const pct = val / max;
+// Convert old flat { total, amtrak: 6, ... } format to new { total, factors: { transit: { pts, max } } }
+const OLD_MAXES: Record<string, number> = {
+  propertyType: 20, schoolDistrict: 20, walkability: 12, price: 12,
+  sqft: 8, lot: 12, amtrak: 8, beds: 4, pricePerSqft: 4, narberthBonus: 6, domPenalty: 10,
+};
+const OLD_KEY_MAP: Record<string, string> = { amtrak: 'transit', narberthBonus: 'neighborhoodBonus' };
+
+function parseBreakdown(json: string | null): { total: number; factors: Record<string, { pts: number; max: number }> } | null {
+  if (!json) return null;
+  try {
+    const bd = JSON.parse(json);
+    if (bd.factors) return bd;
+    const factors: Record<string, { pts: number; max: number }> = {};
+    for (const [key, max] of Object.entries(OLD_MAXES)) {
+      if (bd[key] != null) factors[OLD_KEY_MAP[key] ?? key] = { pts: bd[key] as number, max };
+    }
+    return { total: bd.total, factors };
+  } catch { return null; }
+}
+
+function chipColor(key: string, pct: number): { bg: string; color: string } {
+  if (pct === 0) return { bg: D.border, color: D.muted };
+  if (key === 'domPenalty')        return { bg: '#7f1d1d', color: D.red };
+  if (key === 'neighborhoodBonus') return { bg: '#14532d', color: D.green };
   if (pct >= 0.7) return { bg: D.green,  color: '#0f1117' };
   if (pct >= 0.4) return { bg: D.yellow, color: '#0f1117' };
   return { bg: D.red, color: '#0f1117' };
 }
 
 function scoreChipsHtml(l: NotifyListing): string {
-  if (!l.score_breakdown) return '';
-  let bd: Record<string, number>;
-  try { bd = JSON.parse(l.score_breakdown); } catch { return ''; }
+  const bd = parseBreakdown(l.score_breakdown);
+  if (!bd) return '';
 
-  const chips = BREAKDOWN_KEYS.map(({ key, label, max }) => {
-    const val = bd[key] ?? 0;
-    const { bg, color } = chipColor(key, val, max);
-    const display = String(Math.round((val / max) * 100));
+  const chips = Object.entries(bd.factors).map(([key, { pts, max }]) => {
+    const pct = max > 0 ? pts / max : 0;
+    const { bg, color } = chipColor(key, pct);
+    const label = FACTOR_LABELS[key] ?? key;
+    const display = String(Math.round(pct * 100));
 
     return `<td style="padding:0 1px;text-align:center">
       <div style="background:${bg};color:${color};border-radius:4px;padding:3px 0;font-size:10px;font-weight:700;min-width:28px;text-align:center">${display}</div>
@@ -148,7 +177,7 @@ function buildCard(l: NotifyListing): string {
           <tr>
             <td>
               <div style="font-weight:700;font-size:15px;line-height:1.3;color:${D.text}">${l.address}</div>
-              <div style="font-size:12px;color:${D.muted};margin-top:2px">${l.city}, PA ${l.zip}</div>
+              <div style="font-size:12px;color:${D.muted};margin-top:2px">${l.city}, ${l.state} ${l.zip}</div>
               ${l.school_district ? `<div style="font-size:11px;color:${D.accent};margin-top:2px;font-weight:500">${l.school_district}</div>` : ''}
             </td>
             <td style="text-align:right;vertical-align:top;padding-left:12px">
@@ -241,19 +270,21 @@ function buildDigestHtml(newListings: NotifyListing[], changes: ChangeWithListin
   const total = newListings.length + changes.length;
 
   const newCards = newListings.map(l => `
-    <div style="margin-bottom:8px">
+    <table style="width:100%;max-width:520px;margin:0 auto 6px;border-collapse:collapse"><tr><td>
       <span style="background:#1a2e1a;color:${D.green};padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700">★ New Listing</span>
-    </div>
+    </td></tr></table>
     ${buildCard(l)}`).join('');
 
   const changeCards = changes.map(c => `
-    ${changeBadgeHtml(c)}
+    <table style="width:100%;max-width:520px;margin:0 auto 6px;border-collapse:collapse"><tr><td>
+      ${changeBadgeHtml(c)}
+    </td></tr></table>
     ${buildCard(c)}`).join('');
 
   return `<!DOCTYPE html>
 <html>
-<body style="margin:0;padding:0;background:${D.bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-  <table style="width:100%;border-collapse:collapse"><tr><td style="padding:24px 16px">
+<body style="margin:0;padding:0;background:${D.bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" bgcolor="${D.bg}">
+  <table style="width:100%;border-collapse:collapse" bgcolor="${D.bg}"><tr><td style="padding:24px 16px" bgcolor="${D.bg}">
     <table style="width:100%;max-width:520px;margin:0 auto 24px;border-collapse:collapse">
       <tr><td style="background:${D.surface};border:1px solid ${D.border};border-radius:10px;padding:20px 24px">
         <div style="color:${D.text};font-size:18px;font-weight:700">&#127968; House <span style="color:${D.accent}">Tracker</span></div>

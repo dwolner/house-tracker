@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import type { ScoreBreakdown } from '../scoring/index.js';
 import { scoreWithBreakdown } from '../scoring/index.js';
+import { getLocale } from '../locales/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DB_PATH = process.env.DB_PATH ?? path.join(__dirname, '../../data/listings.db');
@@ -32,6 +33,7 @@ export interface Listing {
   score: number | null;
   score_breakdown: string | null; // JSON-serialised ScoreBreakdown
   starred: number;
+  locale_id: string;
   next_open_house_start: string | null;
   next_open_house_end: string | null;
   first_seen_at: string;
@@ -115,6 +117,7 @@ export function getDb(): Database.Database {
   if (!cols.includes('sold_at')) _db.exec(`ALTER TABLE listings ADD COLUMN sold_at TEXT`);
   if (!cols.includes('sold_price')) _db.exec(`ALTER TABLE listings ADD COLUMN sold_price INTEGER`);
   if (!cols.includes('status_label')) _db.exec(`ALTER TABLE listings ADD COLUMN status_label TEXT`);
+  if (!cols.includes('locale_id')) _db.exec(`ALTER TABLE listings ADD COLUMN locale_id TEXT NOT NULL DEFAULT 'main-line'`);
 
   return _db;
 }
@@ -123,6 +126,7 @@ export function upsertListing(
   listing: Omit<Listing, 'first_seen_at' | 'last_seen_at' | 'price_at_first_seen' | 'score_breakdown' | 'starred'> & {
     score: number;
     breakdown: ScoreBreakdown;
+    locale_id: string;
   },
 ): { isNew: boolean } {
   const db = getDb();
@@ -130,8 +134,8 @@ export function upsertListing(
   const score_breakdown = JSON.stringify(listing.breakdown);
 
   const existing = db
-    .prepare('SELECT id, price, status, walk_score, school_district, pending_at FROM listings WHERE id = ?')
-    .get(listing.id) as { id: string; price: number; status: string; walk_score: number | null; school_district: string | null; pending_at: string | null } | undefined;
+    .prepare('SELECT id, price, status, walk_score, school_district, pending_at, locale_id FROM listings WHERE id = ?')
+    .get(listing.id) as { id: string; price: number; status: string; walk_score: number | null; school_district: string | null; pending_at: string | null; locale_id: string } | undefined;
 
   if (!existing) {
     // If the listing is already pending when we first see it, record that immediately
@@ -142,11 +146,11 @@ export function upsertListing(
       INSERT INTO listings (id, address, city, state, zip, price, beds, baths, sqft, lot_sqft,
         year_built, walk_score, property_type, lat, lng, url, status, days_on_market,
         score, score_breakdown, next_open_house_start, next_open_house_end,
-        first_seen_at, last_seen_at, price_at_first_seen, pending_at, pending_price, status_label)
+        first_seen_at, last_seen_at, price_at_first_seen, pending_at, pending_price, status_label, locale_id)
       VALUES (@id, @address, @city, @state, @zip, @price, @beds, @baths, @sqft, @lot_sqft,
         @year_built, @walk_score, @property_type, @lat, @lng, @url, @status, @days_on_market,
         @score, @score_breakdown, @next_open_house_start, @next_open_house_end,
-        @first_seen_at, @last_seen_at, @price_at_first_seen, @pending_at, @pending_price, @status_label)
+        @first_seen_at, @last_seen_at, @price_at_first_seen, @pending_at, @pending_price, @status_label, @locale_id)
     `).run({
       ...listing,
       score_breakdown,
@@ -156,6 +160,7 @@ export function upsertListing(
       pending_at: insertPendingAt,
       pending_price: insertPendingPrice,
       status_label: listing.status_label ?? null,
+      locale_id: listing.locale_id,
     });
 
     db.prepare('INSERT INTO price_history (listing_id, price, recorded_at) VALUES (?, ?, ?)').run(
@@ -172,7 +177,20 @@ export function upsertListing(
   const effectiveWalkScore = listing.walk_score ?? existing.walk_score ?? null;
   const effectiveDistrict = listing.school_district ?? existing.school_district ?? null;
   if (effectiveWalkScore !== listing.walk_score || effectiveDistrict !== listing.school_district) {
-    const rescored = scoreWithBreakdown({ ...listing, walk_score: effectiveWalkScore, school_district: effectiveDistrict });
+    const locale = getLocale(listing.locale_id);
+    const rescored = scoreWithBreakdown({
+      id: listing.id, address: listing.address, city: listing.city, state: listing.state,
+      zip: listing.zip, price: listing.price, beds: listing.beds, baths: listing.baths,
+      sqft: listing.sqft, lot_sqft: listing.lot_sqft, year_built: listing.year_built,
+      property_type: listing.property_type, lat: listing.lat, lng: listing.lng,
+      url: listing.url, status: listing.status, status_label: listing.status_label ?? '',
+      days_on_market: listing.days_on_market,
+      next_open_house_start: listing.next_open_house_start ?? null,
+      next_open_house_end: listing.next_open_house_end ?? null,
+      sold_date: null,
+      walk_score: effectiveWalkScore,
+      school_district: effectiveDistrict,
+    }, locale);
     finalScore = rescored.total;
     finalBreakdown = JSON.stringify(rescored);
   }
@@ -250,21 +268,22 @@ export interface ListingForEnrichment {
   walk_score: number | null;
   school_district: string | null;
   url: string | null;
+  locale_id: string;
 }
 
 export function getListingsMissingWalkScore(): ListingForEnrichment[] {
   return getDb()
     .prepare(`SELECT id, address, city, state, zip, lat, lng, beds, price, sqft, lot_sqft,
-                     days_on_market, property_type, walk_score, school_district, url
-              FROM listings WHERE walk_score IS NULL AND state = 'PA'`)
+                     days_on_market, property_type, walk_score, school_district, url, locale_id
+              FROM listings WHERE walk_score IS NULL`)
     .all() as ListingForEnrichment[];
 }
 
 export function getListingsMissingSchoolDistrict(): ListingForEnrichment[] {
   return getDb()
     .prepare(`SELECT id, address, city, state, zip, lat, lng, beds, price, sqft, lot_sqft,
-                     days_on_market, property_type, walk_score, school_district, url
-              FROM listings WHERE school_district IS NULL AND state = 'PA'`)
+                     days_on_market, property_type, walk_score, school_district, url, locale_id
+              FROM listings WHERE school_district IS NULL`)
     .all() as ListingForEnrichment[];
 }
 
@@ -298,7 +317,7 @@ export function updateListingWalkScore(
 export function markStaleListingsInactive(): number {
   const cutoff = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
   const result = getDb()
-    .prepare(`UPDATE listings SET status = 'inactive' WHERE state = 'PA' AND status IN ('9', '1', '130') AND last_seen_at < ?`)
+    .prepare(`UPDATE listings SET status = 'inactive' WHERE status IN ('9', '1', '130') AND last_seen_at < ?`)
     .run(cutoff);
   return result.changes;
 }
@@ -322,6 +341,7 @@ export interface ChangeWithListing {
   id: string;
   address: string;
   city: string;
+  state: string;
   zip: string;
   price: number;
   price_at_first_seen: number | null;
@@ -341,7 +361,7 @@ export interface ChangeWithListing {
 export function getUnnotifiedChanges(minScore = 0): ChangeWithListing[] {
   return getDb().prepare(`
     SELECT c.id as change_id, c.change_type, c.old_value, c.new_value, c.changed_at,
-           l.id, l.address, l.city, l.zip, l.price, l.price_at_first_seen,
+           l.id, l.address, l.city, l.state, l.zip, l.price, l.price_at_first_seen,
            l.beds, l.baths, l.sqft, l.lot_sqft, l.days_on_market,
            l.score, l.score_breakdown, l.school_district, l.property_type, l.walk_score, l.url
     FROM change_log c
