@@ -4,8 +4,8 @@
 
 ### Deploy
 - **Fly.io deployment** — get polling running 24/7 without the laptop
-  - Prereq: `DB_PATH` env var support in `src/db/index.ts` (2-line change)
-  - Follow `docs/fly-deployment.md` — ~30 min start to finish
+  - `fly launch`, volume creation, secrets, `fly deploy`
+  - See `docs/fly-deployment.md` for exact steps
 
 ### Intelligence
 - **Starred listing weighting** — use starred listings as a preference signal
@@ -21,15 +21,7 @@
 
 ### Dashboard
 - **Price history sparkline** — small inline chart per card showing price over time
-  - `price_history` table already populated, just needs a Chart.js sparkline renderer
-
-## Up Next (Continued)
-
-### Outcomes & Intelligence
-- **Score → outcome correlation** — do high-score listings go pending faster? Visualize as scatter by score band
-- **Score → outcome correlation** — do high-score listings go pending faster? Visualize as scatter by score band
-- **Price history sparkline** — small inline chart per card showing price over time
-  - `price_history` table already populated, just needs a Chart.js sparkline renderer
+  - `price_history` table already populated; needs a Chart.js sparkline per listing card
 
 ## Completed
 
@@ -47,10 +39,15 @@
 - [x] Pending/under contract tracking — status=130 polled, active→pending transition recorded with `pending_at` + `pending_price`
 - [x] Sold tracking — status=131 polled each region, `sold_at` + `sold_price` recorded for tracked listings
 - [x] Outcomes analytics — Inventory tab shows pending count, sold count, median DOM, list→pending Δ, list→sale Δ, scatter chart (DOM vs price %), full table
+- [x] Score → outcome correlation — scatter chart (DOM vs list/sale price %) in Inventory tab
 - [x] Map view — Leaflet, score-colored markers, zip code boundaries from Census TIGER, legend
 - [x] View switcher — sidebar tabs for Listings / Map / Inventory
 - [x] King of Prussia added — region 7530, Upper Merion SD scored at 9
+- [x] Multi-locale support — `LocaleConfig` system with per-locale regions, hard filters, and fully configurable scoring weights; `locale_id` stored on every listing; API routes accept `?locale_id=` filter
+- [x] San Diego locale — 7 neighborhoods (Bay Park, Point Loma Heights, Kensington, Bay Ho, North Park, Mission Hills, Allied Gardens); ZIP bonus replaces school district; transit factor omitted; tuned price/sqft breakpoints for SD market
+- [x] Dockerfile — multi-stage Node 20 Alpine build
+- [x] DB_PATH env var — `src/db/index.ts` reads `process.env.DB_PATH`, falls back to local `data/`
 - [x] Fly.io deployment guide — `docs/fly-deployment.md`
 
-**Last Updated:** April 5, 2026
+**Last Updated:** April 24, 2026
 **Author:** Daniel Wolner
