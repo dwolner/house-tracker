@@ -151,13 +151,14 @@ export function scoreWithBreakdown(listing: RedfinListing, locale: LocaleConfig)
   if (scoring.domBonus && listing.days_on_market != null) {
     const { weight } = scoring.domBonus;
     const dom = listing.days_on_market;
+    const mid = weight * 0.5; // 60-day midpoint: half of max bonus
     let pts = 0;
     if (dom >= 120) {
       pts = weight;
-    } else if (dom > 60) {
-      pts = 4 + ((dom - 60) / 60) * (weight - 4);
+    } else if (dom >= 60) {
+      pts = mid + ((dom - 60) / 60) * (weight - mid);
     } else if (dom > 30) {
-      pts = ((dom - 30) / 30) * 4;
+      pts = ((dom - 30) / 30) * mid;
     }
     addFactor('domBonus', pts, weight);
   }

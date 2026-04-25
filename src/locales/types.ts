@@ -85,7 +85,7 @@ export interface DomPenaltyConfig {
 }
 
 export interface DomBonusConfig {
-  weight: number; // max bonus pts — ramp: 0 at 0–30d, 0→4 at 30–60d, 4→weight at 60–120d, weight at 120d+
+  weight: number; // max bonus pts — ramp: 0 at 0–30d, 0→weight/2 at 30–60d, weight/2→weight at 60–120d, weight at 120d+
 }
 
 export interface ScoringConfig {
