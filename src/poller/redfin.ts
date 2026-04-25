@@ -209,6 +209,59 @@ function val<T>(wrapped: unknown): T | null {
   return v != null ? (v as T) : null;
 }
 
+// Parse Redfin JSON sash open house text into absolute date strings compatible
+// with the existing parseOpenHouseDate() logic in the frontend.
+// Input:  "OPEN SUN, 1PM TO 3PM"  |  "OPEN TODAY, 10AM TO 12PM"
+// Output: { start: "April-27-2026 1:00 PM", end: "April-27-2026 3:00 PM" }
+function parseOpenHouseSash(sashes: unknown[]): { start: string | null; end: string | null } {
+  const OH_SASH_TYPE = 10;
+  const sash = sashes.find(
+    s => (s as Record<string, unknown>)['sashType'] === OH_SASH_TYPE,
+  ) as Record<string, unknown> | undefined;
+
+  const text = sash?.['openHouseText'] as string | undefined;
+  if (!text) return { start: null, end: null };
+
+  // "OPEN SUN, 1PM TO 3PM"  →  groups: [day, startTime, endTime]
+  const m = text.match(/OPEN\s+(\w+),\s*(\d+(?::\d+)?(?:AM|PM))\s+TO\s+(\d+(?::\d+)?(?:AM|PM))/i);
+  if (!m) return { start: null, end: null };
+
+  const [, dayStr, rawStart, rawEnd] = m;
+
+  // Resolve day string → absolute Date
+  const now = new Date();
+  let target: Date;
+  const upper = dayStr.toUpperCase();
+  if (upper === 'TODAY') {
+    target = now;
+  } else if (upper === 'TOMORROW') {
+    target = new Date(now);
+    target.setDate(now.getDate() + 1);
+  } else {
+    const DAY_NAMES = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    const targetDay = DAY_NAMES.indexOf(upper);
+    if (targetDay === -1) return { start: null, end: null };
+    const daysAhead = (targetDay - now.getDay() + 7) % 7;
+    target = new Date(now);
+    target.setDate(now.getDate() + daysAhead);
+  }
+
+  const MONTHS = ['January','February','March','April','May','June',
+                  'July','August','September','October','November','December'];
+  const datePrefix = `${MONTHS[target.getMonth()]}-${target.getDate()}-${target.getFullYear()}`;
+
+  function fmtTime(t: string): string {
+    const tm = t.match(/^(\d+)(?::(\d+))?(AM|PM)$/i);
+    if (!tm) return t;
+    return `${tm[1]}:${tm[2] ?? '00'} ${tm[3].toUpperCase()}`;
+  }
+
+  return {
+    start: `${datePrefix} ${fmtTime(rawStart)}`,
+    end:   `${datePrefix} ${fmtTime(rawEnd)}`,
+  };
+}
+
 async function fetchListingsByStatusJson(
   region_id: string,
   region_type: number,
@@ -255,6 +308,8 @@ async function fetchListingsByStatusJson(
     const url        = urlPath.startsWith('http') ? urlPath : `${REDFIN_BASE}${urlPath}`;
     // soldDate is a ms-epoch timestamp; only meaningful when mlsStatus === 'Sold'
     const soldDateMs = mlsStatus === 'Sold' ? (h['soldDate'] as number | null | undefined) : null;
+    const sashes = Array.isArray(h['sashes']) ? h['sashes'] as unknown[] : [];
+    const oh = parseOpenHouseSash(sashes);
 
     return [
       {
@@ -278,8 +333,8 @@ async function fetchListingsByStatusJson(
         status:      normalizeStatus(mlsStatus),
         status_label: mlsStatus,
         days_on_market: domVal,
-        next_open_house_start: null,
-        next_open_house_end:   null,
+        next_open_house_start: oh.start,
+        next_open_house_end:   oh.end,
         sold_date: msSinceEpochToIso(soldDateMs),
       } satisfies RedfinListing,
     ];
