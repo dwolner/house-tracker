@@ -108,6 +108,7 @@ async function init() {
   if (activeLocale === 'st-louis') document.getElementById('f-price').value = '500000';
 
   renderStats(statsRes);
+  renderTypeFilter(statsRes.propertyTypes ?? []);
   renderAreaFilter(statsRes.cities);
 
   const localeListings = allListings.filter(l => l.locale_id === activeLocale);
@@ -158,6 +159,7 @@ async function switchLocale(locale) {
 
   const statsRes = await fetch(`/api/stats?locale_id=${locale}`).then(r => r.json());
   renderStats(statsRes);
+  renderTypeFilter(statsRes.propertyTypes ?? []);
   renderAreaFilter(statsRes.cities);
 
   const localeListings = allListings.filter(l => l.locale_id === activeLocale);
@@ -175,6 +177,26 @@ function renderStats(statsRes) {
   document.getElementById('stat-poll').textContent = statsRes.lastPoll
     ? new Date(statsRes.lastPoll).toLocaleString()
     : 'never';
+}
+
+function renderTypeFilter(types) {
+  const sel = document.getElementById('f-type');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">All</option>';
+  const labels = {
+    'single family residential': 'Single Family',
+    'multi-family': 'Multi-Family',
+    'townhouse': 'Townhouse',
+    'condo': 'Condo',
+  };
+  types.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t;
+    opt.textContent = labels[t] ?? t.replace(/\b\w/g, c => c.toUpperCase());
+    sel.appendChild(opt);
+  });
+  // Restore selection if still valid
+  if ([...sel.options].some(o => o.value === current)) sel.value = current;
 }
 
 function renderAreaFilter(cities) {

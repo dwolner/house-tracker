@@ -77,10 +77,11 @@ export function registerRoutes(app: FastifyInstance) {
     const fresh = (g1(`SELECT COUNT(*) as n FROM listings WHERE ${active} AND days_on_market <= 7`) as { n: number }).n;
     const lastPoll = (db.prepare(`SELECT MAX(polled_at) as v FROM poll_log`).get() as { v: string | null }).v;
     const cities = gN(`SELECT DISTINCT LOWER(city) as city FROM listings WHERE ${active} ORDER BY city`) as { city: string }[];
+    const propertyTypes = gN(`SELECT DISTINCT LOWER(property_type) as pt FROM listings WHERE ${active} AND property_type IS NOT NULL ORDER BY pt`) as { pt: string }[];
     const totalEver = localeId
       ? (db.prepare(`SELECT COUNT(*) as n FROM listings WHERE locale_id = ?`).get(localeId) as { n: number }).n
       : (db.prepare(`SELECT COUNT(*) as n FROM listings`).get() as { n: number }).n;
-    return { total, avgScore, fresh, lastPoll, cities: cities.map(c => c.city), totalEver };
+    return { total, avgScore, fresh, lastPoll, cities: cities.map(c => c.city), propertyTypes: propertyTypes.map(r => r.pt), totalEver };
   });
 
   // Send a test email using top listings already in DB
