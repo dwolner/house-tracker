@@ -124,12 +124,17 @@ async function fetchInvestmentData(locale) {
     stlComps = {};
     return;
   }
-  const [invRes, compsRes] = await Promise.all([
-    fetch('/api/locales/st-louis/investment').then(r => r.json()),
-    fetch('/api/locales/st-louis/comps').then(r => r.json()),
-  ]);
-  investmentConfig = invRes.investmentConfig ?? null;
-  stlComps = compsRes.byCity ?? {};
+  try {
+    const [invRes, compsRes] = await Promise.all([
+      fetch('/api/locales/st-louis/investment').then(r => r.json()),
+      fetch('/api/locales/st-louis/comps').then(r => r.json()),
+    ]);
+    investmentConfig = invRes.investmentConfig ?? null;
+    stlComps = compsRes.byCity ?? {};
+  } catch {
+    investmentConfig = null;
+    stlComps = {};
+  }
 }
 
 async function switchLocale(locale) {
@@ -370,7 +375,7 @@ function computeUpside(l) {
 
 function fmtK(n) {
   const abs = Math.abs(Math.round(n / 1000));
-  return (n < 0 ? '-' : '') + '$' + abs + 'K';
+  return (abs === 0 ? '' : n < 0 ? '-' : '') + '$' + abs + 'K';
 }
 
 function fmtDollar(n) {
@@ -435,8 +440,8 @@ function scoreClass(s) {
 function domLabel(dom) {
   if (dom == null) return '';
   if (investmentConfig) {
-    // Investment mode: high DOM = motivated seller
-    if (dom > 60) return `<span class="dom-ok">(${dom}d ↑)</span>`;
+    // Investment mode: high DOM = motivated seller (bonus starts at 30d)
+    if (dom > 30) return `<span class="dom-ok">(${dom}d ↑)</span>`;
     return `<span class="dom-ok">(${dom}d)</span>`;
   }
   if (dom > 120) return `<span class="dom-warn">(⚠ ${dom} d)</span>`;
