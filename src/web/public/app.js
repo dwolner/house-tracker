@@ -348,9 +348,10 @@ function computeUpside(l) {
   if (!investmentConfig || l.locale_id !== 'st-louis') return null;
   const cfg = investmentConfig;
 
-  // Rent lookup — clamp beds to available keys in the city's rent table
+  // Rent lookup — city match first, zip fallback for USPS aliases (e.g. "Saint Louis")
   const city = (l.city ?? '').toLowerCase().trim();
-  const cityRents = cfg.rentByCity[city];
+  const resolvedCity = cfg.rentByCity[city] ? city : (cfg.zipToCity?.[l.zip] ?? null);
+  const cityRents = resolvedCity ? cfg.rentByCity[resolvedCity] : null;
   if (!cityRents) return null;
   const availBeds = Object.keys(cityRents).map(Number).sort((a, b) => a - b);
   const clampedBeds = Math.max(availBeds[0], Math.min(availBeds[availBeds.length - 1], l.beds ?? 3));
@@ -410,7 +411,7 @@ function renderInvestmentRows(l) {
   if (!up) return '';
 
   const cfColor = up.netCashFlow >= 0 ? 'var(--green)' : 'var(--red)';
-  const cfSign  = up.netCashFlow >= 0 ? '+' : '';
+  const cfSign  = up.netCashFlow >= 0 ? '+' : '-';
   const cocPct  = (up.coc * 100).toFixed(1);
 
   let brrrrHtml = '';

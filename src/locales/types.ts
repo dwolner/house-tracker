@@ -131,6 +131,9 @@ export interface InvestmentConfig {
 
   // BRRRR refinance assumption
   refinanceLtv: number;            // e.g. 0.75
+
+  // Zip → canonical city key for rentByCity lookup when listing city is a USPS alias (e.g. "Saint Louis")
+  zipToCity?: Record<string, string>;
 }
 
 export interface LocaleConfig {

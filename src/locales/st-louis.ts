@@ -154,6 +154,20 @@ export const stLouisLocale: LocaleConfig = {
       { maxYearBuilt: 9999, cost:  8_000 },  // paint, fixtures, carpet
     ],
     refinanceLtv: 0.75,
+    // Redfin returns USPS mail city "Saint Louis" for most county suburbs.
+    // Map zip → canonical rentByCity key so investment math works for those listings.
+    zipToCity: {
+      '63119': 'webster groves',   // Webster Groves, Rock Hill, Shrewsbury
+      '63122': 'kirkwood',         // Kirkwood, Glendale, Des Peres
+      '63105': 'brentwood',        // Clayton (proxy: similar tier to Brentwood)
+      '63117': 'richmond heights', // Richmond Heights, Maplewood
+      '63143': 'maplewood',        // Maplewood, Brentwood
+      '63126': 'crestwood',        // Crestwood
+      '63128': 'sunset hills',     // Sunset Hills, Affton
+      '63144': 'brentwood',        // Brentwood
+      '63127': 'sunset hills',     // Sunset Hills
+      '63123': 'crestwood',        // Affton / south county
+    },
   },
 };
 // Positive weight denominator: 18+12+10+20+8+5+8+15+8 = 104
