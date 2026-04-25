@@ -37,6 +37,7 @@ export const stLouisLocale: LocaleConfig = {
   ],
   minBeds: 3,
   maxPrice: 950_000,
+  uipt: '1,3,4',
   scoring: {
     propertyType: {
       weight: 18,
