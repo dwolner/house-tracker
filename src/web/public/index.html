@@ -49,9 +49,11 @@
     <div class="layout">
       <aside>
         <div class="locale-tabs">
-          <button class="locale-tab active" data-locale="main-line" onclick="switchLocale('main-line')">PA Main Line</button>
-          <button class="locale-tab" data-locale="san-diego" onclick="switchLocale('san-diego')">San Diego</button>
-          <button class="locale-tab" data-locale="st-louis" onclick="switchLocale('st-louis')">St. Louis</button>
+          <select class="locale-select" onchange="switchLocale(this.value)">
+            <option value="main-line">PA Main Line</option>
+            <option value="san-diego">San Diego</option>
+            <option value="st-louis">St. Louis</option>
+          </select>
         </div>
 
         <div class="view-tabs">

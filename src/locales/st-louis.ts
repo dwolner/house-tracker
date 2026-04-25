@@ -36,7 +36,7 @@ export const stLouisLocale: LocaleConfig = {
     { name: 'Crestwood',         region_id: '4481',  region_type: 6, useJsonApi: true },
   ],
   minBeds: 3,
-  maxPrice: 250_000,
+  maxPrice: 500_000,
   uipt: '1,3,4',
   scoring: {
     propertyType: {

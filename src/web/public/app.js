@@ -102,10 +102,8 @@ async function init() {
   rawInventoryData = inventoryRes;
   rawTrendsData = trendsRes;
 
-  // Sync locale tab UI
-  document.querySelectorAll('.locale-tab').forEach(t => {
-    t.classList.toggle('active', t.dataset.locale === activeLocale);
-  });
+  // Sync locale selector
+  document.querySelector('.locale-select').value = activeLocale;
   document.getElementById('locale-label').textContent = LOCALE_LABELS[activeLocale] ?? '';
 
   renderStats(statsRes);
@@ -141,9 +139,7 @@ async function switchLocale(locale) {
   switchView('listings');
   document.querySelector('aside').scrollTop = 0;
 
-  document.querySelectorAll('.locale-tab').forEach(t => {
-    t.classList.toggle('active', t.dataset.locale === locale);
-  });
+  document.querySelector('.locale-select').value = locale;
   document.getElementById('locale-label').textContent = LOCALE_LABELS[locale] ?? '';
 
   // Reset filter controls
