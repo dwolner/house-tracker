@@ -229,7 +229,9 @@ function applyFilters() {
     filtered.sort((a, b) => {
       const da = parseOpenHouseDate(a.next_open_house_start);
       const db = parseOpenHouseDate(b.next_open_house_start);
-      return (da?.getTime() ?? Infinity) - (db?.getTime() ?? Infinity);
+      const dateDiff = (da?.getTime() ?? Infinity) - (db?.getTime() ?? Infinity);
+      if (dateDiff !== 0) return dateDiff;
+      return b.score - a.score;
     });
   }
 

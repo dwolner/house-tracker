@@ -2,16 +2,22 @@
 
 ## Up Next
 
-### Deploy
-- **Fly.io deployment** — get polling running 24/7 without the laptop
-  - `fly launch`, volume creation, secrets, `fly deploy`
-  - See `docs/fly-deployment.md` for exact steps
+### Preference Learning
+- **Interactive scoring calibration** — surface listings across the score spectrum and learn from your reactions
+  - Dedicated calibration view: shows a curated set of low/medium/high scored listings side by side
+  - For each listing: thumbs up/down + optional freetext reason ("too small", "love the neighborhood", "price is too high")
+  - Reactions stored in a `listing_feedback` table (`listing_id`, `rating`, `reason`, `created_at`)
+  - Analysis layer: compares feature vectors of liked vs. disliked listings to surface weight mismatches
+    - e.g. "You liked 3 listings under 1,800 sqft — sqft weight may be too aggressive"
+    - e.g. "You disliked 4 listings with walk score > 80 — walkability may be overweighted for your use case"
+  - Scoring adjustment suggestions: proposed weight deltas shown as a diff, applied with one click
+  - Long term: auto-apply learned weights per locale, track score drift over time
 
 ### Intelligence
 - **Starred listing weighting** — use starred listings as a preference signal
   - Extract feature vector from starred set (city, sqft range, price range, school district)
   - Tag new listings "similar to your favorites" in dashboard and email
-  - Long term: re-weight scoring factors based on starred listing characteristics
+  - Can share the feedback table with the calibration system above
 
 ### Analytics
 - **Historical stats panel** — sold comps and market trends using inactive listings
@@ -45,9 +51,9 @@
 - [x] King of Prussia added — region 7530, Upper Merion SD scored at 9
 - [x] Multi-locale support — `LocaleConfig` system with per-locale regions, hard filters, and fully configurable scoring weights; `locale_id` stored on every listing; API routes accept `?locale_id=` filter
 - [x] San Diego locale — 7 neighborhoods (Bay Park, Point Loma Heights, Kensington, Bay Ho, North Park, Mission Hills, Allied Gardens); ZIP bonus replaces school district; transit factor omitted; tuned price/sqft breakpoints for SD market
-- [x] Dockerfile — multi-stage Node 20 Alpine build
+- [x] Dockerfile — npm-based, multi-stage Node 20 build; static assets copied separately
 - [x] DB_PATH env var — `src/db/index.ts` reads `process.env.DB_PATH`, falls back to local `data/`
-- [x] Fly.io deployment guide — `docs/fly-deployment.md`
+- [x] Fly.io deployment — live at `house-tracker-kgg27w.fly.dev`; persistent volume, all secrets deployed, daily cron running
 
 **Last Updated:** April 24, 2026
 **Author:** Daniel Wolner

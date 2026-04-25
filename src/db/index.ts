@@ -350,6 +350,7 @@ export interface ChangeWithListing {
   sqft: number | null;
   lot_sqft: number | null;
   days_on_market: number | null;
+  first_seen_at: string | null;
   score: number;
   score_breakdown: string | null;
   school_district: string | null;
@@ -362,7 +363,7 @@ export function getUnnotifiedChanges(minScore = 0): ChangeWithListing[] {
   return getDb().prepare(`
     SELECT c.id as change_id, c.change_type, c.old_value, c.new_value, c.changed_at,
            l.id, l.address, l.city, l.state, l.zip, l.price, l.price_at_first_seen,
-           l.beds, l.baths, l.sqft, l.lot_sqft, l.days_on_market,
+           l.beds, l.baths, l.sqft, l.lot_sqft, l.days_on_market, l.first_seen_at,
            l.score, l.score_breakdown, l.school_district, l.property_type, l.walk_score, l.url
     FROM change_log c
     JOIN listings l ON l.id = c.listing_id

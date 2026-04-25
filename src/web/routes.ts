@@ -88,7 +88,7 @@ export function registerRoutes(app: FastifyInstance) {
     const db = getDb();
     const listings = db.prepare(`
       SELECT id, address, city, state, zip, price, price_at_first_seen, beds, baths, sqft, lot_sqft,
-             days_on_market, score, score_breakdown, school_district, property_type, walk_score, url
+             days_on_market, first_seen_at, score, score_breakdown, school_district, property_type, walk_score, url
       FROM listings ORDER BY score DESC LIMIT 5
     `).all() as import('../notifications/email.js').NotifyListing[];
     if (listings.length === 0) return { ok: false, error: 'no listings in DB' };
@@ -148,7 +148,7 @@ export function registerRoutes(app: FastifyInstance) {
       const placeholders = newHighScoreIds.map(() => '?').join(',');
       newListings = getDb().prepare(`
         SELECT id, address, city, state, zip, price, price_at_first_seen, beds, baths, sqft, lot_sqft,
-               days_on_market, score, score_breakdown, school_district, property_type, walk_score, url
+               days_on_market, first_seen_at, score, score_breakdown, school_district, property_type, walk_score, url
         FROM listings WHERE id IN (${placeholders}) ORDER BY score DESC
       `).all(...newHighScoreIds) as import('../notifications/email.js').NotifyListing[];
     }

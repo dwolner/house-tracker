@@ -20,6 +20,7 @@ export interface NotifyListing {
   sqft: number | null;
   lot_sqft: number | null;
   days_on_market: number | null;
+  first_seen_at: string | null;
   score: number;
   score_breakdown: string | null;
   school_district: string | null;
@@ -30,16 +31,17 @@ export interface NotifyListing {
 
 // Dark theme palette (matches dashboard dark mode)
 const D = {
-  bg:      '#0f1117',
-  surface: '#1a1d27',
-  border:  '#2a2d3a',
-  text:    '#e8eaf0',
-  muted:   '#8b92a5',
-  accent:  '#4f8ef7',
-  green:   '#22c55e',
-  yellow:  '#eab308',
-  red:     '#f87171',
-  statBg:  '#13161f',
+  bg:      '#0b0d12',
+  surface: '#0f1219',
+  border:  '#1e2636',
+  text:    '#e2ddd5',
+  muted:   '#7a8195',
+  faint:   '#303a50',
+  accent:  '#c4913a',
+  green:   '#4a9e72',
+  yellow:  '#c4913a',
+  red:     '#c05a47',
+  statBg:  '#161c26',
 };
 
 function isConfigured(): boolean {
@@ -68,16 +70,22 @@ function fmtAcres(sqft: number | null): string {
 }
 
 function scoreColors(score: number): { bg: string; color: string } {
-  if (score >= 80) return { bg: '#14532d', color: D.green };
-  if (score >= 60) return { bg: '#713f12', color: D.yellow };
-  return { bg: '#7f1d1d', color: D.red };
+  if (score >= 80) return { bg: 'rgba(74,158,114,0.12)', color: D.green };
+  if (score >= 60) return { bg: 'rgba(196,145,58,0.12)', color: D.yellow };
+  return { bg: 'rgba(192,90,71,0.12)', color: D.red };
 }
 
-function domText(dom: number | null): string {
+function domLabel(dom: number | null): string {
   if (dom == null) return '';
-  if (dom > 120) return `<span style="color:${D.red};font-size:11px;font-weight:600">⚠ ${dom} days on market</span>`;
-  if (dom > 30)  return `<span style="color:${D.yellow};font-size:11px;font-weight:600">~${dom} days on market</span>`;
-  return `<span style="color:${D.muted};font-size:11px">${dom} days on market</span>`;
+  if (dom > 120) return `<span style="color:${D.red};font-weight:600">(⚠ ${dom} d)</span>`;
+  if (dom > 30)  return `<span style="color:${D.yellow};font-weight:600">(~${dom} d)</span>`;
+  return `<span style="color:${D.muted}">(${dom} d)</span>`;
+}
+
+function listedLine(l: NotifyListing): string {
+  const date = l.first_seen_at ? new Date(l.first_seen_at).toLocaleDateString() : '—';
+  const dom = l.days_on_market != null ? ` · ${domLabel(l.days_on_market)}` : '';
+  return `<div style="font-size:11px;color:${D.muted};margin-top:2px">Listed ${date}${dom}</div>`;
 }
 
 function priceChangeHtml(l: NotifyListing): string {
@@ -100,6 +108,7 @@ const FACTOR_LABELS: Record<string, string> = {
   beds:              'Beds',
   pricePerSqft:      '$/sqft',
   neighborhoodBonus: 'Local+',
+  zipBonus:          'Zip+',
   domPenalty:        'DOM−',
   // legacy keys from old flat breakdown format
   amtrak:            'Transit',
@@ -127,12 +136,12 @@ function parseBreakdown(json: string | null): { total: number; factors: Record<s
 }
 
 function chipColor(key: string, pct: number): { bg: string; color: string } {
-  if (pct === 0) return { bg: D.border, color: D.muted };
-  if (key === 'domPenalty')        return { bg: '#7f1d1d', color: D.red };
-  if (key === 'neighborhoodBonus') return { bg: '#14532d', color: D.green };
-  if (pct >= 0.7) return { bg: D.green,  color: '#0f1117' };
-  if (pct >= 0.4) return { bg: D.yellow, color: '#0f1117' };
-  return { bg: D.red, color: '#0f1117' };
+  if (pct === 0) return { bg: D.statBg, color: D.muted };
+  if (key === 'domPenalty')        return { bg: D.red,   color: '#fff' };
+  if (key === 'neighborhoodBonus') return { bg: D.green, color: '#fff' };
+  if (pct >= 0.7) return { bg: D.green,  color: '#fff' };
+  if (pct >= 0.4) return { bg: D.yellow, color: '#fff' };
+  return { bg: D.red, color: '#fff' };
 }
 
 function scoreChipsHtml(l: NotifyListing): string {
@@ -145,15 +154,15 @@ function scoreChipsHtml(l: NotifyListing): string {
     const label = FACTOR_LABELS[key] ?? key;
     const display = String(Math.round(pct * 100));
 
-    return `<td style="padding:0 1px;text-align:center">
-      <div style="background:${bg};color:${color};border-radius:4px;padding:3px 0;font-size:10px;font-weight:700;min-width:28px;text-align:center">${display}</div>
-      <div style="font-size:9px;color:${D.muted};margin-top:2px;white-space:nowrap">${label}</div>
+    return `<td style="padding:0 2px;text-align:center;vertical-align:top">
+      <div style="background:${bg};color:${color};border-radius:3px;height:20px;line-height:20px;font-size:9px;font-weight:700;text-align:center;white-space:nowrap;padding:0 2px">${display}</div>
+      <div style="font-size:8px;color:${D.muted};margin-top:3px;white-space:nowrap;text-align:center">${label}</div>
     </td>`;
   }).join('');
 
   return `
-    <div style="margin-top:10px">
-      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:${D.muted};margin-bottom:4px">Score breakdown</div>
+    <div style="margin-top:12px">
+      <div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:${D.muted};margin-bottom:5px">Score Breakdown</div>
       <table style="border-collapse:collapse;width:100%"><tr>${chips}</tr></table>
     </div>`;
 }
@@ -175,44 +184,44 @@ function buildCard(l: NotifyListing): string {
         <!-- Header: address + score badge -->
         <table style="width:100%;border-collapse:collapse">
           <tr>
-            <td>
-              <div style="font-weight:700;font-size:15px;line-height:1.3;color:${D.text}">${l.address}</div>
-              <div style="font-size:12px;color:${D.muted};margin-top:2px">${l.city}, ${l.state} ${l.zip}</div>
-              ${l.school_district ? `<div style="font-size:11px;color:${D.accent};margin-top:2px;font-weight:500">${l.school_district}</div>` : ''}
+            <td style="vertical-align:top">
+              <div style="font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:18px;line-height:1.25;color:${D.text}">${l.address}</div>
+              <div style="font-size:11px;color:${D.muted};margin-top:4px">${l.city}, ${l.state} ${l.zip}</div>
+              ${l.school_district ? `<div style="font-size:10px;color:${D.accent};margin-top:5px;font-weight:500;letter-spacing:.02em">${l.school_district}</div>` : ''}
             </td>
             <td style="text-align:right;vertical-align:top;padding-left:12px">
-              <div style="display:inline-block;background:${scoreBg};color:${scoreColor};border-radius:8px;width:44px;height:44px;line-height:44px;text-align:center;font-size:17px;font-weight:700">${Math.round(l.score)}</div>
+              <div style="display:inline-block;background:${scoreBg};border:1px solid ${scoreColor};color:${scoreColor};border-radius:50%;width:48px;height:48px;line-height:46px;text-align:center;font-size:16px;font-weight:700;font-family:'Courier New',monospace">${Math.round(l.score)}</div>
             </td>
           </tr>
         </table>
 
         <!-- Price -->
-        <div style="margin-top:12px">
-          <span style="font-size:22px;font-weight:700;color:${D.text}">$${fmt(l.price)}</span>${priceChangeHtml(l)}
-          ${l.days_on_market != null ? `<div style="font-size:11px;color:${D.muted};margin-top:1px">${domText(l.days_on_market)}</div>` : ''}
+        <div style="margin-top:14px">
+          <span style="font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:400;color:${D.text}">$${fmt(l.price)}</span>${priceChangeHtml(l)}
+          ${listedLine(l)}
         </div>
 
         <!-- Stats row -->
         <table style="width:100%;border-collapse:collapse;margin-top:12px">
           <tr>
-            <td style="width:25%;padding:7px 8px;background:${D.statBg};border-radius:6px;text-align:center">
-              <div style="font-size:13px;font-weight:600;color:${D.text}">${l.beds} / ${l.baths}</div>
-              <div style="font-size:10px;color:${D.muted};margin-top:2px;text-transform:uppercase;letter-spacing:.04em">Bed/Bth</div>
+            <td style="width:25%;padding:7px 8px;background:${D.statBg};border-radius:5px">
+              <div style="font-family:'Courier New',monospace;font-size:12px;font-weight:700;color:${D.text}">${l.beds} / ${l.baths}</div>
+              <div style="font-size:9px;color:${D.muted};margin-top:2px;text-transform:uppercase;letter-spacing:.05em">Bed / Bth</div>
             </td>
-            <td style="width:4px"></td>
-            <td style="width:25%;padding:7px 8px;background:${D.statBg};border-radius:6px;text-align:center">
-              <div style="font-size:13px;font-weight:600;color:${D.text}">${l.sqft ? fmt(l.sqft) : '—'}</div>
-              <div style="font-size:10px;color:${D.muted};margin-top:2px;text-transform:uppercase;letter-spacing:.04em">Sq Ft</div>
+            <td style="width:5px"></td>
+            <td style="width:25%;padding:7px 8px;background:${D.statBg};border-radius:5px">
+              <div style="font-family:'Courier New',monospace;font-size:12px;font-weight:700;color:${D.text}">${l.sqft ? fmt(l.sqft) : '—'}</div>
+              <div style="font-size:9px;color:${D.muted};margin-top:2px;text-transform:uppercase;letter-spacing:.05em">Sq Ft</div>
             </td>
-            <td style="width:4px"></td>
-            <td style="width:25%;padding:7px 8px;background:${D.statBg};border-radius:6px;text-align:center">
-              <div style="font-size:13px;font-weight:600;color:${D.text}">${fmtAcres(l.lot_sqft)}</div>
-              <div style="font-size:10px;color:${D.muted};margin-top:2px;text-transform:uppercase;letter-spacing:.04em">Lot</div>
+            <td style="width:5px"></td>
+            <td style="width:25%;padding:7px 8px;background:${D.statBg};border-radius:5px">
+              <div style="font-family:'Courier New',monospace;font-size:12px;font-weight:700;color:${D.text}">${fmtAcres(l.lot_sqft)}</div>
+              <div style="font-size:9px;color:${D.muted};margin-top:2px;text-transform:uppercase;letter-spacing:.05em">Lot</div>
             </td>
-            <td style="width:4px"></td>
-            <td style="width:25%;padding:7px 8px;background:${D.statBg};border-radius:6px;text-align:center">
-              <div style="font-size:13px;font-weight:600;color:${D.text}">${ppsf}</div>
-              <div style="font-size:10px;color:${D.muted};margin-top:2px;text-transform:uppercase;letter-spacing:.04em">$/Sq Ft</div>
+            <td style="width:5px"></td>
+            <td style="width:25%;padding:7px 8px;background:${D.statBg};border-radius:5px">
+              <div style="font-family:'Courier New',monospace;font-size:12px;font-weight:700;color:${D.text}">${ppsf}</div>
+              <div style="font-size:9px;color:${D.muted};margin-top:2px;text-transform:uppercase;letter-spacing:.05em">$/Sq Ft</div>
             </td>
           </tr>
         </table>
@@ -223,11 +232,11 @@ function buildCard(l: NotifyListing): string {
         <!-- Footer: CTA + type pill -->
         <table style="width:100%;border-collapse:collapse;margin-top:14px">
           <tr>
-            <td>
-              ${l.url ? `<a href="${l.url}" style="display:inline-block;background:${D.accent};color:#fff;text-decoration:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:500">View on Redfin →</a>` : ''}
+            <td style="width:100%">
+              ${l.url ? `<a href="${l.url}" style="display:block;width:100%;background:${D.accent};color:#fff;text-decoration:none;border-radius:5px;padding:8px 0;font-size:12px;font-weight:600;letter-spacing:.03em;text-align:center;box-sizing:border-box">View on Redfin →</a>` : ''}
             </td>
-            <td style="text-align:right">
-              <span style="font-size:11px;background:${D.statBg};border:1px solid ${D.border};border-radius:20px;padding:3px 10px;color:${D.muted}">${typeLabel}</span>
+            <td style="white-space:nowrap;padding-left:8px;vertical-align:middle">
+              <span style="font-size:10px;background:${D.statBg};border:1px solid ${D.border};border-radius:20px;padding:3px 10px;color:${D.muted};font-weight:500;letter-spacing:.03em">${typeLabel}</span>
             </td>
           </tr>
         </table>
@@ -244,7 +253,7 @@ function changeBadgeHtml(c: ChangeWithListing): string {
     const old = parseInt(c.old_value ?? '0');
     const diff = old - c.price;
     return `<div style="margin-bottom:8px">
-      <span style="background:#14532d;color:${D.green};padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700">▼ Price Drop</span>
+      <span style="background:rgba(74,158,114,0.12);color:${D.green};border:1px solid rgba(74,158,114,0.3);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">▼ Price Drop</span>
       <span style="font-size:12px;color:${D.muted};margin-left:8px">$${old.toLocaleString()} → <strong style="color:${D.text}">$${c.price.toLocaleString()}</strong> <span style="color:${D.green}">−$${diff.toLocaleString()}</span></span>
     </div>`;
   }
@@ -252,13 +261,13 @@ function changeBadgeHtml(c: ChangeWithListing): string {
     const old = parseInt(c.old_value ?? '0');
     const diff = c.price - old;
     return `<div style="margin-bottom:8px">
-      <span style="background:#7f1d1d;color:${D.red};padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700">▲ Price Increase</span>
+      <span style="background:rgba(192,90,71,0.12);color:${D.red};border:1px solid rgba(192,90,71,0.3);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">▲ Price Increase</span>
       <span style="font-size:12px;color:${D.muted};margin-left:8px">$${old.toLocaleString()} → <strong style="color:${D.text}">$${c.price.toLocaleString()}</strong> <span style="color:${D.red}">+$${diff.toLocaleString()}</span></span>
     </div>`;
   }
   if (c.change_type === 'now_active') {
     return `<div style="margin-bottom:8px">
-      <span style="background:#1e3a5f;color:${D.accent};padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700">⚡ Now Active</span>
+      <span style="background:rgba(196,145,58,0.12);color:${D.accent};border:1px solid rgba(196,145,58,0.3);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">⚡ Now Active</span>
       <span style="font-size:12px;color:${D.muted};margin-left:8px">Previously coming soon</span>
     </div>`;
   }
@@ -271,7 +280,7 @@ function buildDigestHtml(newListings: NotifyListing[], changes: ChangeWithListin
 
   const newCards = newListings.map(l => `
     <table style="width:100%;max-width:520px;margin:0 auto 6px;border-collapse:collapse"><tr><td>
-      <span style="background:#1a2e1a;color:${D.green};padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700">★ New Listing</span>
+      <span style="background:rgba(74,158,114,0.12);color:${D.green};border:1px solid rgba(74,158,114,0.3);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">★ New Listing</span>
     </td></tr></table>
     ${buildCard(l)}`).join('');
 
@@ -287,13 +296,13 @@ function buildDigestHtml(newListings: NotifyListing[], changes: ChangeWithListin
   <table style="width:100%;border-collapse:collapse" bgcolor="${D.bg}"><tr><td style="padding:24px 16px" bgcolor="${D.bg}">
     <table style="width:100%;max-width:520px;margin:0 auto 24px;border-collapse:collapse">
       <tr><td style="background:${D.surface};border:1px solid ${D.border};border-radius:10px;padding:20px 24px">
-        <div style="color:${D.text};font-size:18px;font-weight:700">&#127968; House <span style="color:${D.accent}">Tracker</span></div>
-        <div style="color:${D.muted};font-size:13px;margin-top:4px">${total} update${total !== 1 ? 's' : ''} · Score ≥ ${NOTIFY_SCORE_THRESHOLD} · ${date}</div>
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:${D.text}">HOUSE <span style="color:${D.accent}">TRACKER</span></div>
+        <div style="font-family:'Courier New',monospace;color:${D.muted};font-size:12px;margin-top:6px">${total} update${total !== 1 ? 's' : ''} · score ≥ ${NOTIFY_SCORE_THRESHOLD} · ${date}</div>
       </td></tr>
     </table>
     ${newCards}${changeCards}
     <table style="width:100%;max-width:520px;margin:0 auto;border-collapse:collapse">
-      <tr><td style="text-align:center;padding:8px 0"><span style="font-size:11px;color:${D.muted}">Sent by house-tracker</span></td></tr>
+      <tr><td style="text-align:center;padding:8px 0"><span style="font-size:10px;color:${D.muted};letter-spacing:.04em">house-tracker</span></td></tr>
     </table>
   </td></tr></table>
 </body></html>`;
