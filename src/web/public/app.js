@@ -102,9 +102,10 @@ async function init() {
   rawInventoryData = inventoryRes;
   rawTrendsData = trendsRes;
 
-  // Sync locale selector
+  // Sync locale selector and price filter default
   document.querySelector('.locale-select').value = activeLocale;
   document.getElementById('locale-label').textContent = LOCALE_LABELS[activeLocale] ?? '';
+  if (activeLocale === 'st-louis') document.getElementById('f-price').value = '500000';
 
   renderStats(statsRes);
   renderAreaFilter(statsRes.cities);
@@ -151,7 +152,7 @@ async function switchLocale(locale) {
   document.getElementById('f-score').value = 0;
   document.getElementById('f-score-val').textContent = '0';
   document.getElementById('f-beds').value = '0';
-  document.getElementById('f-price').value = '9999999';
+  document.getElementById('f-price').value = locale === 'st-louis' ? '500000' : '9999999';
   document.getElementById('f-type').value = '';
   document.getElementById('f-open-house').checked = false;
 
@@ -288,7 +289,7 @@ function resetFilters() {
   document.getElementById('f-score').value = 0;
   document.getElementById('f-score-val').textContent = '0';
   document.getElementById('f-beds').value = '0';
-  document.getElementById('f-price').value = '9999999';
+  document.getElementById('f-price').value = activeLocale === 'st-louis' ? '500000' : '9999999';
   document.getElementById('f-type').value = '';
   document.getElementById('f-open-house').checked = false;
   selectedAreas.clear();
