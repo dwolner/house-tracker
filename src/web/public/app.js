@@ -761,9 +761,8 @@ function scoreIcon(score) {
 }
 
 async function fetchZipBoundaries(locale) {
-  if (locale === 'st-louis') return null; // STL uses city boundaries, not ZCTAs
   if (boundaryCache[locale]) return boundaryCache[locale];
-  const pollingRegions = locale === 'san-diego' ? SD_POLLING_REGIONS : PA_POLLING_ZIPS;
+  const pollingRegions = locale === 'san-diego' ? SD_POLLING_REGIONS : locale === 'st-louis' ? STL_POLLING_REGIONS : PA_POLLING_ZIPS;
   const zips = Object.keys(pollingRegions).map(z => `'${z}'`).join(',');
   const params = new URLSearchParams({
     where: `ZCTA5 IN (${zips})`,
