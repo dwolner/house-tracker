@@ -154,7 +154,10 @@
         <div id="view-listings">
           <div class="results-header">
             <h2>Listings</h2>
-            <span class="results-count" id="results-count"></span>
+            <div class="results-header-right">
+              <span class="results-count" id="results-count"></span>
+              <button class="filter-toggle-btn" onclick="toggleFilters()">Filters</button>
+            </div>
           </div>
           <div class="cards" id="cards"></div>
         </div>
@@ -189,6 +192,14 @@
         </div>
       </main>
     </div>
+
+    <div class="filter-overlay" id="filter-overlay" onclick="closeFilters()"></div>
+
+    <nav class="mobile-nav">
+      <button class="mobile-nav-btn active" id="mnav-listings" onclick="switchView('listings')">Listings</button>
+      <button class="mobile-nav-btn" id="mnav-map" onclick="switchView('map')">Map</button>
+      <button class="mobile-nav-btn" id="mnav-inventory" onclick="switchView('inventory')">Inventory</button>
+    </nav>
 
     <script src="/app.js"></script>
   </body>

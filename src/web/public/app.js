@@ -1008,16 +1008,34 @@ async function triggerPoll() {
   }, 15000);
 }
 
+// === MOBILE FILTER DRAWER ===
+
+function toggleFilters() {
+  const aside = document.querySelector('aside');
+  const overlay = document.getElementById('filter-overlay');
+  const isOpen = aside.classList.contains('drawer-open');
+  aside.classList.toggle('drawer-open', !isOpen);
+  overlay.classList.toggle('active', !isOpen);
+}
+
+function closeFilters() {
+  document.querySelector('aside').classList.remove('drawer-open');
+  document.getElementById('filter-overlay').classList.remove('active');
+}
+
 // === VIEW SWITCHING ===
 
 function switchView(view) {
   ['listings', 'map', 'inventory'].forEach(v => {
     document.getElementById(`view-${v}`).classList.toggle('view-hidden', v !== view);
     document.getElementById(`tab-${v}`).classList.toggle('active', v === view);
+    const mnavBtn = document.getElementById(`mnav-${v}`);
+    if (mnavBtn) mnavBtn.classList.toggle('active', v === view);
   });
   document.getElementById('filters').classList.toggle('view-hidden', view === 'inventory');
   document.querySelector('aside').scrollTop = 0;
   localStorage.setItem('view', view);
+  closeFilters();
   if (view === 'map' && listingMap) {
     setTimeout(() => listingMap.invalidateSize(), 0);
   }
@@ -1042,7 +1060,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const isDark = document.documentElement.classList.contains('dark');
   document.getElementById('theme-btn').textContent = isDark ? '☀️' : '🌙';
   const savedView = localStorage.getItem('view') ?? 'listings';
-  if (savedView !== 'listings') switchView(savedView);
+  if (savedView !== 'listings') {
+    switchView(savedView);
+  } else {
+    // Ensure mobile nav reflects initial state
+    const mnavBtn = document.getElementById('mnav-listings');
+    if (mnavBtn) mnavBtn.classList.add('active');
+  }
 });
 
 init();
