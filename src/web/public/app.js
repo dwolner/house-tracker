@@ -8,6 +8,8 @@ let inventoryChart = null;
 let priceTrendChart = null;
 let scoreTrendChart = null;
 let outcomesChart = null;
+let investmentConfig = null;
+let stlComps = {};
 
 // === LOCALE CONFIG ===
 
@@ -110,11 +112,26 @@ async function init() {
   renderAreaFilter(statsRes.cities);
 
   const localeListings = allListings.filter(l => l.locale_id === activeLocale);
+  await fetchInvestmentData(activeLocale);
   renderCards(localeListings);
   renderMap(localeListings).catch(() => {});
   renderInventoryChart(rawInventoryData);
   renderTrendCharts(rawTrendsData);
   renderOutcomes(outcomesRes);
+}
+
+async function fetchInvestmentData(locale) {
+  if (locale !== 'st-louis') {
+    investmentConfig = null;
+    stlComps = {};
+    return;
+  }
+  const [invRes, compsRes] = await Promise.all([
+    fetch('/api/locales/st-louis/investment').then(r => r.json()),
+    fetch('/api/locales/st-louis/comps').then(r => r.json()),
+  ]);
+  investmentConfig = invRes.investmentConfig ?? null;
+  stlComps = compsRes.byCity ?? {};
 }
 
 async function switchLocale(locale) {
@@ -142,6 +159,7 @@ async function switchLocale(locale) {
   renderAreaFilter(statsRes.cities);
 
   const localeListings = allListings.filter(l => l.locale_id === activeLocale);
+  await fetchInvestmentData(locale);
   renderCards(localeListings);
   renderMap(localeListings).catch(() => {});
   if (rawInventoryData.length) renderInventoryChart(rawInventoryData);
@@ -302,6 +320,113 @@ function fmtAcres(sqft) {
   return ac < 0.1 ? sqft.toLocaleString() + ' sqft' : ac.toFixed(2) + ' ac';
 }
 
+function computeUpside(l) {
+  if (!investmentConfig || l.locale_id !== 'st-louis') return null;
+  const cfg = investmentConfig;
+
+  // Rent lookup — clamp beds to available keys in the city's rent table
+  const city = (l.city ?? '').toLowerCase().trim();
+  const cityRents = cfg.rentByCity[city];
+  if (!cityRents) return null;
+  const availBeds = Object.keys(cityRents).map(Number).sort((a, b) => a - b);
+  const clampedBeds = Math.max(availBeds[0], Math.min(availBeds[availBeds.length - 1], l.beds ?? 3));
+  const rent = cityRents[clampedBeds] ?? 0;
+  if (!rent) return null;
+
+  // Mortgage P&I (30yr fixed)
+  const loanAmount  = l.price * (1 - cfg.downPaymentPct);
+  const monthlyRate = (cfg.baseRate30yr + cfg.investmentRateAdder) / 12;
+  const mortgage    = loanAmount
+    * (monthlyRate * Math.pow(1 + monthlyRate, 360))
+    / (Math.pow(1 + monthlyRate, 360) - 1);
+
+  // Monthly expenses
+  const vacancy     = rent * cfg.vacancyRate;
+  const maintenance = rent * cfg.maintenanceRate;
+  const insurance   = cfg.insuranceMonthly;
+  const taxes       = l.price * cfg.propertyTaxAnnualRate / 12;
+
+  const netCashFlow = rent - mortgage - vacancy - maintenance - insurance - taxes;
+
+  // Renovation estimate from year_built tier
+  const yearBuilt = l.year_built ?? 9999;
+  const renoTier  = cfg.renoTiers.find(t => yearBuilt <= t.maxYearBuilt);
+  const reno      = renoTier?.cost ?? 8_000;
+
+  const totalCashIn = l.price * cfg.downPaymentPct + reno;
+  const coc = totalCashIn > 0 ? (netCashFlow * 12) / totalCashIn : 0;
+
+  // BRRRR — only when sold comps exist for this city and sqft is known
+  let brrrr = null;
+  const comps = stlComps[city];
+  if (comps && l.sqft) {
+    const arv          = Math.round(comps.medianPpsf * l.sqft);
+    const forcedEquity = arv - l.price - reno;
+    const refinanceAmt = Math.round(arv * cfg.refinanceLtv);
+    const originalLoan = Math.round(l.price * (1 - cfg.downPaymentPct));
+    const cashBack     = refinanceAmt - originalLoan;
+    const isFullBrrrr  = cashBack >= totalCashIn;
+    brrrr = { arv, reno, forcedEquity, refinanceAmt, originalLoan, cashBack, totalCashIn, comps, isFullBrrrr };
+  }
+
+  return { rent, mortgage, netCashFlow, coc, reno, totalCashIn, brrrr };
+}
+
+function fmtK(n) {
+  const abs = Math.abs(Math.round(n / 1000));
+  return (n < 0 ? '-' : '') + '$' + abs + 'K';
+}
+
+function renderInvestmentRows(l) {
+  const up = computeUpside(l);
+  if (!up) return '';
+
+  const cfColor = up.netCashFlow >= 0 ? 'var(--green)' : 'var(--red)';
+  const cfSign  = up.netCashFlow >= 0 ? '+' : '';
+  const cocPct  = (up.coc * 100).toFixed(1);
+
+  let brrrrHtml = '';
+  if (up.brrrr) {
+    const b = up.brrrr;
+    const fullBadge = b.isFullBrrrr
+      ? '<span class="brrrr-full-badge">Full BRRRR</span>'
+      : '';
+    brrrrHtml = `
+      <div class="investment-brrrr" onclick="toggleBrrrr(this)">
+        <div class="brrrr-summary">
+          ▸ BRRRR &nbsp; ARV ${fmtK(b.arv)} · Reno ~${fmtK(b.reno)} · Equity ${fmtK(b.forcedEquity)} · Refi pull ${fmtK(b.cashBack)} ${fullBadge}
+        </div>
+        <div class="brrrr-detail">
+          <div class="brrrr-row"><span>After-repair value</span><span>$${fmt(b.arv)}</span></div>
+          <div class="brrrr-row brrrr-sub"><span>${b.comps.sampleSize} sold comps in ${l.city} @ $${b.comps.medianPpsf}/sqft</span></div>
+          <div class="brrrr-row"><span>Reno estimate</span><span>~$${fmt(b.reno)}${l.year_built ? ' (built ' + l.year_built + ')' : ''}</span></div>
+          <div class="brrrr-row"><span>Forced equity</span><span>$${fmt(b.forcedEquity)}</span></div>
+          <div class="brrrr-row"><span>Refi @ ${(investmentConfig.refinanceLtv * 100).toFixed(0)}% LTV</span><span>$${fmt(b.refinanceAmt)}</span></div>
+          <div class="brrrr-row"><span>Original loan</span><span>$${fmt(b.originalLoan)}</span></div>
+          <div class="brrrr-row brrrr-highlight"><span>Cash back</span><span>$${fmt(b.cashBack)}</span></div>
+          <div class="brrrr-row"><span>Total cash in</span><span>$${fmt(b.totalCashIn)} (${(investmentConfig.downPaymentPct * 100).toFixed(0)}% down + reno)</span></div>
+        </div>
+      </div>`;
+  }
+
+  return `
+    <div class="investment-row">
+      <span>Cash flow <strong style="color:${cfColor}">${cfSign}$${Math.round(Math.abs(up.netCashFlow))}/mo</strong></span>
+      <span>CoC <strong>${cocPct}%</strong></span>
+    </div>
+    ${brrrrHtml}`;
+}
+
+function toggleBrrrr(el) {
+  const detail  = el.querySelector('.brrrr-detail');
+  const summary = el.querySelector('.brrrr-summary');
+  const isOpen  = el.classList.contains('brrrr-open');
+  el.classList.toggle('brrrr-open', !isOpen);
+  detail.style.display = isOpen ? 'none' : '';
+  // Update arrow character
+  summary.textContent = summary.textContent.replace(/^(\s*)[▸▾]/, (_, ws) => ws + (isOpen ? '▸' : '▾'));
+}
+
 function scoreClass(s) {
   if (s >= 80) return 'score-hi';
   if (s >= 60) return 'score-mid';
@@ -310,6 +435,11 @@ function scoreClass(s) {
 
 function domLabel(dom) {
   if (dom == null) return '';
+  if (investmentConfig) {
+    // Investment mode: high DOM = motivated seller
+    if (dom > 60) return `<span class="dom-ok">(${dom}d ↑)</span>`;
+    return `<span class="dom-ok">(${dom}d)</span>`;
+  }
   if (dom > 120) return `<span class="dom-warn">(⚠ ${dom} d)</span>`;
   if (dom > 30)  return `<span class="dom-mild">(~${dom} d)</span>`;
   return `<span class="dom-ok">(${dom} d)</span>`;
@@ -336,7 +466,7 @@ const FACTOR_LABELS = {
   beds:              'Beds',
   pricePerSqft:      '$/sqft',
   neighborhoodBonus: 'Local+',
-  zipBonus:          'Zip+',
+  domBonus:          'DOM+',
   domPenalty:        'DOM−',
   amtrak:            'Transit',
   narberthBonus:     'Local+',
@@ -371,7 +501,7 @@ function scoreBars(raw) {
     let chipCls;
     if (pts === 0) chipCls = 'zero';
     else if (key === 'domPenalty') chipCls = 'penalty';
-    else if (key === 'neighborhoodBonus') chipCls = 'bonus';
+    else if (key === 'neighborhoodBonus' || key === 'domBonus') chipCls = 'bonus';
     else if (normalized >= 70) chipCls = '';
     else if (normalized >= 40) chipCls = 'mid';
     else chipCls = 'lo';
@@ -713,6 +843,7 @@ function renderCards(listings) {
         <div class="stat"><div class="stat-val">${l.sqft ? '$' + Math.round(l.price / l.sqft) : '—'}</div><div class="stat-lbl">$/Sq Ft</div></div>
       </div>
       ${scoreBars(l.score_breakdown)}
+      ${renderInvestmentRows(l)}
       <div class="card-footer">
         <a class="redfin-link" href="${l.url}" target="_blank" rel="noopener">View on Redfin →</a>
         <span class="type-pill">${typeLabel}</span>

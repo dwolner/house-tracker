@@ -1131,3 +1131,77 @@ html.dark .pending-badge {
     font-weight: 600;
   }
 }
+
+/* ── Investment upside rows ─────────────────────────── */
+
+.investment-row {
+  display: flex;
+  gap: 16px;
+  padding: 8px 0 4px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text);
+}
+
+.investment-brrrr {
+  padding: 6px 0 4px;
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.brrrr-summary {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+  user-select: none;
+}
+
+.investment-brrrr:hover .brrrr-summary {
+  color: var(--text);
+}
+
+.brrrr-detail {
+  display: none;
+  margin-top: 8px;
+  padding: 8px;
+  background: var(--surface2, rgba(0,0,0,0.04));
+  border-radius: 6px;
+  gap: 3px;
+  flex-direction: column;
+}
+
+.investment-brrrr.brrrr-open .brrrr-detail {
+  display: flex;
+}
+
+.brrrr-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  padding: 2px 0;
+  color: var(--text);
+}
+
+.brrrr-row.brrrr-sub {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.brrrr-row.brrrr-highlight {
+  font-weight: 700;
+  border-top: 1px solid var(--border);
+  padding-top: 5px;
+  margin-top: 3px;
+}
+
+.brrrr-full-badge {
+  display: inline-block;
+  background: var(--green, #22c55e);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
