@@ -1301,3 +1301,22 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 init();
+
+// ── Tooltip (fixed position — escapes overflow:hidden cards) ──
+const tipBox = document.getElementById('tip-box');
+document.addEventListener('mouseover', e => {
+  const el = e.target.closest('[data-tip]');
+  if (!el) return;
+  tipBox.textContent = el.dataset.tip;
+  tipBox.style.display = 'block';
+  const rect   = el.getBoundingClientRect();
+  const tbRect = tipBox.getBoundingClientRect();
+  let left = rect.left + rect.width / 2 - tbRect.width / 2;
+  let top  = rect.top + window.scrollY - tbRect.height - 8;
+  left = Math.max(8, Math.min(left, window.innerWidth - tbRect.width - 8));
+  tipBox.style.left = left + 'px';
+  tipBox.style.top  = top + 'px';
+});
+document.addEventListener('mouseout', e => {
+  if (e.target.closest('[data-tip]')) tipBox.style.display = 'none';
+});
