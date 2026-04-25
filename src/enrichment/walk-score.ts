@@ -144,28 +144,37 @@ async function runEnrichment(): Promise<void> {
   for (const listing of sdListings) {
     try {
       const district = await fetchSchoolDistrict(listing.lat, listing.lng);
+      const effectiveDistrict = district ?? '(unknown)';
+      const asRedfinListing: RedfinListing = {
+        ...listing,
+        baths: 0,
+        year_built: null,
+        walk_score: listing.walk_score,
+        school_district: effectiveDistrict,
+        url: listing.url ?? '',
+        status: '', status_label: '',
+        next_open_house_start: null,
+        next_open_house_end: null,
+        sold_date: null,
+      };
+      const breakdown = scoreWithBreakdown(asRedfinListing, getLocale(listing.locale_id));
+      updateListingSchoolDistrict(listing.id, effectiveDistrict, breakdown.total, breakdown);
       if (district) {
-        const asRedfinListing: RedfinListing = {
-          ...listing,
-          baths: 0,
-          year_built: null,
-          walk_score: listing.walk_score,
-          school_district: district,
-          url: listing.url ?? '',
-          status: '', status_label: '',
-          next_open_house_start: null,
-          next_open_house_end: null,
-          sold_date: null,
-        };
-        const breakdown = scoreWithBreakdown(asRedfinListing, getLocale(listing.locale_id));
-        updateListingSchoolDistrict(listing.id, district, breakdown.total, breakdown);
         console.log(`[enrich] ${listing.address}, ${listing.city} — district: ${district} — score: ${breakdown.total.toFixed(1)}`);
         sdUpdated++;
       } else {
+        console.log(`[enrich] ${listing.address}, ${listing.city} — district not found, marking unknown`);
         sdFailed++;
       }
     } catch (err) {
       console.error(`[enrich] school district error for ${listing.address}:`, err);
+      // Mark as attempted so it doesn't re-queue on every poll
+      const breakdown = scoreWithBreakdown(
+        { ...listing, baths: 0, year_built: null, school_district: '(unknown)', url: listing.url ?? '',
+          status: '', status_label: '', next_open_house_start: null, next_open_house_end: null, sold_date: null },
+        getLocale(listing.locale_id),
+      );
+      updateListingSchoolDistrict(listing.id, '(unknown)', breakdown.total, breakdown);
       sdFailed++;
     }
     await sleep(300);

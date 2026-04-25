@@ -190,32 +190,21 @@ aside {
 /* ===== LOCALE TABS ===== */
 
 .locale-tabs {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 3px;
-  background: var(--surface-2);
-  border-radius: 7px;
-  padding: 3px;
+  padding: 4px 0;
 }
 
-.locale-tab {
-  background: none;
-  border: none;
-  border-radius: 5px;
-  padding: 6px 0;
+.locale-select {
+  width: 100%;
+  padding: 7px 10px;
   font-family: var(--font-ui);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.03em;
-  color: var(--text-dim);
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-.locale-tab:hover { color: var(--text); }
-.locale-tab.active {
-  background: var(--accent);
-  color: #fff;
-  font-weight: 600;
+  appearance: auto;
 }
 
 /* ===== VIEW TABS ===== */
@@ -1130,4 +1119,78 @@ html.dark .pending-badge {
     color: var(--accent);
     font-weight: 600;
   }
+}
+
+/* ── Investment upside rows ─────────────────────────── */
+
+.investment-row {
+  display: flex;
+  gap: 16px;
+  padding: 8px 0 4px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text);
+}
+
+.investment-brrrr {
+  padding: 6px 0 4px;
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.brrrr-summary {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  user-select: none;
+}
+
+.investment-brrrr:hover .brrrr-summary {
+  color: var(--text);
+}
+
+.brrrr-detail {
+  display: none;
+  margin-top: 8px;
+  padding: 8px;
+  background: var(--surface-2, rgba(0,0,0,0.04));
+  border-radius: 6px;
+  gap: 3px;
+  flex-direction: column;
+}
+
+.investment-brrrr.brrrr-open .brrrr-detail {
+  display: flex;
+}
+
+.brrrr-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  padding: 2px 0;
+  color: var(--text);
+}
+
+.brrrr-row.brrrr-sub {
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.brrrr-row.brrrr-highlight {
+  font-weight: 700;
+  border-top: 1px solid var(--border);
+  padding-top: 5px;
+  margin-top: 3px;
+}
+
+.brrrr-full-badge {
+  display: inline-block;
+  background: var(--green, #22c55e);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 4px;
+  vertical-align: middle;
 }

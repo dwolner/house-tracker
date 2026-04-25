@@ -84,6 +84,10 @@ export interface DomPenaltyConfig {
   weight: number; // max penalty pts — ramp shape is fixed: full at 120+ days, proportional below
 }
 
+export interface DomBonusConfig {
+  weight: number; // max bonus pts — ramp: 0 at 0–30d, 0→weight/2 at 30–60d, weight/2→weight at 60–120d, weight at 120d+
+}
+
 export interface ScoringConfig {
   propertyType?: PropertyTypeConfig;
   schoolDistrict?: SchoolDistrictConfig;
@@ -97,6 +101,34 @@ export interface ScoringConfig {
   neighborhoodBonus?: NeighborhoodBonusConfig;
   zipBonus?: ZipBonusConfig;
   domPenalty?: DomPenaltyConfig;
+  domBonus?: DomBonusConfig;
+}
+
+export interface RenovationTier {
+  maxYearBuilt: number;  // properties built up to (and including) this year fall in this tier
+  cost: number;          // estimated light rehab cost in dollars
+}
+
+export interface InvestmentConfig {
+  // Monthly rent estimates: city (lowercase) → bed count → $/month
+  rentByCity: Record<string, Record<number, number>>;
+
+  // Mortgage assumptions
+  downPaymentPct: number;          // e.g. 0.25
+  baseRate30yr: number;            // current 30yr conforming rate — update when market moves
+  investmentRateAdder: number;     // premium over 30yr for investment loans, e.g. 0.005
+
+  // Monthly expense ratios (applied to gross rent or purchase price)
+  vacancyRate: number;             // fraction of gross rent, e.g. 0.08
+  maintenanceRate: number;         // fraction of gross rent, e.g. 0.08
+  insuranceMonthly: number;        // flat $/month
+  propertyTaxAnnualRate: number;   // annual rate applied to purchase price (MO: ~0.018)
+
+  // Renovation estimates by year_built — matched by first tier where year_built <= maxYearBuilt
+  renoTiers: RenovationTier[];
+
+  // BRRRR refinance assumption
+  refinanceLtv: number;            // e.g. 0.75
 }
 
 export interface LocaleConfig {
@@ -106,6 +138,8 @@ export interface LocaleConfig {
   regions: RedfinRegion[];
   minBeds: number;
   maxPrice: number;
+  uipt?: string;    // Redfin property types to include (e.g. '1,2,3'); defaults to '1,2,3' if absent
   scoring: ScoringConfig;
   disableNotifications?: boolean; // suppress email alerts for this locale (e.g. new locales not yet fully configured)
+  investmentConfig?: InvestmentConfig;
 }

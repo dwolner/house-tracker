@@ -36,103 +36,123 @@ export const stLouisLocale: LocaleConfig = {
     { name: 'Crestwood',         region_id: '4481',  region_type: 6, useJsonApi: true },
   ],
   minBeds: 3,
-  maxPrice: 950_000,
+  maxPrice: 500_000,
+  uipt: '1,3,4',
   scoring: {
     propertyType: {
       weight: 18,
       typeScores: {
         'single family residential': 18,
-        'single family': 18,
-        'townhouse': 5,
+        'single family':             18,
+        'multi-family':              18,  // duplex/triplex — on par with SFR for cash flow
+        'townhouse':                  5,
       },
     },
-    // School district is the primary differentiator in the St. Louis market.
-    // Ratings based on GreatSchools composite scores; all included cities are ≥ 6.
+    // School district still matters for appreciation and exit strategy — just not dominant.
     schoolDistrict: {
-      weight: 25,
+      weight: 12,
       districtScores: {
-        'Clayton School District':                25,
-        'Ladue School District':                  22,
-        'Kirkwood R-VII School District':         16,
-        'Kirkwood School District':               16, // alternate name
-        'Webster Groves School District':         16,
-        'Lindbergh R-VIII School District':       14,
-        'Lindbergh Schools':                      14, // alternate name
-        'Parkway C-2 School District':            12,
-        'Parkway School District':                12, // alternate name
-        'Maplewood Richmond Heights School District': 8,
+        'Clayton School District':                        12,
+        'Ladue School District':                          10,
+        'Kirkwood R-VII School District':                  8,
+        'Kirkwood School District':                        8,
+        'Webster Groves School District':                  8,
+        'Lindbergh R-VIII School District':                7,
+        'Lindbergh Schools':                               7,
+        'Parkway C-2 School District':                     6,
+        'Parkway School District':                         6,
+        'Maplewood Richmond Heights School District':      4,
       },
-      // Fallback city matching when school_district enrichment is unavailable.
-      // Many USPS addresses show "Saint Louis" — trust district enrichment first.
       primaryCities: [
-        'kirkwood', 'glendale',               // Kirkwood R-VII
-        'webster groves', 'shrewsbury',        // Webster Groves SD
-        'ladue',                               // Ladue SD
-        'clayton',                             // Clayton SD
-        'sunset hills', 'crestwood',           // Lindbergh
+        'kirkwood', 'glendale',
+        'webster groves', 'shrewsbury',
+        'ladue',
+        'clayton',
+        'sunset hills', 'crestwood',
       ],
-      secondaryCities: [
-        'rock hill', 'des peres',             // also Kirkwood R-VII
-        'maplewood', 'richmond heights',      // Maplewood RH SD
-      ],
-      secondaryCityPoints: 8,
-      fallbackPoints: 5,
+      secondaryCities: ['rock hill', 'des peres', 'maplewood', 'richmond heights'],
+      secondaryCityPoints: 4,
+      fallbackPoints: 2,
     },
-    // STL suburbs are car-dependent; walkability matters less than in PA/CA
-    walkability: { weight: 6 },
-    // Market context (April 2026):
-    //   Kirkwood/Webster: $400–600K median   Glendale: $500–700K
-    //   Ladue: $900K–1.5M+                   Clayton: $600K–1M
-    //   Maplewood/Crestwood: $300–450K
+    // Renters weight walkability more than owners — lower vacancy.
+    walkability: { weight: 10 },
+    // Investment price ceiling: $250K hard max.
     price: {
-      weight: 15,
-      excellent:   450_000,
-      good:        700_000,
-      max:         950_000,
+      weight: 20,
+      excellent:   180_000,
+      good:        220_000,
+      max:         250_000,
     },
-    // Typical STL suburb SFR: 1,400–2,200 sqft; 2,500+ is standout
     sqft: {
-      weight: 10,
+      weight: 8,
       breakpoints: [
-        { sqft: 0,     points: 0  },
-        { sqft: 1_200, points: 0  },
-        { sqft: 1_500, points: 3  },
-        { sqft: 1_800, points: 6  },
-        { sqft: 2_200, points: 9  },
-        { sqft: 2_600, points: 10 },
+        { sqft: 0,     points: 0 },
+        { sqft: 1_000, points: 0 },
+        { sqft: 1_200, points: 2 },
+        { sqft: 1_500, points: 5 },
+        { sqft: 1_800, points: 7 },
+        { sqft: 2_200, points: 8 },
+        { sqft: 9_999, points: 8 },
       ],
     },
-    // STL suburb lots: 6,000–12,000 sqft typical; 0.3+ acres is a standout yard
+    // Lot size matters less for cash flow than for a primary residence.
     lot: {
-      weight: 10,
+      weight: 5,
       breakpoints: [
-        { acres: 0,    points: 0  },
-        { acres: 0.10, points: 2  },
-        { acres: 0.15, points: 5  },
-        { acres: 0.20, points: 8  },
-        { acres: 0.30, points: 10 },
-        { acres: 999,  points: 10 },
+        { acres: 0,    points: 0 },
+        { acres: 0.10, points: 1 },
+        { acres: 0.15, points: 3 },
+        { acres: 0.20, points: 4 },
+        { acres: 0.30, points: 5 },
+        { acres: 999,  points: 5 },
       ],
     },
     beds: {
-      weight: 6,
+      weight: 8,
       steps: [
-        { minBeds: 4, points: 6 },
-        { minBeds: 3, points: 3 },
+        { minBeds: 4, points: 8 },
+        { minBeds: 3, points: 5 },
+        { minBeds: 2, points: 2 },
       ],
     },
-    // STL SFR price/sqft: $200–350 is competitive; above $400 is premium
+    // Price/sqft is the single best proxy for below-market deals in STL.
     pricePerSqft: {
-      weight: 5,
-      excellentPpsf: 200,
-      maxPpsf:       400,
+      weight: 15,
+      excellentPpsf: 120,
+      maxPpsf:       220,
     },
-    // Bonus for the core target zip codes (Kirkwood/Glendale and Webster Groves/Rock Hill)
-    zipBonus: {
-      weight: 8,
-      zips: ['63122', '63119'],  // 63122=Kirkwood+Glendale, 63119=Webster Groves+Rock Hill+Shrewsbury
+    // zipBonus removed — premium zips are the wrong signal for investment.
+    // DOM bonus: high DOM signals motivated seller and negotiation room.
+    domBonus: { weight: 8 },
+  },
+  investmentConfig: {
+    rentByCity: {
+      'kirkwood':         { 2: 1100, 3: 1400, 4: 1700 },
+      'glendale':         { 2: 1100, 3: 1400, 4: 1700 },
+      'des peres':        { 2: 1100, 3: 1400, 4: 1700 },
+      'webster groves':   { 2: 1050, 3: 1300, 4: 1600 },
+      'rock hill':        { 2: 1050, 3: 1300, 4: 1600 },
+      'shrewsbury':       { 2: 1050, 3: 1300, 4: 1600 },
+      'maplewood':        { 2:  950, 3: 1150, 4: 1400 },
+      'richmond heights': { 2:  950, 3: 1150, 4: 1400 },
+      'brentwood':        { 2: 1000, 3: 1250, 4: 1500 },
+      'crestwood':        { 2: 1000, 3: 1250, 4: 1500 },
+      'sunset hills':     { 2: 1000, 3: 1250, 4: 1500 },
     },
-    domPenalty: { weight: 10 },
+    downPaymentPct: 0.25,
+    baseRate30yr: 0.069,           // April 2026 — update when rates shift
+    investmentRateAdder: 0.005,
+    vacancyRate: 0.08,
+    maintenanceRate: 0.08,
+    insuranceMonthly: 125,
+    propertyTaxAnnualRate: 0.018,  // MO: assessed @ 19% of FMV × ~9.5% county millage
+    renoTiers: [
+      { maxYearBuilt: 1959, cost: 40_000 },  // full light rehab: plumbing, electrical, kitchen/bath
+      { maxYearBuilt: 1979, cost: 25_000 },  // kitchen/bath refresh, paint, flooring
+      { maxYearBuilt: 1999, cost: 15_000 },  // cosmetic + some mechanical updates
+      { maxYearBuilt: 9999, cost:  8_000 },  // paint, fixtures, carpet
+    ],
+    refinanceLtv: 0.75,
   },
 };
-// Positive weight denominator: 18+25+6+15+10+10+6+5+8 = 103
+// Positive weight denominator: 18+12+10+20+8+5+8+15+8 = 104

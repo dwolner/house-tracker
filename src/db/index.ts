@@ -511,3 +511,40 @@ export function logPoll(area: string, listingsFound: number, newListings: number
     .prepare('INSERT INTO poll_log (polled_at, area, listings_found, new_listings) VALUES (?, ?, ?, ?)')
     .run(new Date().toISOString(), area, listingsFound, newListings);
 }
+
+export function getSoldComps(localeId: string): Record<string, { medianPpsf: number; sampleSize: number }> {
+  const cutoff = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  const rows = getDb()
+    .prepare(`
+      SELECT LOWER(city) as city,
+             CAST(sold_price AS REAL) / sqft as ppsf
+      FROM listings
+      WHERE locale_id = ?
+        AND status = '131'
+        AND sold_price > 0
+        AND sqft > 0
+        AND sold_at >= ?
+      ORDER BY city, ppsf
+    `)
+    .all(localeId, cutoff) as { city: string; ppsf: number }[];
+
+  // Group by city and compute median in JS (SQLite has no MEDIAN aggregate)
+  const byCityPpsf = new Map<string, number[]>();
+  for (const row of rows) {
+    if (!byCityPpsf.has(row.city)) byCityPpsf.set(row.city, []);
+    byCityPpsf.get(row.city)!.push(row.ppsf);
+  }
+
+  const result: Record<string, { medianPpsf: number; sampleSize: number }> = {};
+  for (const [city, values] of byCityPpsf) {
+    if (values.length < 3) continue; // need at least 3 sales to be meaningful
+    const sorted = [...values].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    const median = sorted.length % 2 === 0
+      ? (sorted[mid - 1] + sorted[mid]) / 2
+      : sorted[mid];
+    result[city] = { medianPpsf: Math.round(median), sampleSize: values.length };
+  }
+  return result;
+}

@@ -15,8 +15,8 @@ export async function runPoll(): Promise<{ newHighScoreIds: string[] }> {
     for (const region of locale.regions) {
       try {
         const listings = await (region.useJsonApi
-          ? fetchRegionListingsJson(region.region_id, region.region_type, locale.minBeds, locale.maxPrice)
-          : fetchRegionListings(region.region_id, region.region_type, locale.minBeds, locale.maxPrice));
+          ? fetchRegionListingsJson(region.region_id, region.region_type, locale.minBeds, locale.maxPrice, locale.uipt ?? '1,2,3')
+          : fetchRegionListings(region.region_id, region.region_type, locale.minBeds, locale.maxPrice, locale.uipt ?? '1,2,3'));
         let newCount = 0;
 
         const valid = listings.filter(l =>
@@ -47,8 +47,8 @@ export async function runPoll(): Promise<{ newHighScoreIds: string[] }> {
 
         try {
           const sold = await (region.useJsonApi
-            ? fetchRecentlySoldJson(region.region_id, region.region_type, locale.minBeds, locale.maxPrice)
-            : fetchRecentlySold(region.region_id, region.region_type, locale.minBeds, locale.maxPrice));
+            ? fetchRecentlySoldJson(region.region_id, region.region_type, locale.minBeds, locale.maxPrice, locale.uipt ?? '1,2,3')
+            : fetchRecentlySold(region.region_id, region.region_type, locale.minBeds, locale.maxPrice, locale.uipt ?? '1,2,3'));
           let soldCount = 0;
           for (const s of sold) {
             if (markListingSold(s.id, s.price, s.sold_date, s.days_on_market)) soldCount++;
