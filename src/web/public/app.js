@@ -381,6 +381,21 @@ function computeUpside(l) {
   const totalCashIn = l.price * cfg.downPaymentPct + reno;
   const coc = totalCashIn > 0 ? (netCashFlow * 12) / totalCashIn : 0;
 
+  // Cap rate — NOI / price, financing-independent
+  const noi = rent * 12 * (1 - cfg.vacancyRate - cfg.maintenanceRate)
+              - cfg.insuranceMonthly * 12
+              - l.price * cfg.propertyTaxAnnualRate;
+  const capRate = noi / l.price;
+
+  // Break-even price — what price makes netCashFlow = 0
+  // rent*(1 - vr - mr) - ins = P*((1-dp)*mortgageFactor + taxRate/12)
+  const mortgageFactor = (monthlyRate * Math.pow(1 + monthlyRate, 360))
+                        / (Math.pow(1 + monthlyRate, 360) - 1);
+  const breakEvenPrice = Math.round(
+    (rent * (1 - cfg.vacancyRate - cfg.maintenanceRate) - cfg.insuranceMonthly)
+    / ((1 - cfg.downPaymentPct) * mortgageFactor + cfg.propertyTaxAnnualRate / 12)
+  );
+
   // BRRRR — only when sold comps exist for this city and sqft is known
   let brrrr = null;
   const comps = stlComps[city];
@@ -394,7 +409,7 @@ function computeUpside(l) {
     brrrr = { arv, reno, forcedEquity, refinanceAmt, originalLoan, cashBack, totalCashIn, comps, isFullBrrrr };
   }
 
-  return { rent, mortgage, netCashFlow, coc, reno, totalCashIn, brrrr };
+  return { rent, mortgage, netCashFlow, coc, capRate, breakEvenPrice, reno, totalCashIn, brrrr };
 }
 
 function fmtK(n) {
@@ -413,6 +428,7 @@ function renderInvestmentRows(l) {
   const cfColor = up.netCashFlow >= 0 ? 'var(--green)' : 'var(--red)';
   const cfSign  = up.netCashFlow >= 0 ? '+' : '-';
   const cocPct  = (up.coc * 100).toFixed(1);
+  const capPct  = (up.capRate * 100).toFixed(1);
 
   let brrrrHtml = '';
   if (up.brrrr) {
@@ -423,25 +439,31 @@ function renderInvestmentRows(l) {
     brrrrHtml = `
       <div class="investment-brrrr" onclick="toggleBrrrr(this)">
         <div class="brrrr-summary">
-          <span class="brrrr-arrow">▸</span> BRRRR &nbsp; ARV ${fmtK(b.arv)} · Reno ~${fmtK(b.reno)} · Equity ${fmtK(b.forcedEquity)} · Refi pull ${fmtK(b.cashBack)} ${fullBadge}
+          <span class="brrrr-arrow">▸</span> <span class="tip" data-tip="Buy, Rehab, Rent, Refinance, Repeat — a strategy to recover your down payment via a cash-out refi after adding value through renovation.">BRRRR</span> &nbsp; <span class="tip" data-tip="After-Repair Value: estimated market value after renovation, based on recent sold comps in this area.">ARV</span> ${fmtK(b.arv)} · Reno ~${fmtK(b.reno)} · <span class="tip" data-tip="Value created by buying below market and renovating: ARV minus purchase price minus reno cost.">Equity</span> ${fmtK(b.forcedEquity)} · <span class="tip" data-tip="Cash you'd receive from the refi after paying off the original loan. Positive means capital recovered.">Refi pull</span> ${fmtK(b.cashBack)} ${fullBadge}
         </div>
         <div class="brrrr-detail">
-          <div class="brrrr-row"><span>After-repair value</span><span>$${fmt(b.arv)}</span></div>
+          <div class="brrrr-row"><span><span class="tip" data-tip="Estimated market value after renovation, based on median sold $/sqft from recent comps in this city.">After-repair value</span></span><span>$${fmt(b.arv)}</span></div>
           <div class="brrrr-row brrrr-sub"><span>${b.comps.sampleSize} sold comps in ${l.city} @ $${b.comps.medianPpsf}/sqft</span></div>
-          <div class="brrrr-row"><span>Reno estimate</span><span>~$${fmt(b.reno)}${l.year_built ? ' (built ' + l.year_built + ')' : ''}</span></div>
-          <div class="brrrr-row"><span>Forced equity</span><span>${fmtDollar(b.forcedEquity)}</span></div>
-          <div class="brrrr-row"><span>Refi @ ${(investmentConfig.refinanceLtv * 100).toFixed(0)}% LTV</span><span>$${fmt(b.refinanceAmt)}</span></div>
+          <div class="brrrr-row"><span><span class="tip" data-tip="Estimated light rehab cost based on year built. Pre-1960: ~$40K, 1960–79: ~$25K, 1980–99: ~$15K, 2000+: ~$8K.">Reno estimate</span></span><span>~$${fmt(b.reno)}${l.year_built ? ' (built ' + l.year_built + ')' : ''}</span></div>
+          <div class="brrrr-row"><span><span class="tip" data-tip="ARV minus purchase price minus reno cost. The equity you create through buying below market and improving the property.">Forced equity</span></span><span>${fmtDollar(b.forcedEquity)}</span></div>
+          <div class="brrrr-row"><span><span class="tip" data-tip="How much a lender will loan after renovation, at ${(investmentConfig.refinanceLtv * 100).toFixed(0)}% of the ARV.">Refi @ ${(investmentConfig.refinanceLtv * 100).toFixed(0)}% LTV</span></span><span>$${fmt(b.refinanceAmt)}</span></div>
           <div class="brrrr-row"><span>Original loan</span><span>$${fmt(b.originalLoan)}</span></div>
-          <div class="brrrr-row brrrr-highlight"><span>Cash back</span><span>${fmtDollar(b.cashBack)}</span></div>
-          <div class="brrrr-row"><span>Total cash in</span><span>$${fmt(b.totalCashIn)} (${(investmentConfig.downPaymentPct * 100).toFixed(0)}% down + reno)</span></div>
+          <div class="brrrr-row brrrr-highlight"><span><span class="tip" data-tip="Refi amount minus original loan. This is cash back in your pocket — capital you can redeploy into the next deal.">Cash back</span></span><span>${fmtDollar(b.cashBack)}</span></div>
+          <div class="brrrr-row"><span><span class="tip" data-tip="Down payment plus reno cost — your total capital at risk before the refinance.">Total cash in</span></span><span>$${fmt(b.totalCashIn)} (${(investmentConfig.downPaymentPct * 100).toFixed(0)}% down + reno)</span></div>
         </div>
       </div>`;
   }
 
+  const beColor = up.breakEvenPrice >= l.price ? 'var(--green)' : 'var(--text-dim)';
   return `
     <div class="investment-row">
-      <span>Cash flow <strong style="color:${cfColor}">${cfSign}$${Math.round(Math.abs(up.netCashFlow))}/mo</strong></span>
-      <span>CoC <strong>${cocPct}%</strong></span>
+      <span><span class="tip" data-tip="Monthly rent minus mortgage, vacancy, maintenance, insurance, and property taxes. Green = positive cash flow.">Cash flow</span> <strong style="color:${cfColor}">${cfSign}$${Math.round(Math.abs(up.netCashFlow))}/mo</strong></span>
+      <span><span class="tip" data-tip="Cash-on-Cash: annual cash flow ÷ total cash invested (down payment + reno). Your cash yield on deployed capital.">CoC</span> <strong>${cocPct}%</strong></span>
+      <span><span class="tip" data-tip="Cap Rate: Net Operating Income ÷ purchase price, with no mortgage factored in. The industry-standard way to compare properties regardless of financing. 5%+ is decent, 6%+ is good in STL.">Cap</span> <strong>${capPct}%</strong></span>
+    </div>
+    <div class="investment-row investment-row-sub">
+      <span><span class="tip" data-tip="The maximum price you could pay for this property and still break even on monthly cash flow, at current rates and estimated rents.">Break-even</span> <strong style="color:${beColor}">${fmtK(up.breakEvenPrice)}</strong></span>
+      <span>est. rent <strong>${fmtK(up.rent)}/mo</strong></span>
     </div>
     ${brrrrHtml}`;
 }

@@ -1123,6 +1123,42 @@ html.dark .pending-badge {
 
 /* ── Investment upside rows ─────────────────────────── */
 
+/* ── Inline term tooltips ───────────────────────────── */
+
+.tip {
+  cursor: help;
+  border-bottom: 1px dotted var(--text-dim);
+  position: relative;
+  display: inline;
+}
+
+.tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.5;
+  max-width: 220px;
+  white-space: normal;
+  text-align: left;
+  z-index: 200;
+  pointer-events: none;
+  display: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.tip:hover::after { display: block; }
+
+/* ── Investment upside rows ─────────────────────────── */
+
 .investment-row {
   display: flex;
   gap: 16px;
@@ -1130,6 +1166,13 @@ html.dark .pending-badge {
   border-top: 1px solid var(--border);
   font-size: 12px;
   color: var(--text);
+}
+
+.investment-row-sub {
+  padding-top: 2px;
+  border-top: none;
+  font-size: 11px;
+  color: var(--text-dim);
 }
 
 .investment-brrrr {
