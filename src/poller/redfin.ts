@@ -72,7 +72,7 @@ async function fetchListingsByStatus(
   status: string,
   minBeds: number,
   maxPrice: number,
-  uipt = '1,2,3',
+  uipt: string,
 ): Promise<RedfinListing[]> {
   const params = new URLSearchParams({
     al: '1',
@@ -157,7 +157,7 @@ export async function fetchRecentlySold(
   region_type: number,
   minBeds: number,
   maxPrice: number,
-  uipt = '1,2,3',
+  uipt: string,
 ): Promise<RedfinListing[]> {
   return fetchListingsByStatus(region_id, region_type, '131', minBeds, maxPrice, uipt);
 }
@@ -167,7 +167,7 @@ export async function fetchRegionListings(
   region_type: number,
   minBeds: number,
   maxPrice: number,
-  uipt = '1,2,3',
+  uipt: string,
 ): Promise<RedfinListing[]> {
   const [active, comingSoon, pending] = await Promise.all([
     fetchListingsByStatus(region_id, region_type, '9',   minBeds, maxPrice, uipt),
@@ -271,7 +271,7 @@ async function fetchListingsByStatusJson(
   status: string,
   minBeds: number,
   maxPrice: number,
-  uipt = '1,2,3',
+  uipt: string,
 ): Promise<RedfinListing[]> {
   const params = new URLSearchParams({
     al: '1',
@@ -350,7 +350,7 @@ export async function fetchRecentlySoldJson(
   region_type: number,
   minBeds: number,
   maxPrice: number,
-  uipt = '1,2,3',
+  uipt: string,
 ): Promise<RedfinListing[]> {
   return fetchListingsByStatusJson(region_id, region_type, '131', minBeds, maxPrice, uipt);
 }
@@ -360,7 +360,7 @@ export async function fetchRegionListingsJson(
   region_type: number,
   minBeds: number,
   maxPrice: number,
-  uipt = '1,2,3',
+  uipt: string,
 ): Promise<RedfinListing[]> {
   const [active, comingSoon, pending] = await Promise.all([
     fetchListingsByStatusJson(region_id, region_type, '9',   minBeds, maxPrice, uipt),
