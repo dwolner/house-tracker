@@ -8,6 +8,7 @@ export interface RedfinRegion {
   name: string;
   region_id: string;
   region_type: number;
+  useJsonApi?: boolean; // true for markets where MARIS or other MLS restricts the CSV download API
 }
 
 export interface PropertyTypeConfig {
@@ -106,4 +107,5 @@ export interface LocaleConfig {
   minBeds: number;
   maxPrice: number;
   scoring: ScoringConfig;
+  disableNotifications?: boolean; // suppress email alerts for this locale (e.g. new locales not yet fully configured)
 }

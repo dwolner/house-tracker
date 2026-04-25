@@ -1,0 +1,172 @@
+<h2>Scoring preferences drawer</h2>
+<p class="subtitle">How the side panel looks. Sliders adjust factor importance — listings re-rank live. Which feels right?</p>
+
+<div class="split">
+
+  <div class="mockup">
+    <div class="mockup-header">Option A — Multiplier as label (0× → 2×)</div>
+    <div class="mockup-body" style="padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+      <!-- Simulated app with drawer open -->
+      <div style="display:flex;height:340px;overflow:hidden">
+        <!-- Dimmed listing bg -->
+        <div style="flex:1;padding:10px;opacity:0.35">
+          <div style="background:#161c26;border-radius:4px;padding:8px;margin-bottom:4px;display:flex;justify-content:space-between"><span style="font-size:10px;color:#e2ddd5">123 Main St</span><span style="font-weight:700;color:#4a9e72;font-size:11px">87</span></div>
+          <div style="background:#161c26;border-radius:4px;padding:8px;margin-bottom:4px;display:flex;justify-content:space-between"><span style="font-size:10px;color:#e2ddd5">456 Oak Ave</span><span style="font-weight:700;color:#c4913a;font-size:11px">73</span></div>
+          <div style="background:#161c26;border-radius:4px;padding:8px;display:flex;justify-content:space-between"><span style="font-size:10px;color:#e2ddd5">789 Elm Blvd</span><span style="font-weight:700;color:#c05a47;font-size:11px">54</span></div>
+        </div>
+        <!-- Drawer -->
+        <div style="width:220px;background:#0f1219;border-left:1px solid #1e2636;padding:14px;overflow-y:auto;flex-shrink:0">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <span style="font-size:10px;font-weight:700;color:#e2ddd5;text-transform:uppercase;letter-spacing:.08em">Preferences</span>
+            <span style="font-size:12px;color:#7a8195;cursor:pointer">✕</span>
+          </div>
+
+          <!-- Locale tabs -->
+          <div style="display:flex;gap:4px;margin-bottom:12px">
+            <div style="background:#c4913a;color:#fff;border-radius:3px;padding:3px 8px;font-size:8px;font-weight:700">PA Main Line</div>
+            <div style="background:#161c26;color:#7a8195;border-radius:3px;padding:3px 8px;font-size:8px">San Diego</div>
+            <div style="background:#161c26;color:#7a8195;border-radius:3px;padding:3px 8px;font-size:8px">+ Add</div>
+          </div>
+
+          <!-- Sliders -->
+          <div style="font-size:8px;color:#7a8195;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Factor weights</div>
+
+          <div style="margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+              <span style="font-size:9px;color:#e2ddd5">School District</span>
+              <span style="font-size:9px;font-weight:700;color:#c4913a;font-family:monospace">1.5×</span>
+            </div>
+            <input type="range" min="0" max="200" value="150" style="width:100%;accent-color:#c4913a;height:3px">
+            <div style="display:flex;justify-content:space-between;font-size:7px;color:#303a50"><span>off</span><span>default</span><span>2×</span></div>
+          </div>
+
+          <div style="margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+              <span style="font-size:9px;color:#e2ddd5">Price</span>
+              <span style="font-size:9px;font-weight:700;color:#c4913a;font-family:monospace">1.0×</span>
+            </div>
+            <input type="range" min="0" max="200" value="100" style="width:100%;accent-color:#c4913a;height:3px">
+            <div style="display:flex;justify-content:space-between;font-size:7px;color:#303a50"><span>off</span><span>default</span><span>2×</span></div>
+          </div>
+
+          <div style="margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+              <span style="font-size:9px;color:#e2ddd5">Walkability</span>
+              <span style="font-size:9px;font-weight:700;color:#7a8195;font-family:monospace">0.3×</span>
+            </div>
+            <input type="range" min="0" max="200" value="30" style="width:100%;accent-color:#c4913a;height:3px">
+            <div style="display:flex;justify-content:space-between;font-size:7px;color:#303a50"><span>off</span><span>default</span><span>2×</span></div>
+          </div>
+
+          <div style="margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+              <span style="font-size:9px;color:#e2ddd5">Lot Size</span>
+              <span style="font-size:9px;font-weight:700;color:#c4913a;font-family:monospace">2.0×</span>
+            </div>
+            <input type="range" min="0" max="200" value="200" style="width:100%;accent-color:#c4913a;height:3px">
+            <div style="display:flex;justify-content:space-between;font-size:7px;color:#303a50"><span>off</span><span>default</span><span>2×</span></div>
+          </div>
+
+          <div style="margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+              <span style="font-size:9px;color:#e2ddd5">Transit</span>
+              <span style="font-size:9px;font-weight:700;color:#7a8195;font-family:monospace">0×</span>
+            </div>
+            <input type="range" min="0" max="200" value="0" style="width:100%;accent-color:#c4913a;height:3px">
+            <div style="display:flex;justify-content:space-between;font-size:7px;color:#303a50"><span>off</span><span>default</span><span>2×</span></div>
+          </div>
+
+          <!-- Email -->
+          <div style="border-top:1px solid #1e2636;padding-top:10px;margin-top:4px">
+            <div style="font-size:8px;color:#7a8195;margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em">Notifications</div>
+            <input placeholder="your@email.com" style="width:100%;background:#161c26;border:1px solid #1e2636;border-radius:3px;padding:5px 7px;font-size:9px;color:#e2ddd5;box-sizing:border-box;margin-bottom:6px">
+            <div style="background:#c4913a;border-radius:3px;padding:5px;font-size:9px;font-weight:700;color:#fff;text-align:center;cursor:pointer">Save</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Option B — Named importance levels</div>
+    <div class="mockup-body" style="padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+      <div style="display:flex;height:340px;overflow:hidden">
+        <div style="flex:1;padding:10px;opacity:0.35">
+          <div style="background:#161c26;border-radius:4px;padding:8px;margin-bottom:4px;display:flex;justify-content:space-between"><span style="font-size:10px;color:#e2ddd5">123 Main St</span><span style="font-weight:700;color:#4a9e72;font-size:11px">87</span></div>
+          <div style="background:#161c26;border-radius:4px;padding:8px;margin-bottom:4px;display:flex;justify-content:space-between"><span style="font-size:10px;color:#e2ddd5">456 Oak Ave</span><span style="font-weight:700;color:#c4913a;font-size:11px">73</span></div>
+          <div style="background:#161c26;border-radius:4px;padding:8px;display:flex;justify-content:space-between"><span style="font-size:10px;color:#e2ddd5">789 Elm Blvd</span><span style="font-weight:700;color:#c05a47;font-size:11px">54</span></div>
+        </div>
+        <div style="width:220px;background:#0f1219;border-left:1px solid #1e2636;padding:14px;overflow-y:auto;flex-shrink:0">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <span style="font-size:10px;font-weight:700;color:#e2ddd5;text-transform:uppercase;letter-spacing:.08em">Preferences</span>
+            <span style="font-size:12px;color:#7a8195;cursor:pointer">✕</span>
+          </div>
+
+          <div style="display:flex;gap:4px;margin-bottom:12px">
+            <div style="background:#c4913a;color:#fff;border-radius:3px;padding:3px 8px;font-size:8px;font-weight:700">PA Main Line</div>
+            <div style="background:#161c26;color:#7a8195;border-radius:3px;padding:3px 8px;font-size:8px">San Diego</div>
+            <div style="background:#161c26;color:#7a8195;border-radius:3px;padding:3px 8px;font-size:8px">+ Add</div>
+          </div>
+
+          <div style="font-size:8px;color:#7a8195;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Factor weights</div>
+
+          <!-- Factor rows with named levels -->
+          <div style="margin-bottom:9px">
+            <div style="font-size:9px;color:#e2ddd5;margin-bottom:4px">School District</div>
+            <div style="display:flex;gap:2px">
+              <div style="flex:1;text-align:center;padding:3px 0;border-radius:2px;font-size:7px;background:#161c26;color:#7a8195">Off</div>
+              <div style="flex:1;text-align:center;padding:3px 0;border-radius:2px;font-size:7px;background:#161c26;color:#7a8195">Low</div>
+              <div style="flex:1;text-align:center;padding:3px 0;border-radius:2px;font-size:7px;background:#161c26;color:#7a8195">Default</div>
+              <div style="flex:1;text-align:center;padding:3px 0;border-radius:2px;font-size:7px;background:#c4913a;color:#fff;font-weight:700">High</div>
+              <div style="flex:1;text-align:center;padding:3px 0;border-radius:2px;font-size:7px;background:#161c26;color:#7a8195">Max</div>
+            </div>
+          </div>
+
+          <div style="margin-bottom:9px">
+            <div style="font-size:9px;color:#e2ddd5;margin-bottom:4px">Price</div>
+            <div style="display:flex;gap:2px">
+              <div style="flex:1;text-align:center;padding:3px 0;border-radius:2px;font-size:7px;background:#161c26;color:#7a8195">Off</div>
+              <div style="flex:1;text-align:center;padding:3px 0;border-radius:2px;font-size:7px;background:#161c26;color:#7a8195">Low</div>
+              <div style="flex:1;text-align:center;padding:3px 0;border-radius:2px;font-size:7px;background:#c4913a;color:#fff;font-weight:700">Default</div>
+              <div style="flex:1;text-align:center;padding:3px 0;border-radius:2px;font-size:7px;background:#161c26;color:#7a8195">High</div>
+              <div style="flex:1;text-align:center;padding:3px 0;border-radius:2px;font-size:7px;background:#161c26;color:#7a8195">Max</div>
+            </div>
+          </div>
+
+          <div style="margin-bottom:9px">
+            <div style="font-size:9px;color:#e2ddd5;margin-bottom:4px">Walkability</div>
+            <div style="display:flex;gap:2px">
+              <div style="flex:1;text-align:center;padding:3px 0;border-radius:2px;font-size:7px;background:#161c26;color:#7a8195">Off</div>
+              <div style="flex:1;text-align:center;padding:3px 0;border-radius:2px;font-size:7px;background:#c4913a;color:#fff;font-weight:700">Low</div>
+              <div style="flex:1;text-align:center;padding:3px 0;border-radius:2px;font-size:7px;background:#161c26;color:#7a8195">Default</div>
+              <div style="flex:1;text-align:center;padding:3px 0;border-radius:2px;font-size:7px;background:#161c26;color:#7a8195">High</div>
+              <div style="flex:1;text-align:center;padding:3px 0;border-radius:2px;font-size:7px;background:#161c26;color:#7a8195">Max</div>
+            </div>
+          </div>
+
+          <div style="margin-bottom:9px">
+            <div style="font-size:9px;color:#e2ddd5;margin-bottom:4px">Lot Size</div>
+            <div style="display:flex;gap:2px">
+              <div style="flex:1;text-align:center;padding:3px 0;border-radius:2px;font-size:7px;background:#161c26;color:#7a8195">Off</div>
+              <div style="flex:1;text-align:center;padding:3px 0;border-radius:2px;font-size:7px;background:#161c26;color:#7a8195">Low</div>
+              <div style="flex:1;text-align:center;padding:3px 0;border-radius:2px;font-size:7px;background:#161c26;color:#7a8195">Default</div>
+              <div style="flex:1;text-align:center;padding:3px 0;border-radius:2px;font-size:7px;background:#161c26;color:#7a8195">High</div>
+              <div style="flex:1;text-align:center;padding:3px 0;border-radius:2px;font-size:7px;background:#c4913a;color:#fff;font-weight:700">Max</div>
+            </div>
+          </div>
+
+          <div style="border-top:1px solid #1e2636;padding-top:10px;margin-top:4px">
+            <div style="font-size:8px;color:#7a8195;margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em">Notifications</div>
+            <input placeholder="your@email.com" style="width:100%;background:#161c26;border:1px solid #1e2636;border-radius:3px;padding:5px 7px;font-size:9px;color:#e2ddd5;box-sizing:border-box;margin-bottom:6px">
+            <div style="background:#c4913a;border-radius:3px;padding:5px;font-size:9px;font-weight:700;color:#fff;text-align:center;cursor:pointer">Save</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top:14px;padding:10px;border:1px solid #1e2636;border-radius:6px;font-size:12px;color:#7a8195">
+  Both show locale tabs at the top so you can switch between your PA and SD weights. <strong style="color:#e2ddd5">A uses a continuous slider</strong> (precise, but "1.5×" is slightly abstract). <strong style="color:#e2ddd5">B uses named steps</strong> (Off / Low / Default / High / Max — maps to 0 / 0.5 / 1 / 1.5 / 2×). B is less precise but immediately legible. My lean: <strong style="color:#c4913a">B</strong> — "School District: High" reads better than "1.5×" for most people.
+</div>

@@ -1,0 +1,142 @@
+<h2>Where does the scoring personalization UI live?</h2>
+<p class="subtitle">Where users adjust their factor weights and enter their email for notifications.</p>
+
+<div class="options">
+
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Side drawer / panel</h3>
+      <p>A "Preferences" button in the header opens a slide-in panel from the right. Sliders inside. Listings re-score live as you drag. Close it to go back to the full view.</p>
+      <div class="mockup" style="margin-top:10px">
+        <div class="mockup-header">Mockup</div>
+        <div class="mockup-body" style="padding:0;overflow:hidden;display:flex;height:180px">
+          <!-- Main content -->
+          <div style="flex:1;padding:10px;border-right:2px solid #c4913a">
+            <div style="font-size:9px;color:#7a8195;margin-bottom:6px;text-transform:uppercase;letter-spacing:.08em">Listings (re-scoring live)</div>
+            <div style="background:#161c26;border-radius:4px;padding:6px 8px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:10px;color:#e2ddd5">123 Main St</span>
+              <span style="font-size:11px;font-weight:700;color:#4a9e72">84</span>
+            </div>
+            <div style="background:#161c26;border-radius:4px;padding:6px 8px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:10px;color:#e2ddd5">456 Oak Ave</span>
+              <span style="font-size:11px;font-weight:700;color:#c4913a">71</span>
+            </div>
+            <div style="background:#161c26;border-radius:4px;padding:6px 8px;display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:10px;color:#e2ddd5">789 Elm Blvd</span>
+              <span style="font-size:11px;font-weight:700;color:#c05a47">58</span>
+            </div>
+          </div>
+          <!-- Drawer -->
+          <div style="width:160px;padding:10px;background:#0f1219">
+            <div style="font-size:9px;color:#c4913a;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Preferences ✕</div>
+            <div style="margin-bottom:6px">
+              <div style="font-size:8px;color:#7a8195;margin-bottom:2px">School District</div>
+              <div style="background:#1e2636;border-radius:2px;height:4px"><div style="background:#c4913a;width:80%;height:4px;border-radius:2px"></div></div>
+            </div>
+            <div style="margin-bottom:6px">
+              <div style="font-size:8px;color:#7a8195;margin-bottom:2px">Price</div>
+              <div style="background:#1e2636;border-radius:2px;height:4px"><div style="background:#c4913a;width:60%;height:4px;border-radius:2px"></div></div>
+            </div>
+            <div style="margin-bottom:6px">
+              <div style="font-size:8px;color:#7a8195;margin-bottom:2px">Walkability</div>
+              <div style="background:#1e2636;border-radius:2px;height:4px"><div style="background:#c4913a;width:40%;height:4px;border-radius:2px"></div></div>
+            </div>
+            <div style="margin-bottom:6px">
+              <div style="font-size:8px;color:#7a8195;margin-bottom:2px">Lot Size</div>
+              <div style="background:#1e2636;border-radius:2px;height:4px"><div style="background:#c4913a;width:90%;height:4px;border-radius:2px"></div></div>
+            </div>
+            <div style="margin-top:10px;padding-top:8px;border-top:1px solid #1e2636">
+              <div style="font-size:8px;color:#7a8195;margin-bottom:3px">Notify email</div>
+              <div style="background:#161c26;border:1px solid #1e2636;border-radius:3px;padding:3px 5px;font-size:8px;color:#7a8195">you@example.com</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pros</h4><ul><li>Listings visible while adjusting</li><li>Familiar pattern (Figma, VS Code)</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Narrows the listing view on mobile</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Inline header section</h3>
+      <p>A collapsible row below the main filter bar. Expand it to reveal sliders. Compact when collapsed — just shows current weight profile name.</p>
+      <div class="mockup" style="margin-top:10px">
+        <div class="mockup-header">Mockup</div>
+        <div class="mockup-body" style="padding:10px">
+          <div style="background:#161c26;border-radius:4px;padding:6px 10px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:9px;color:#7a8195">Filters: 3bd+ · $500k–$1.2M · Active</span>
+            <span style="font-size:9px;color:#7a8195">Sort: Score ▼</span>
+          </div>
+          <div style="background:#0f1219;border:1px solid #c4913a;border-radius:4px;padding:6px 10px;margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <span style="font-size:9px;color:#c4913a;font-weight:700;text-transform:uppercase;letter-spacing:.06em">⚡ Scoring weights</span>
+              <span style="font-size:8px;color:#7a8195">collapse ▲</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+              <div><div style="font-size:7px;color:#7a8195">School</div><div style="background:#1e2636;border-radius:2px;height:3px"><div style="background:#c4913a;width:80%;height:3px;border-radius:2px"></div></div></div>
+              <div><div style="font-size:7px;color:#7a8195">Price</div><div style="background:#1e2636;border-radius:2px;height:3px"><div style="background:#c4913a;width:55%;height:3px;border-radius:2px"></div></div></div>
+              <div><div style="font-size:7px;color:#7a8195">Walkability</div><div style="background:#1e2636;border-radius:2px;height:3px"><div style="background:#c4913a;width:35%;height:3px;border-radius:2px"></div></div></div>
+              <div><div style="font-size:7px;color:#7a8195">Lot Size</div><div style="background:#1e2636;border-radius:2px;height:3px"><div style="background:#c4913a;width:90%;height:3px;border-radius:2px"></div></div></div>
+            </div>
+          </div>
+          <div style="background:#161c26;border-radius:4px;padding:6px 8px;margin-bottom:3px;display:flex;justify-content:space-between"><span style="font-size:10px;color:#e2ddd5">123 Main St</span><span style="font-size:11px;font-weight:700;color:#4a9e72">84</span></div>
+          <div style="background:#161c26;border-radius:4px;padding:6px 8px;display:flex;justify-content:space-between"><span style="font-size:10px;color:#e2ddd5">456 Oak Ave</span><span style="font-size:11px;font-weight:700;color:#c4913a">71</span></div>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pros</h4><ul><li>Everything in one scrollable view</li><li>Works well on mobile</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Pushes listings down when open</li><li>Less space for sliders</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Modal / settings page</h3>
+      <p>A "⚙ Preferences" button opens a full-screen modal or dedicated route. More space for sliders, explanations, and the email field. Close to return to listings.</p>
+      <div class="mockup" style="margin-top:10px">
+        <div class="mockup-header">Mockup</div>
+        <div class="mockup-body" style="padding:10px">
+          <div style="background:#0b0d12;border:1px solid #1e2636;border-radius:6px;padding:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <span style="font-size:11px;font-weight:700;color:#e2ddd5">Scoring Preferences</span>
+              <span style="font-size:9px;color:#7a8195">✕ close</span>
+            </div>
+            <div style="margin-bottom:8px">
+              <div style="display:flex;justify-content:space-between"><span style="font-size:9px;color:#e2ddd5">School District</span><span style="font-size:9px;color:#c4913a;font-weight:700">20 pts</span></div>
+              <div style="background:#1e2636;border-radius:2px;height:5px;margin-top:3px"><div style="background:#c4913a;width:80%;height:5px;border-radius:2px"></div></div>
+            </div>
+            <div style="margin-bottom:8px">
+              <div style="display:flex;justify-content:space-between"><span style="font-size:9px;color:#e2ddd5">Price</span><span style="font-size:9px;color:#c4913a;font-weight:700">12 pts</span></div>
+              <div style="background:#1e2636;border-radius:2px;height:5px;margin-top:3px"><div style="background:#c4913a;width:55%;height:5px;border-radius:2px"></div></div>
+            </div>
+            <div style="margin-bottom:8px">
+              <div style="display:flex;justify-content:space-between"><span style="font-size:9px;color:#e2ddd5">Walkability</span><span style="font-size:9px;color:#c4913a;font-weight:700">8 pts</span></div>
+              <div style="background:#1e2636;border-radius:2px;height:5px;margin-top:3px"><div style="background:#c4913a;width:35%;height:5px;border-radius:2px"></div></div>
+            </div>
+            <div style="padding-top:8px;border-top:1px solid #1e2636">
+              <div style="font-size:9px;color:#7a8195;margin-bottom:4px">Email for notifications</div>
+              <div style="background:#161c26;border:1px solid #1e2636;border-radius:3px;padding:4px 8px;font-size:9px;color:#7a8195;margin-bottom:6px">you@example.com</div>
+              <div style="background:#c4913a;border-radius:3px;padding:4px 8px;font-size:9px;font-weight:700;color:#fff;text-align:center">Save preferences</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pros</h4><ul><li>Most space — can show descriptions per factor</li><li>Email field feels at home here</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Can't see listings re-scoring in real time</li><li>Extra navigation step</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top:12px;padding:10px;border:1px solid #1e2636;border-radius:6px;font-size:12px;color:#7a8195">
+  <strong style="color:#e2ddd5">My recommendation: A (side drawer)</strong> — seeing listings re-score as you drag is the killer feature here. A drawer preserves the full listing view while making the adjustment feel immediate and tactile.
+</div>

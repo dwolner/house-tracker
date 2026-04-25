@@ -1,0 +1,78 @@
+<h2>How should users identify themselves?</h2>
+<p class="subtitle">Each approach handles scoring preferences + notification subscriptions differently. Pick the one that feels right.</p>
+
+<div class="options">
+
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>localStorage + email for notifications</h3>
+      <p>Scoring weights live in the browser. User enters email once to subscribe to notifications for their locale. Email saved to localStorage so they don't re-enter it.</p>
+      <div class="pros-cons" style="margin-top:10px">
+        <div class="pros"><h4>Pros</h4><ul>
+          <li>Zero new DB complexity for weights</li>
+          <li>Instant — no "profile" concept at all</li>
+          <li>Only adds a <code>subscribers</code> table (email + locale)</li>
+        </ul></div>
+        <div class="cons"><h4>Cons</h4><ul>
+          <li>Scoring weights lost if browser data cleared</li>
+          <li>Can't move weights between devices</li>
+        </ul></div>
+      </div>
+      <div style="margin-top:10px;padding:8px;background:rgba(74,158,114,0.08);border-radius:6px;font-size:12px">
+        <strong>Flow:</strong> Open app → weights are default → adjust sliders → auto-saved to localStorage. Enter email in notification panel → server stores {email, locale_id}.
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Email-keyed profiles (server-side)</h3>
+      <p>User enters email → creates/loads a profile. Scoring weights stored in DB keyed by email. On return visit, email auto-filled from localStorage, weights loaded from server.</p>
+      <div class="pros-cons" style="margin-top:10px">
+        <div class="pros"><h4>Pros</h4><ul>
+          <li>Weights persist across devices & browsers</li>
+          <li>Email = natural identity (no passwords)</li>
+          <li>Notifications + weights unified under one record</li>
+        </ul></div>
+        <div class="cons"><h4>Cons</h4><ul>
+          <li>New <code>users</code> table + API endpoints</li>
+          <li>User must enter email to get personalized scores</li>
+          <li>Slightly more backend work</li>
+        </ul></div>
+      </div>
+      <div style="margin-top:10px;padding:8px;background:rgba(196,145,58,0.08);border-radius:6px;font-size:12px">
+        <strong>Flow:</strong> Open app → "Enter your email to load preferences" → weights load from server. Adjust sliders → auto-save to server. Notifications go to that email automatically.
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>URL token profiles</h3>
+      <p>Server generates a unique token per user. App URL becomes <code>/?u=abc123</code>. Bookmark it and your preferences follow. Email stored in profile for notifications.</p>
+      <div class="pros-cons" style="margin-top:10px">
+        <div class="pros"><h4>Pros</h4><ul>
+          <li>No "login" at all — URL is identity</li>
+          <li>Easy to share with friend: "here's your link"</li>
+          <li>Works across devices via the URL</li>
+        </ul></div>
+        <div class="cons"><h4>Cons</h4><ul>
+          <li>Lose the URL = lose your profile (recoverable by email)</li>
+          <li>Feels a bit awkward in practice</li>
+          <li>Similar backend complexity to Option B</li>
+        </ul></div>
+      </div>
+      <div style="margin-top:10px;padding:8px;background:rgba(100,100,200,0.08);border-radius:6px;font-size:12px">
+        <strong>Flow:</strong> First visit → server creates profile + redirects to <code>/?u=abc123</code>. You bookmark it. Enter email for notifications. Friend gets their own URL.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top:16px;padding:12px;border:1px solid #1e2636;border-radius:8px;font-size:12px;color:#7a8195">
+  <strong style="color:#e2ddd5">My recommendation: B</strong> — email-keyed profiles. Email is already how notifications work, so it's the natural identity. The extra backend work is minimal (one table, two endpoints), and weights following the user across devices is worth it for a shared app.
+</div>

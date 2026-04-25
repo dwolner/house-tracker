@@ -57,14 +57,32 @@ const PA_POLLING_ZIPS = {
   19406: { label: 'King of Prussia',    color: PA_NEIGHBORHOOD_COLORS['King of Prussia'] },
 };
 
+const STL_NEIGHBORHOODS = [
+  { zip: '63122', name: 'Kirkwood / Glendale',        color: '#4f8ef7' },
+  { zip: '63119', name: 'Webster Groves / Rock Hill',  color: '#22c55e' },
+  { zip: '63143', name: 'Maplewood',                   color: '#a855f7' },
+  { zip: '63117', name: 'Richmond Heights',             color: '#f97316' },
+  { zip: '63124', name: 'Ladue',                        color: '#06b6d4' },
+  { zip: '63105', name: 'Clayton',                      color: '#eab308' },
+  { zip: '63131', name: 'Des Peres',                    color: '#ec4899' },
+  { zip: '63127', name: 'Sunset Hills',                 color: '#14b8a6' },
+  { zip: '63126', name: 'Crestwood',                    color: '#f43f5e' },
+];
+
+const STL_POLLING_REGIONS = Object.fromEntries(
+  STL_NEIGHBORHOODS.map(({ zip, name, color }) => [zip, { label: name, color }])
+);
+
 const LOCALE_AREA_NAMES = {
   'main-line': new Set(['Narberth/Penn Valley','Ardmore','Bryn Mawr','Bala Cynwyd','Merion Station','Haverford','Wynnewood','Wayne','Berwyn','King of Prussia']),
   'san-diego': new Set(['Bay Park / Loma Portal','Point Loma Heights','Kensington / Talmadge','Bay Ho','North Park','Mission Hills','Allied Gardens']),
+  'st-louis':  new Set(['Kirkwood','Glendale','Webster Groves','Rock Hill','Maplewood','Richmond Heights','Ladue','Clayton','Shrewsbury','Des Peres','Sunset Hills','Crestwood']),
 };
 
 const LOCALE_LABELS = {
   'main-line': '— Main Line',
   'san-diego': '— San Diego',
+  'st-louis':  '— St. Louis',
 };
 
 // === INIT & LOCALE SWITCHING ===
@@ -151,6 +169,13 @@ function renderAreaFilter(cities) {
       lbl.innerHTML = `<input type="checkbox" value="${zip}" onchange="toggleArea('${zip}')" /> ${name}`;
       wrap.appendChild(lbl);
     });
+  } else if (activeLocale === 'st-louis') {
+    label.textContent = 'Neighborhood';
+    STL_NEIGHBORHOODS.forEach(({ zip, name }) => {
+      const lbl = document.createElement('label');
+      lbl.innerHTML = `<input type="checkbox" value="${zip}" onchange="toggleArea('${zip}')" /> ${name}`;
+      wrap.appendChild(lbl);
+    });
   } else {
     label.textContent = 'City';
     cities.forEach(city => {
@@ -218,7 +243,7 @@ function applyFilters() {
     if (l.price > maxPrice) return false;
     if (propType && l.property_type?.toLowerCase() !== propType) return false;
     if (selectedAreas.size > 0) {
-      const key = activeLocale === 'san-diego' ? l.zip : l.city?.toLowerCase();
+      const key = (activeLocale === 'san-diego' || activeLocale === 'st-louis') ? l.zip : l.city?.toLowerCase();
       if (!selectedAreas.has(key)) return false;
     }
     if (openHouseOnly && !isUpcoming(l.next_open_house_start)) return false;
@@ -266,6 +291,7 @@ function photoUrl(id) {
   if (id.startsWith('PAMC'))                             region = 235; // PA TREND MLS
   else if (id.startsWith('NDP') || id.startsWith('PTP')) region = 45;  // SD CRMLS
   else if (/^\d{9}$/.test(id))                           region = 48;  // SD SDMLS (Sandicor)
+  else if (/^\d{8}$/.test(id))                           region = 156; // MARIS (St. Louis)
   else return null;
   return `https://ssl.cdn-redfin.com/photo/${region}/mbpaddedwide/${id.slice(-3)}/genMid.${id}_0.jpg`;
 }
@@ -401,10 +427,14 @@ function getFilteredOutcomes() {
   const propType = document.getElementById('f-type').value.toLowerCase();
 
   return outcomesData.listings.filter(l => {
-    // Infer locale from city (outcomes don't have locale_id)
-    const isSD = l.city?.toLowerCase() === 'san diego';
-    if (activeLocale === 'san-diego' && !isSD) return false;
-    if (activeLocale === 'main-line' && isSD) return false;
+    // outcomes have locale_id — use it when present, fall back to city-based heuristic
+    if (l.locale_id) {
+      if (l.locale_id !== activeLocale) return false;
+    } else {
+      const isSD = l.city?.toLowerCase() === 'san diego';
+      if (activeLocale === 'san-diego' && !isSD) return false;
+      if (activeLocale !== 'san-diego' && isSD) return false;
+    }
 
     if ((l.score ?? 0) < minScore) return false;
     if ((l.beds ?? 0) < minBeds) return false;
@@ -412,7 +442,7 @@ function getFilteredOutcomes() {
     if (propType && l.property_type?.toLowerCase() !== propType) return false;
 
     if (selectedAreas.size > 0) {
-      const key = activeLocale === 'san-diego' ? l.zip : l.city?.toLowerCase();
+      const key = (activeLocale === 'san-diego' || activeLocale === 'st-louis') ? l.zip : l.city?.toLowerCase();
       if (!selectedAreas.has(key)) return false;
     }
     return true;
@@ -653,7 +683,7 @@ function renderCards(listings) {
 
   wrap.innerHTML = listings.map(l => {
     const typeLabel = l.property_type
-      ? l.property_type.replace('Single Family Residential', 'SFD')
+      ? l.property_type.replace(/single family residential/i, 'SFD').replace(/single family/i, 'SFD')
       : '?';
     const isPending = l.status === '130' || l.status === 'Pending' || l.status === 'Contingent';
     const imgUrl = photoUrl(l.id);
@@ -706,8 +736,9 @@ const TILE_LIGHT = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.p
 const TILE_DARK  = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
 const TILE_ATTR  = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>';
 
-const PA_MAP = { center: [40.03, -75.37], zoom: 12 };
-const SD_MAP = { center: [32.745, -117.14], zoom: 12 };
+const PA_MAP  = { center: [40.03,  -75.37],  zoom: 12 };
+const SD_MAP  = { center: [32.745, -117.14], zoom: 12 };
+const STL_MAP = { center: [38.575, -90.39],  zoom: 12 };
 
 function markerColor(score) {
   if (score >= 80) return '#22c55e';
@@ -730,6 +761,7 @@ function scoreIcon(score) {
 }
 
 async function fetchZipBoundaries(locale) {
+  if (locale === 'st-louis') return null; // STL uses city boundaries, not ZCTAs
   if (boundaryCache[locale]) return boundaryCache[locale];
   const pollingRegions = locale === 'san-diego' ? SD_POLLING_REGIONS : PA_POLLING_ZIPS;
   const zips = Object.keys(pollingRegions).map(z => `'${z}'`).join(',');
@@ -747,8 +779,8 @@ async function fetchZipBoundaries(locale) {
 
 async function renderMap(listings) {
   const locale = activeLocale;
-  const localeMapCfg = locale === 'san-diego' ? SD_MAP : PA_MAP;
-  const pollingRegions = locale === 'san-diego' ? SD_POLLING_REGIONS : PA_POLLING_ZIPS;
+  const localeMapCfg = locale === 'san-diego' ? SD_MAP : locale === 'st-louis' ? STL_MAP : PA_MAP;
+  const pollingRegions = locale === 'san-diego' ? SD_POLLING_REGIONS : locale === 'st-louis' ? STL_POLLING_REGIONS : PA_POLLING_ZIPS;
   const isDark = document.documentElement.classList.contains('dark');
   const tileUrl = isDark ? TILE_DARK : TILE_LIGHT;
 
@@ -780,6 +812,7 @@ async function renderMap(listings) {
     legendControl.addTo(listingMap);
 
     fetchZipBoundaries(locale).then(geojson => {
+      if (!geojson) return;
       boundaryLayer = L.geoJSON(geojson, {
         style: feature => {
           const zip = feature.properties?.ZCTA5;
@@ -800,7 +833,7 @@ async function renderMap(listings) {
   document.getElementById('map-count').textContent = valid.length + ' listings';
 
   valid.forEach(l => {
-    const typeLabel = l.property_type ? l.property_type.replace('Single Family Residential', 'SFD') : '?';
+    const typeLabel = l.property_type ? l.property_type.replace(/single family residential/i, 'SFD').replace(/single family/i, 'SFD') : '?';
     const oh = l.next_open_house_start
       ? `<div style="margin-top:6px;font-size:11px;color:#2563eb;font-weight:600">🏡 ${l.next_open_house_start}</div>`
       : '';
@@ -838,8 +871,25 @@ PA_CITY_COLORS['penn valley'] = PA_NEIGHBORHOOD_COLORS['Narberth/Penn Valley'];
 
 const SD_CITY_COLORS = { 'san diego': '#ef4444' };
 
+const STL_CITY_COLORS = {
+  'saint louis': '#4f8ef7',  // most addresses show "Saint Louis" as USPS city
+  'kirkwood':    '#4f8ef7',
+  'glendale':    '#22c55e',
+  'webster groves': '#a855f7',
+  'rock hill':   '#f97316',
+  'maplewood':   '#06b6d4',
+  'richmond heights': '#eab308',
+  'ladue':       '#ec4899',
+  'clayton':     '#14b8a6',
+  'shrewsbury':  '#f43f5e',
+  'des peres':   '#8b5cf6',
+  'sunset hills': '#84cc16',
+  'crestwood':   '#fb923c',
+};
+
 function cityColor(city) {
   if (activeLocale === 'san-diego') return SD_CITY_COLORS[city] ?? '#6b7280';
+  if (activeLocale === 'st-louis') return STL_CITY_COLORS[city] ?? '#6b7280';
   return PA_CITY_COLORS[city] ?? '#6b7280';
 }
 
@@ -955,6 +1005,7 @@ function renderInventoryChart(data) {
       const nb = SD_NEIGHBORHOODS.find(n => n.name === area);
       return nb?.color ?? '#6b7280';
     }
+    if (activeLocale === 'st-louis') return STL_CITY_COLORS[area.toLowerCase()] ?? '#6b7280';
     return PA_NEIGHBORHOOD_COLORS[area] ?? '#6b7280';
   };
 

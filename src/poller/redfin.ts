@@ -180,6 +180,142 @@ export async function fetchRegionListings(
   return [...seen.values()];
 }
 
+// ── JSON API path ─────────────────────────────────────────────────────────────
+// Some MLS organisations (e.g. MARIS / St. Louis) restrict the CSV download
+// endpoint.  The JSON GIS endpoint returns equivalent data without that
+// restriction.  region.useJsonApi = true routes to these functions instead.
+
+const UI_PROPERTY_TYPE: Record<number, string> = {
+  1: 'single family residential',
+  2: 'condo',
+  3: 'townhouse',
+  4: 'multi-family',
+  5: 'mobile/manufactured',
+  6: 'co-op',
+  7: 'other',
+  8: 'vacant land',
+};
+
+function msSinceEpochToIso(ms: number | null | undefined): string | null {
+  if (ms == null) return null;
+  const d = new Date(ms);
+  return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+}
+
+// Extract value from Redfin's {value, level} wrapper objects
+function val<T>(wrapped: unknown): T | null {
+  if (wrapped == null || typeof wrapped !== 'object') return null;
+  const v = (wrapped as Record<string, unknown>)['value'];
+  return v != null ? (v as T) : null;
+}
+
+async function fetchListingsByStatusJson(
+  region_id: string,
+  region_type: number,
+  status: string,
+  minBeds: number,
+  maxPrice: number,
+): Promise<RedfinListing[]> {
+  const params = new URLSearchParams({
+    al: '1',
+    region_id,
+    region_type: String(region_type),
+    uipt: '1,2,3',
+    status,
+    num_beds: String(minBeds),
+    max_price: String(maxPrice),
+    num_homes: '350',
+    v: '8',
+  });
+
+  const res = await fetch(`${REDFIN_BASE}/stingray/api/gis?${params}`, { headers: HEADERS });
+  if (!res.ok) throw new Error(`Redfin JSON ${res.status} for region ${region_id}`);
+
+  const text = await res.text();
+  // Redfin wraps JSON in "{}&&" to prevent CSRF
+  const json = JSON.parse(text.replace(/^\{\}&&/, ''));
+  if (json.resultCode !== 0) return [];
+
+  const homes: Record<string, unknown>[] = json.payload?.homes ?? [];
+
+  return homes.flatMap(h => {
+    const price  = val<number>(h['price']);
+    // latLong.value is {latitude, longitude}
+    const latLng = val<{ latitude: number; longitude: number }>(h['latLong']);
+    const lat    = latLng?.latitude ?? null;
+    const lng    = latLng?.longitude ?? null;
+    const mlsId  = val<string>(h['mlsId']);
+
+    if (!price || !lat || !lng || !mlsId) return [];
+
+    const mlsStatus  = (h['mlsStatus'] as string | undefined) ?? '';
+    const uiPropType = (h['uiPropertyType'] as number | undefined) ?? 0;
+    const domVal     = val<number>(h['dom']);
+    const urlPath    = (h['url'] as string | undefined) ?? '';
+    const url        = urlPath.startsWith('http') ? urlPath : `${REDFIN_BASE}${urlPath}`;
+    // soldDate is a ms-epoch timestamp; only meaningful when mlsStatus === 'Sold'
+    const soldDateMs = mlsStatus === 'Sold' ? (h['soldDate'] as number | null | undefined) : null;
+
+    return [
+      {
+        id: String(mlsId),
+        address: (val<string>(h['streetLine']) ?? '').trim(),
+        city:  (h['city']  as string | undefined) ?? '',
+        state: (h['state'] as string | undefined) ?? '',
+        zip:   (h['zip']   as string | undefined) ?? '',
+        price,
+        beds:  (h['beds']  as number | undefined) ?? 0,
+        baths: (h['baths'] as number | undefined) ?? 0,
+        sqft:  val<number>(h['sqFt']),
+        lot_sqft:   val<number>(h['lotSize']),
+        year_built:  val<number>(h['yearBuilt']),
+        walk_score:  null,
+        school_district: null,
+        property_type: UI_PROPERTY_TYPE[uiPropType] ?? null,
+        lat,
+        lng,
+        url,
+        status:      normalizeStatus(mlsStatus),
+        status_label: mlsStatus,
+        days_on_market: domVal,
+        next_open_house_start: null,
+        next_open_house_end:   null,
+        sold_date: msSinceEpochToIso(soldDateMs),
+      } satisfies RedfinListing,
+    ];
+  });
+}
+
+export async function fetchRecentlySoldJson(
+  region_id: string,
+  region_type: number,
+  minBeds: number,
+  maxPrice: number,
+): Promise<RedfinListing[]> {
+  return fetchListingsByStatusJson(region_id, region_type, '131', minBeds, maxPrice);
+}
+
+export async function fetchRegionListingsJson(
+  region_id: string,
+  region_type: number,
+  minBeds: number,
+  maxPrice: number,
+): Promise<RedfinListing[]> {
+  const [active, comingSoon, pending] = await Promise.all([
+    fetchListingsByStatusJson(region_id, region_type, '9',   minBeds, maxPrice),
+    fetchListingsByStatusJson(region_id, region_type, '1',   minBeds, maxPrice),
+    fetchListingsByStatusJson(region_id, region_type, '130', minBeds, maxPrice),
+  ]);
+
+  const seen = new Map<string, RedfinListing>();
+  for (const listing of [...comingSoon, ...pending, ...active]) {
+    seen.set(listing.id, listing);
+  }
+  return [...seen.values()];
+}
+
+// ── CSV API path (original) ────────────────────────────────────────────────────
+
 function parseCSVLine(line: string): string[] {
   const cols: string[] = [];
   let cur = '';

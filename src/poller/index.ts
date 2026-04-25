@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { fetchRegionListings, fetchRecentlySold } from './redfin.js';
+import { fetchRegionListings, fetchRecentlySold, fetchRegionListingsJson, fetchRecentlySoldJson } from './redfin.js';
 import { upsertListing, markListingSold, logPoll, markStaleListingsInactive, pruneOldBreakdowns } from '../db/index.js';
 import { scoreWithBreakdown } from '../scoring/index.js';
 import { runEnrichment } from '../enrichment/walk-score.js';
@@ -14,7 +14,9 @@ export async function runPoll(): Promise<{ newHighScoreIds: string[] }> {
   for (const locale of Object.values(LOCALES)) {
     for (const region of locale.regions) {
       try {
-        const listings = await fetchRegionListings(region.region_id, region.region_type, locale.minBeds, locale.maxPrice);
+        const listings = await (region.useJsonApi
+          ? fetchRegionListingsJson(region.region_id, region.region_type, locale.minBeds, locale.maxPrice)
+          : fetchRegionListings(region.region_id, region.region_type, locale.minBeds, locale.maxPrice));
         let newCount = 0;
 
         const valid = listings.filter(l =>
@@ -34,7 +36,7 @@ export async function runPoll(): Promise<{ newHighScoreIds: string[] }> {
           if (isNew) {
             newCount++;
             console.log(`[poll] NEW ${locale.name} / ${region.name}: ${listing.address}, ${listing.city} — $${listing.price.toLocaleString()} — score: ${breakdown.total.toFixed(1)}`);
-            if (breakdown.total >= NOTIFY_SCORE_THRESHOLD) {
+            if (!locale.disableNotifications && breakdown.total >= NOTIFY_SCORE_THRESHOLD) {
               newHighScoreIds.push(listing.id);
             }
           }
@@ -44,7 +46,9 @@ export async function runPoll(): Promise<{ newHighScoreIds: string[] }> {
         console.log(`[poll] ${locale.name} / ${region.name}: ${listings.length} listings, ${newCount} new`);
 
         try {
-          const sold = await fetchRecentlySold(region.region_id, region.region_type, locale.minBeds, locale.maxPrice);
+          const sold = await (region.useJsonApi
+            ? fetchRecentlySoldJson(region.region_id, region.region_type, locale.minBeds, locale.maxPrice)
+            : fetchRecentlySold(region.region_id, region.region_type, locale.minBeds, locale.maxPrice));
           let soldCount = 0;
           for (const s of sold) {
             if (markListingSold(s.id, s.price, s.sold_date, s.days_on_market)) soldCount++;
