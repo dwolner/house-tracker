@@ -1151,7 +1151,7 @@ html.dark .pending-badge {
 
 .brrrr-summary {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--text-dim);
   line-height: 1.5;
   user-select: none;
 }
@@ -1164,7 +1164,7 @@ html.dark .pending-badge {
   display: none;
   margin-top: 8px;
   padding: 8px;
-  background: var(--surface2, rgba(0,0,0,0.04));
+  background: var(--surface-2, rgba(0,0,0,0.04));
   border-radius: 6px;
   gap: 3px;
   flex-direction: column;
@@ -1183,7 +1183,7 @@ html.dark .pending-badge {
 }
 
 .brrrr-row.brrrr-sub {
-  color: var(--muted);
+  color: var(--text-dim);
   font-size: 10px;
 }
 

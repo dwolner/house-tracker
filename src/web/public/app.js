@@ -377,6 +377,10 @@ function fmtK(n) {
   return (n < 0 ? '-' : '') + '$' + abs + 'K';
 }
 
+function fmtDollar(n) {
+  return (n < 0 ? '-$' : '$') + fmt(Math.abs(Math.round(n)));
+}
+
 function renderInvestmentRows(l) {
   const up = computeUpside(l);
   if (!up) return '';
@@ -394,16 +398,16 @@ function renderInvestmentRows(l) {
     brrrrHtml = `
       <div class="investment-brrrr" onclick="toggleBrrrr(this)">
         <div class="brrrr-summary">
-          ▸ BRRRR &nbsp; ARV ${fmtK(b.arv)} · Reno ~${fmtK(b.reno)} · Equity ${fmtK(b.forcedEquity)} · Refi pull ${fmtK(b.cashBack)} ${fullBadge}
+          <span class="brrrr-arrow">▸</span> BRRRR &nbsp; ARV ${fmtK(b.arv)} · Reno ~${fmtK(b.reno)} · Equity ${fmtK(b.forcedEquity)} · Refi pull ${fmtK(b.cashBack)} ${fullBadge}
         </div>
         <div class="brrrr-detail">
           <div class="brrrr-row"><span>After-repair value</span><span>$${fmt(b.arv)}</span></div>
           <div class="brrrr-row brrrr-sub"><span>${b.comps.sampleSize} sold comps in ${l.city} @ $${b.comps.medianPpsf}/sqft</span></div>
           <div class="brrrr-row"><span>Reno estimate</span><span>~$${fmt(b.reno)}${l.year_built ? ' (built ' + l.year_built + ')' : ''}</span></div>
-          <div class="brrrr-row"><span>Forced equity</span><span>$${fmt(b.forcedEquity)}</span></div>
+          <div class="brrrr-row"><span>Forced equity</span><span>${fmtDollar(b.forcedEquity)}</span></div>
           <div class="brrrr-row"><span>Refi @ ${(investmentConfig.refinanceLtv * 100).toFixed(0)}% LTV</span><span>$${fmt(b.refinanceAmt)}</span></div>
           <div class="brrrr-row"><span>Original loan</span><span>$${fmt(b.originalLoan)}</span></div>
-          <div class="brrrr-row brrrr-highlight"><span>Cash back</span><span>$${fmt(b.cashBack)}</span></div>
+          <div class="brrrr-row brrrr-highlight"><span>Cash back</span><span>${fmtDollar(b.cashBack)}</span></div>
           <div class="brrrr-row"><span>Total cash in</span><span>$${fmt(b.totalCashIn)} (${(investmentConfig.downPaymentPct * 100).toFixed(0)}% down + reno)</span></div>
         </div>
       </div>`;
@@ -418,13 +422,12 @@ function renderInvestmentRows(l) {
 }
 
 function toggleBrrrr(el) {
-  const detail  = el.querySelector('.brrrr-detail');
-  const summary = el.querySelector('.brrrr-summary');
-  const isOpen  = el.classList.contains('brrrr-open');
+  const detail     = el.querySelector('.brrrr-detail');
+  const arrowSpan  = el.querySelector('.brrrr-arrow');
+  const isOpen     = el.classList.contains('brrrr-open');
   el.classList.toggle('brrrr-open', !isOpen);
   detail.style.display = isOpen ? 'none' : '';
-  // Update arrow character
-  summary.textContent = summary.textContent.replace(/^(\s*)[▸▾]/, (_, ws) => ws + (isOpen ? '▸' : '▾'));
+  if (arrowSpan) arrowSpan.textContent = isOpen ? '▸' : '▾';
 }
 
 function scoreClass(s) {
