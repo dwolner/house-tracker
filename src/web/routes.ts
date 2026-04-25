@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
-import { getDb, toggleStar, getOutcomesData } from '../db/index.js';
+import { getDb, toggleStar, getOutcomesData, getSoldComps } from '../db/index.js';
+import { LOCALES } from '../locales/index.js';
 
 export function registerRoutes(app: FastifyInstance) {
   // All listings with optional filters
@@ -134,6 +135,20 @@ export function registerRoutes(app: FastifyInstance) {
     const { runPoll } = await import('../poller/index.js');
     runPoll().catch(console.error); // fire and forget
     return { status: 'polling started' };
+  });
+
+  // Investment config for a locale — returns {} if locale has no investmentConfig
+  app.get('/api/locales/:id/investment', (req) => {
+    const { id } = req.params as { id: string };
+    const locale = LOCALES[id];
+    if (!locale?.investmentConfig) return {};
+    return { investmentConfig: locale.investmentConfig };
+  });
+
+  // Median sold $/sqft by city for the last 12 months (min 3 sales per city)
+  app.get('/api/locales/:id/comps', (req) => {
+    const { id } = req.params as { id: string };
+    return { byCity: getSoldComps(id) };
   });
 
   // Trigger a full poll + digest manually
