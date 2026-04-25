@@ -84,6 +84,10 @@ export interface DomPenaltyConfig {
   weight: number; // max penalty pts — ramp shape is fixed: full at 120+ days, proportional below
 }
 
+export interface DomBonusConfig {
+  weight: number; // max bonus pts — ramp: 0 at 0–30d, 0→4 at 30–60d, 4→weight at 60–120d, weight at 120d+
+}
+
 export interface ScoringConfig {
   propertyType?: PropertyTypeConfig;
   schoolDistrict?: SchoolDistrictConfig;
@@ -97,6 +101,7 @@ export interface ScoringConfig {
   neighborhoodBonus?: NeighborhoodBonusConfig;
   zipBonus?: ZipBonusConfig;
   domPenalty?: DomPenaltyConfig;
+  domBonus?: DomBonusConfig;
 }
 
 export interface LocaleConfig {
