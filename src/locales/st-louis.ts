@@ -125,5 +125,34 @@ export const stLouisLocale: LocaleConfig = {
     // DOM bonus: high DOM signals motivated seller and negotiation room.
     domBonus: { weight: 8 },
   },
+  investmentConfig: {
+    rentByCity: {
+      'kirkwood':         { 2: 1100, 3: 1400, 4: 1700 },
+      'glendale':         { 2: 1100, 3: 1400, 4: 1700 },
+      'des peres':        { 2: 1100, 3: 1400, 4: 1700 },
+      'webster groves':   { 2: 1050, 3: 1300, 4: 1600 },
+      'rock hill':        { 2: 1050, 3: 1300, 4: 1600 },
+      'shrewsbury':       { 2: 1050, 3: 1300, 4: 1600 },
+      'maplewood':        { 2:  950, 3: 1150, 4: 1400 },
+      'richmond heights': { 2:  950, 3: 1150, 4: 1400 },
+      'brentwood':        { 2: 1000, 3: 1250, 4: 1500 },
+      'crestwood':        { 2: 1000, 3: 1250, 4: 1500 },
+      'sunset hills':     { 2: 1000, 3: 1250, 4: 1500 },
+    },
+    downPaymentPct: 0.25,
+    baseRate30yr: 0.069,           // April 2026 — update when rates shift
+    investmentRateAdder: 0.005,
+    vacancyRate: 0.08,
+    maintenanceRate: 0.08,
+    insuranceMonthly: 125,
+    propertyTaxAnnualRate: 0.018,  // MO: assessed @ 19% of FMV × ~9.5% county millage
+    renoTiers: [
+      { maxYearBuilt: 1959, cost: 40_000 },  // full light rehab: plumbing, electrical, kitchen/bath
+      { maxYearBuilt: 1979, cost: 25_000 },  // kitchen/bath refresh, paint, flooring
+      { maxYearBuilt: 1999, cost: 15_000 },  // cosmetic + some mechanical updates
+      { maxYearBuilt: 9999, cost:  8_000 },  // paint, fixtures, carpet
+    ],
+    refinanceLtv: 0.75,
+  },
 };
 // Positive weight denominator: 18+12+10+20+8+5+8+15+8 = 104
