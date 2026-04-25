@@ -31,9 +31,11 @@ export interface WalkabilityConfig {
 
 export interface PriceConfig {
   weight: number;
-  excellent: number;  // price ≤ this → full weight
-  good: number;       // price at this → weight/2
-  max: number;        // price ≥ this → 0
+  excellent: number;   // price ≤ this → full weight
+  good: number;        // price at this → weight/2 (unused when expDecayAbove is set)
+  max: number;         // price ≥ this → 0
+  expDecayAbove?: number; // when set, use exponential decay above this price instead of linear
+  expDecayK?: number;     // steepness of exponential decay (higher = faster drop)
 }
 
 export interface SqftConfig {

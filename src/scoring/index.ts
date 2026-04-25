@@ -80,30 +80,37 @@ export function scoreWithBreakdown(listing: RedfinListing, locale: LocaleConfig)
     addFactor('schoolDistrict', pts, cfg.weight);
   }
 
-  if (scoring.walkability) {
-    const pts = listing.walk_score != null ? (listing.walk_score / 100) * scoring.walkability.weight : 0;
+  if (scoring.walkability && listing.walk_score != null) {
+    const pts = (listing.walk_score / 100) * scoring.walkability.weight;
     addFactor('walkability', pts, scoring.walkability.weight);
   }
 
   if (scoring.price) {
-    const { weight, excellent, good, max } = scoring.price;
-    addFactor('price', scoreThreePt(listing.price, excellent, good, max, weight), weight);
+    const { weight, excellent, good, max, expDecayAbove, expDecayK } = scoring.price;
+    let pts: number;
+    if (expDecayAbove !== undefined && expDecayK !== undefined && listing.price > expDecayAbove) {
+      const range = max - expDecayAbove;
+      pts = listing.price >= max ? 0 : weight * Math.exp(-expDecayK * (listing.price - expDecayAbove) / range);
+    } else {
+      pts = scoreThreePt(listing.price, excellent, good, max, weight);
+    }
+    addFactor('price', pts, weight);
   }
 
   if (scoring.sqft) {
     const cfg = scoring.sqft;
-    const pts = listing.sqft != null
-      ? interpolateBp(listing.sqft, cfg.breakpoints.map(b => ({ floor: b.sqft, points: b.points })))
-      : 0;
-    addFactor('sqft', pts, cfg.weight);
+    if (listing.sqft != null) {
+      const pts = interpolateBp(listing.sqft, cfg.breakpoints.map(b => ({ floor: b.sqft, points: b.points })));
+      addFactor('sqft', pts, cfg.weight);
+    }
   }
 
   if (scoring.lot) {
     const cfg = scoring.lot;
-    const pts = listing.lot_sqft != null
-      ? interpolateBp(listing.lot_sqft / 43_560, cfg.breakpoints.map(b => ({ floor: b.acres, points: b.points })))
-      : 0;
-    addFactor('lot', pts, cfg.weight);
+    if (listing.lot_sqft != null) {
+      const pts = interpolateBp(listing.lot_sqft / 43_560, cfg.breakpoints.map(b => ({ floor: b.acres, points: b.points })));
+      addFactor('lot', pts, cfg.weight);
+    }
   }
 
   if (scoring.transit) {
@@ -120,15 +127,12 @@ export function scoreWithBreakdown(listing: RedfinListing, locale: LocaleConfig)
     addFactor('beds', pts, scoring.beds.weight);
   }
 
-  if (scoring.pricePerSqft) {
+  if (scoring.pricePerSqft && listing.sqft != null && listing.sqft > 0) {
     const { weight, excellentPpsf, maxPpsf } = scoring.pricePerSqft;
-    let pts = 0;
-    if (listing.sqft != null && listing.sqft > 0) {
-      const ppsf = listing.price / listing.sqft;
-      pts = ppsf <= excellentPpsf ? weight
-          : ppsf <= maxPpsf ? weight - ((ppsf - excellentPpsf) / (maxPpsf - excellentPpsf)) * weight
-          : 0;
-    }
+    const ppsf = listing.price / listing.sqft;
+    const pts = ppsf <= excellentPpsf ? weight
+        : ppsf <= maxPpsf ? weight - ((ppsf - excellentPpsf) / (maxPpsf - excellentPpsf)) * weight
+        : 0;
     addFactor('pricePerSqft', pts, weight);
   }
 

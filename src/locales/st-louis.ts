@@ -78,20 +78,21 @@ export const stLouisLocale: LocaleConfig = {
     walkability: { weight: 10 },
     // Investment price ceiling: $250K hard max.
     price: {
-      weight: 20,
-      excellent:   180_000,
-      good:        220_000,
-      max:         250_000,
+      weight:        20,
+      excellent:    225_000,  // ≤$225K → full 20 pts
+      good:         225_000,  // unused (expDecay takes over above excellent)
+      max:          500_000,  // $500K → ~0 pts
+      expDecayAbove: 225_000,
+      expDecayK:     5,       // rapid falloff: $300K≈5pts, $400K≈1pt, $500K≈0pts
     },
     sqft: {
       weight: 8,
       breakpoints: [
         { sqft: 0,     points: 0 },
-        { sqft: 1_000, points: 0 },
-        { sqft: 1_200, points: 2 },
-        { sqft: 1_500, points: 5 },
-        { sqft: 1_800, points: 7 },
-        { sqft: 2_200, points: 8 },
+        { sqft: 800,   points: 2 },   // too small for reliable rent
+        { sqft: 1_000, points: 5 },   // rentable 2BR/3BR
+        { sqft: 1_200, points: 7 },   // investment sweet spot starts
+        { sqft: 1_500, points: 8 },   // solid 3BR rental size
         { sqft: 9_999, points: 8 },
       ],
     },
@@ -111,14 +112,14 @@ export const stLouisLocale: LocaleConfig = {
       weight: 8,
       steps: [
         { minBeds: 4, points: 8 },
-        { minBeds: 3, points: 5 },
-        { minBeds: 2, points: 2 },
+        { minBeds: 3, points: 7 },  // 3BR is the investment sweet spot
+        { minBeds: 2, points: 3 },
       ],
     },
     // Price/sqft is the single best proxy for below-market deals in STL.
     pricePerSqft: {
       weight: 15,
-      excellentPpsf: 120,
+      excellentPpsf: 140,  // STL suburbs realistically run $140-200/sqft for investment
       maxPpsf:       220,
     },
     // zipBonus removed — premium zips are the wrong signal for investment.
