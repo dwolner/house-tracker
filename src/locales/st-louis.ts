@@ -141,17 +141,39 @@ export const stLouisLocale: LocaleConfig = {
       'sunset hills':     { 2: 1000, 3: 1250, 4: 1500 },
     },
     downPaymentPct: 0.25,
-    baseRate30yr: 0.069,           // April 2026 — update when rates shift
+    // baseRate30yr is fetched live from FRED — see src/enrichment/mortgage-rate.ts
     investmentRateAdder: 0.005,
     vacancyRate: 0.08,
-    maintenanceRate: 0.08,
-    insuranceMonthly: 125,
-    propertyTaxAnnualRate: 0.018,  // MO: assessed @ 19% of FMV × ~9.5% county millage
+    // maintenanceRate is computed from year_built (5–13%) — not stored here
+    // insuranceMonthly is computed as price * 0.005 / 12 — not stored here
+
+    // Per-city effective property tax rate (% of purchase price, annual).
+    // Missouri: assessed value = 19% of FMV × total millage rate.
+    // Sources: St. Louis County assessor + individual city levy schedules (2025).
+    taxRateByCity: {
+      'clayton':          0.0142,  // low city levy; Clayton SD (top district)
+      'des peres':        0.0155,  // low city levy + Kirkwood SD
+      'ladue':            0.0151,  // minimal city services, Ladue SD
+      'sunset hills':     0.0163,  // Lindbergh SD, moderate city levy
+      'glendale':         0.0172,  // small city, Kirkwood SD
+      'kirkwood':         0.0175,  // Kirkwood SD, moderate city levy
+      'webster groves':   0.0178,  // Webster SD, slightly higher city levy
+      'rock hill':        0.0178,  // Kirkwood SD, similar to Webster
+      'shrewsbury':       0.0180,  // Affton/Lindbergh SD area
+      'crestwood':        0.0180,  // Lindbergh SD
+      'brentwood':        0.0183,  // Brentwood SD (separate small district)
+      'richmond heights': 0.0185,  // Clayton SD but higher city levy
+      'maplewood':        0.0191,  // Maplewood-Richmond Heights SD, higher city levy
+    },
+    taxRateFallback: 0.0180,       // unincorporated county / unmatched city
+
+    // Renovation cost by age — $/sqft scales naturally with house size.
+    // A 900 sqft cottage and a 2,500 sqft colonial need very different budgets.
     renoTiers: [
-      { maxYearBuilt: 1959, cost: 40_000 },  // full light rehab: plumbing, electrical, kitchen/bath
-      { maxYearBuilt: 1979, cost: 25_000 },  // kitchen/bath refresh, paint, flooring
-      { maxYearBuilt: 1999, cost: 15_000 },  // cosmetic + some mechanical updates
-      { maxYearBuilt: 9999, cost:  8_000 },  // paint, fixtures, carpet
+      { maxYearBuilt: 1959, costPerSqft: 22, minCost: 20_000 },  // plumbing, electrical, kitchen/bath, windows
+      { maxYearBuilt: 1979, costPerSqft: 14, minCost: 12_000 },  // kitchen/bath refresh, paint, flooring, HVAC
+      { maxYearBuilt: 1999, costPerSqft:  8, minCost:  7_000 },  // cosmetic + selective mechanical
+      { maxYearBuilt: 9999, costPerSqft:  4, minCost:  4_000 },  // paint, fixtures, carpet
     ],
     refinanceLtv: 0.75,
     // Redfin returns USPS mail city "Saint Louis" for most county suburbs.

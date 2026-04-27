@@ -66,6 +66,14 @@ export async function startServer(port = 3000) {
   });
   console.log(`[cron] daily poll scheduled (${POLL_SCHEDULE})`);
 
+  // Fetch live mortgage rate on startup (cached 7 days in settings table)
+  const { getCurrentMortgageRate } = await import('../enrichment/mortgage-rate.js');
+  getCurrentMortgageRate().catch(e => console.warn('[startup] mortgage rate fetch failed:', e));
+  // Refresh weekly (every Sunday at 8am)
+  cron.schedule('0 8 * * 0', () => {
+    import('../enrichment/mortgage-rate.js').then(m => m.getCurrentMortgageRate());
+  });
+
   // Catch-up poll: if the server starts and today's poll hasn't run yet, run it now.
   // This handles the common case where the laptop was asleep at the scheduled time.
   const { getDb } = await import('../db/index.js');

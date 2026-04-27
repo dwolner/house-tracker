@@ -136,6 +136,12 @@ export function getDb(): Database.Database {
       listing_id TEXT NOT NULL,
       called_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
   `);
 
   // Migrations
@@ -644,4 +650,16 @@ export function getRentcastUsage(): { thisMonth: number; today: number } {
   const thisMonth = (db.prepare(`SELECT COUNT(*) as n FROM rentcast_usage WHERE called_at >= ?`).get(monthStart) as { n: number }).n;
   const today     = (db.prepare(`SELECT COUNT(*) as n FROM rentcast_usage WHERE called_at >= ?`).get(todayStart + 'T00:00:00') as { n: number }).n;
   return { thisMonth, today };
+}
+
+export function getSetting(key: string): string | null {
+  const row = getDb().prepare(`SELECT value FROM settings WHERE key = ?`).get(key) as { value: string } | undefined;
+  return row?.value ?? null;
+}
+
+export function setSetting(key: string, value: string): void {
+  getDb().prepare(`
+    INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+  `).run(key, value, new Date().toISOString());
 }

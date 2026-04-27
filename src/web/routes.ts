@@ -164,6 +164,13 @@ export function registerRoutes(app: FastifyInstance) {
     return { ...usage, monthlyLimit: 50, dailyLimit: parseInt(process.env.RENTCAST_DAILY_LIMIT ?? '1', 10) };
   });
 
+  // Live 30yr mortgage rate (from FRED, cached 7 days)
+  app.get('/api/mortgage-rate', async () => {
+    const { getCurrentMortgageRate } = await import('../enrichment/mortgage-rate.js');
+    const rate = await getCurrentMortgageRate();
+    return { rate, investmentRate: rate + 0.005, asOf: new Date().toISOString() };
+  });
+
   // Trigger rent estimate refresh for a locale (admin / manual use)
   app.post('/api/locales/:id/rent-estimates/refresh', async (req) => {
     const { id } = req.params as { id: string };

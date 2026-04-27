@@ -107,24 +107,26 @@ export interface ScoringConfig {
 }
 
 export interface RenovationTier {
-  maxYearBuilt: number;  // properties built up to (and including) this year fall in this tier
-  cost: number;          // estimated light rehab cost in dollars
+  maxYearBuilt: number;    // properties built up to (and including) this year fall in this tier
+  costPerSqft: number;     // estimated light rehab cost in $/sqft (scales with house size)
+  minCost: number;         // floor — even a tiny house has fixed costs
 }
 
 export interface InvestmentConfig {
-  // Monthly rent estimates: city (lowercase) → bed count → $/month
+  // Monthly rent estimates: city (lowercase) → bed count → $/month (last-resort fallback)
   rentByCity: Record<string, Record<number, number>>;
 
   // Mortgage assumptions
   downPaymentPct: number;          // e.g. 0.25
-  baseRate30yr: number;            // current 30yr conforming rate — update when market moves
-  investmentRateAdder: number;     // premium over 30yr for investment loans, e.g. 0.005
+  investmentRateAdder: number;     // premium over live 30yr for investment loans, e.g. 0.005
+  // Note: baseRate30yr is fetched live from FRED — not stored here
 
-  // Monthly expense ratios (applied to gross rent or purchase price)
+  // Monthly expense ratios
   vacancyRate: number;             // fraction of gross rent, e.g. 0.08
-  maintenanceRate: number;         // fraction of gross rent, e.g. 0.08
-  insuranceMonthly: number;        // flat $/month
-  propertyTaxAnnualRate: number;   // annual rate applied to purchase price (MO: ~0.018)
+
+  // Per-city annual property tax as % of purchase price (MO: assessed @ 19% FMV × city millage)
+  taxRateByCity: Record<string, number>;
+  taxRateFallback: number;         // used when city not in taxRateByCity
 
   // Renovation estimates by year_built — matched by first tier where year_built <= maxYearBuilt
   renoTiers: RenovationTier[];

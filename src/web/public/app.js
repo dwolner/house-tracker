@@ -11,6 +11,7 @@ let outcomesChart = null;
 let investmentConfig = null;
 let stlComps = {};
 let rentEstimates = {}; // keyed by listing_id — from RentCast via cache
+let liveMortgageRate = null; // fetched from FRED via /api/mortgage-rate on STL init
 
 // === LOCALE CONFIG ===
 
@@ -175,21 +176,25 @@ async function fetchInvestmentData(locale) {
     investmentConfig = null;
     stlComps = {};
     rentEstimates = {};
+    liveMortgageRate = null;
     return;
   }
   try {
-    const [invRes, compsRes, rentRes] = await Promise.all([
+    const [invRes, compsRes, rentRes, rateRes] = await Promise.all([
       fetch("/api/locales/st-louis/investment").then((r) => r.json()),
       fetch("/api/locales/st-louis/comps").then((r) => r.json()),
       fetch("/api/locales/st-louis/rent-estimates").then((r) => r.json()),
+      fetch("/api/mortgage-rate").then((r) => r.json()),
     ]);
     investmentConfig = invRes.investmentConfig ?? null;
     stlComps = compsRes.byCity ?? {};
     rentEstimates = rentRes.byListingId ?? {};
+    liveMortgageRate = rateRes.rate ?? null;
   } catch {
     investmentConfig = null;
     stlComps = {};
     rentEstimates = {};
+    liveMortgageRate = null;
   }
 }
 
@@ -499,47 +504,65 @@ function computeUpside(l) {
   }
   if (!rent) return null;
 
-  // Mortgage P&I (30yr fixed)
+  // Mortgage P&I (30yr fixed) — use live FRED rate if available, else config fallback
+  const base30yr = liveMortgageRate ?? 0.069;
   const loanAmount = l.price * (1 - cfg.downPaymentPct);
-  const monthlyRate = (cfg.baseRate30yr + cfg.investmentRateAdder) / 12;
+  const monthlyRate = (base30yr + cfg.investmentRateAdder) / 12;
   const mortgage =
     (loanAmount * (monthlyRate * Math.pow(1 + monthlyRate, 360))) /
     (Math.pow(1 + monthlyRate, 360) - 1);
 
-  // Monthly expenses
+  // Monthly expenses — computed from listing data, not flat config values
+
+  // Vacancy: flat % of rent (market-wide assumption)
   const vacancy = rent * cfg.vacancyRate;
-  const maintenance = rent * cfg.maintenanceRate;
-  const insurance = cfg.insuranceMonthly;
-  const taxes = (l.price * cfg.propertyTaxAnnualRate) / 12;
+
+  // Maintenance: age-weighted % of rent
+  //   Older homes have more deferred systems; newer homes have lower ongoing cost.
+  const yearBuilt = l.year_built ?? 1979;
+  const maintenanceRate =
+    yearBuilt <= 1959 ? 0.13 :
+    yearBuilt <= 1979 ? 0.10 :
+    yearBuilt <= 1999 ? 0.07 : 0.05;
+  const maintenance = rent * maintenanceRate;
+
+  // Insurance: ~0.5% of purchase price annually (scales with value + rebuild cost)
+  const insurance = (l.price * 0.005) / 12;
+
+  // Property tax: per-city rate (researched from MO assessor data)
+  const taxRate = cfg.taxRateByCity?.[city] ?? cfg.taxRateFallback ?? 0.018;
+  const taxes = (l.price * taxRate) / 12;
 
   const netCashFlow =
     rent - mortgage - vacancy - maintenance - insurance - taxes;
 
-  // Renovation estimate from year_built tier
-  const yearBuilt = l.year_built ?? 9999;
+  // Renovation estimate: $/sqft × house size, with per-tier minimums
   const renoTier = cfg.renoTiers.find((t) => yearBuilt <= t.maxYearBuilt);
-  const reno = renoTier?.cost ?? 8_000;
+  const sqftForReno = l.sqft ?? 1400; // median STL house if unknown
+  const reno = renoTier
+    ? Math.max(renoTier.minCost, Math.round(renoTier.costPerSqft * sqftForReno))
+    : 8_000;
 
   const totalCashIn = l.price * cfg.downPaymentPct + reno;
   const coc = totalCashIn > 0 ? (netCashFlow * 12) / totalCashIn : 0;
 
   // Cap rate — NOI / price, financing-independent
+  // NOI uses the same per-listing expense rates for consistency
   const noi =
-    rent * 12 * (1 - cfg.vacancyRate - cfg.maintenanceRate) -
-    cfg.insuranceMonthly * 12 -
-    l.price * cfg.propertyTaxAnnualRate;
+    rent * 12 * (1 - cfg.vacancyRate - maintenanceRate) -
+    (l.price * 0.005) -       // annual insurance
+    l.price * taxRate;        // annual property tax
   const capRate = noi / l.price;
 
   // Break-even price — what price makes netCashFlow = 0
-  // rent*(1 - vr - mr) - ins = P*((1-dp)*mortgageFactor + taxRate/12)
+  // rent*(1 - vr - mr) - ins(P) - tax(P) = P*(1-dp)*mortgageFactor
+  // rent*(1 - vr - mr) = P*((1-dp)*mortgageFactor + 0.005/12 + taxRate/12)
   const mortgageFactor =
     (monthlyRate * Math.pow(1 + monthlyRate, 360)) /
     (Math.pow(1 + monthlyRate, 360) - 1);
   const breakEvenPrice = Math.round(
-    (rent * (1 - cfg.vacancyRate - cfg.maintenanceRate) -
-      cfg.insuranceMonthly) /
-      ((1 - cfg.downPaymentPct) * mortgageFactor +
-        cfg.propertyTaxAnnualRate / 12),
+    rent * (1 - cfg.vacancyRate - maintenanceRate) /
+    ((1 - cfg.downPaymentPct) * mortgageFactor + 0.005 / 12 + taxRate / 12)
   );
 
   // BRRRR — only when sold comps exist for this city and sqft is known
@@ -578,6 +601,10 @@ function computeUpside(l) {
     reno,
     totalCashIn,
     brrrr,
+    // Expose computed rates for tooltips
+    taxRate,
+    maintenanceRate,
+    base30yr,
   };
 }
 
@@ -610,7 +637,7 @@ function renderInvestmentRows(l) {
         <div class="brrrr-detail">
           <div class="brrrr-row"><span><span class="tip" data-tip="Estimated market value after renovation, based on median sold $/sqft from recent comps in this city.">After-repair value</span></span><span>$${fmt(b.arv)}</span></div>
           <div class="brrrr-row brrrr-sub"><span>${b.comps.sampleSize} sold comps in ${l.city} @ $${b.comps.medianPpsf}/sqft</span></div>
-          <div class="brrrr-row"><span><span class="tip" data-tip="Estimated light rehab cost based on year built. Pre-1960: ~$40K, 1960–79: ~$25K, 1980–99: ~$15K, 2000+: ~$8K.">Reno estimate</span></span><span>~$${fmt(b.reno)}${l.year_built ? " (built " + l.year_built + ")" : ""}</span></div>
+          <div class="brrrr-row"><span><span class="tip" data-tip="Estimated light rehab cost based on year built and house size ($/sqft). Pre-1960: $22/sqft, 1960–79: $14/sqft, 1980–99: $8/sqft, 2000+: $4/sqft.">Reno estimate</span></span><span>~$${fmt(b.reno)}${l.year_built ? " (built " + l.year_built + (l.sqft ? ", " + l.sqft.toLocaleString() + " sqft" : "") + ")" : ""}</span></div>
           <div class="brrrr-row"><span><span class="tip" data-tip="ARV minus purchase price minus reno cost. The equity you create through buying below market and improving the property.">Forced equity</span></span><span>${fmtDollar(b.forcedEquity)}</span></div>
           <div class="brrrr-row"><span><span class="tip" data-tip="How much a lender will loan after renovation, at ${(investmentConfig.refinanceLtv * 100).toFixed(0)}% of the ARV.">Refi @ ${(investmentConfig.refinanceLtv * 100).toFixed(0)}% LTV</span></span><span>$${fmt(b.refinanceAmt)}</span></div>
           <div class="brrrr-row"><span>Original loan</span><span>$${fmt(b.originalLoan)}</span></div>
@@ -624,10 +651,10 @@ function renderInvestmentRows(l) {
     up.breakEvenPrice >= l.price ? "var(--green)" : "var(--text-dim)";
   return `
     <div class="investment-row">
-      <span><span class="tip" data-tip="Monthly rent minus mortgage, vacancy, maintenance, insurance, and property taxes. Green = positive cash flow.">Cash flow</span> <strong style="color:${cfColor}">${cfSign}$${Math.round(Math.abs(up.netCashFlow))}/mo</strong></span>
+      <span><span class="tip" data-tip="Monthly rent minus mortgage, vacancy, maintenance, insurance, and taxes.${liveMortgageRate ? ` Mortgage at ${((liveMortgageRate + (investmentConfig?.investmentRateAdder ?? 0.005)) * 100).toFixed(2)}% (live FRED rate + 0.50% investment premium).` : ""}">Cash flow</span> <strong style="color:${cfColor}">${cfSign}$${Math.round(Math.abs(up.netCashFlow))}/mo</strong></span>
       <span><span class="tip" data-tip="Cash-on-Cash: annual cash flow ÷ total cash invested (down payment + reno). Your cash yield on deployed capital.">CoC</span> <strong>${cocPct}%</strong></span>
       <span><span class="tip" data-tip="Cap Rate: Net Operating Income ÷ purchase price, with no mortgage factored in. The industry-standard way to compare properties regardless of financing. 5%+ is decent, 6%+ is good in STL.">Cap</span> <strong>${capPct}%</strong></span>
-      <span><span class="tip" data-tip="The maximum price you could pay for this property and still break even on monthly cash flow, at current rates and estimated rents.">Break-even</span> <strong style="color:${beColor}">${fmtK(up.breakEvenPrice)}</strong></span>
+      <span><span class="tip" data-tip="Max price you could pay and still break even on monthly cash flow. Uses live mortgage rate, ${((up.taxRate ?? 0.018) * 100).toFixed(2)}% property tax (${l.city}), and age-based maintenance.">Break-even</span> <strong style="color:${beColor}">${fmtK(up.breakEvenPrice)}</strong></span>
       <span><span class="tip" data-tip="${
         up.rentSource === "rentcast"  ? `RentCast estimate${up.rentLow && up.rentHigh ? ` · range $${up.rentLow.toLocaleString()}–$${up.rentHigh.toLocaleString()}/mo` : ""}` :
         up.rentSource === "derived"   ? `Derived from ${allListings.filter(o => o.beds === l.beds && o.sqft && rentEstimates[o.id]?.estimated_rent).length} RentCast comp(s) ($/sqft × this sqft) — real estimate pending` :
