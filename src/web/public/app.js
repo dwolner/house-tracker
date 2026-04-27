@@ -200,6 +200,7 @@ async function switchLocale(locale) {
     LOCALE_LABELS[locale] ?? "";
 
   // Reset filter controls
+  document.getElementById("f-search").value = "";
   document.getElementById("f-score").value = 0;
   document.getElementById("f-score-val").textContent = "0";
   document.getElementById("f-beds").value = "0";
@@ -332,6 +333,10 @@ function applyFilters() {
   const maxPrice = parseInt(document.getElementById("f-price").value);
   const propType = document.getElementById("f-type").value.toLowerCase();
   const openHouseOnly = document.getElementById("f-open-house").checked;
+  const searchTerm = document
+    .getElementById("f-search")
+    .value.trim()
+    .toLowerCase();
 
   const filtered = allListings.filter((l) => {
     if (l.locale_id !== activeLocale) return false;
@@ -339,6 +344,17 @@ function applyFilters() {
     if (l.beds < minBeds) return false;
     if (l.price > maxPrice) return false;
     if (propType && l.property_type?.toLowerCase() !== propType) return false;
+    if (searchTerm) {
+      const addr = l.address?.toLowerCase() ?? "";
+      const city = l.city?.toLowerCase() ?? "";
+      const zip = l.zip ?? "";
+      if (
+        !addr.includes(searchTerm) &&
+        !city.includes(searchTerm) &&
+        !zip.includes(searchTerm)
+      )
+        return false;
+    }
     if (selectedAreas.size > 0) {
       const key =
         activeLocale === "san-diego" || activeLocale === "st-louis"
@@ -367,6 +383,7 @@ function applyFilters() {
 }
 
 function resetFilters() {
+  document.getElementById("f-search").value = "";
   document.getElementById("f-score").value = 0;
   document.getElementById("f-score-val").textContent = "0";
   document.getElementById("f-beds").value = "0";
@@ -409,7 +426,9 @@ function photoUrl(id) {
 function fmtAcres(sqft) {
   if (sqft == null) return "—";
   const ac = sqft / 43560;
-  return ac < 0.1 ? sqft.toLocaleString() + " sqft" : ac.toFixed(2) + " ac";
+  if (ac >= 0.1) return ac.toFixed(2) + " ac";
+  if (sqft >= 1000) return Math.round(sqft / 1000) + "k sf";
+  return sqft + " sf";
 }
 
 function computeUpside(l) {
@@ -533,13 +552,10 @@ function renderInvestmentRows(l) {
   let brrrrHtml = "";
   if (up.brrrr) {
     const b = up.brrrr;
-    const fullBadge = b.isFullBrrrr
-      ? '<span class="brrrr-full-badge">Full BRRRR</span>'
-      : "";
     brrrrHtml = `
       <div class="investment-brrrr" onclick="toggleBrrrr(this)">
         <div class="brrrr-summary">
-          <span class="brrrr-arrow">▸</span> <span class="tip" data-tip="Buy, Rehab, Rent, Refinance, Repeat — a strategy to recover your down payment via a cash-out refi after adding value through renovation.">BRRRR</span> &nbsp; <span class="tip" data-tip="After-Repair Value: estimated market value after renovation, based on recent sold comps in this area.">ARV</span> ${fmtK(b.arv)} · Reno ~${fmtK(b.reno)} · <span class="tip" data-tip="Value created by buying below market and renovating: ARV minus purchase price minus reno cost.">Equity</span> ${fmtK(b.forcedEquity)} · <span class="tip" data-tip="Cash you'd receive from the refi after paying off the original loan. Positive means capital recovered.">Refi pull</span> ${fmtK(b.cashBack)} ${fullBadge}
+          <span class="brrrr-arrow" style="font-size: 1rem;">▸</span> <span class="tip ${b.isFullBrrrr ? "brrrr-full-badge" : ""}" data-tip="Buy, Rehab, Rent, Refinance, Repeat — a strategy to recover your down payment via a cash-out refi after adding value through renovation.">BRRRR ${b.isFullBrrrr ? "👍" : "👎"}</span> &nbsp; <span class="tip" data-tip="After-Repair Value: estimated market value after renovation, based on recent sold comps in this area.">ARV</span> ${fmtK(b.arv)} · Reno ~${fmtK(b.reno)} · <span class="tip" data-tip="Value created by buying below market and renovating: ARV minus purchase price minus reno cost.">Equity</span> ${fmtK(b.forcedEquity)} · <span class="tip" data-tip="Cash you'd receive from the refi after paying off the original loan. Positive means capital recovered.">Refi pull</span> ${fmtK(b.cashBack)}
         </div>
         <div class="brrrr-detail">
           <div class="brrrr-row"><span><span class="tip" data-tip="Estimated market value after renovation, based on median sold $/sqft from recent comps in this city.">After-repair value</span></span><span>$${fmt(b.arv)}</span></div>
@@ -561,8 +577,6 @@ function renderInvestmentRows(l) {
       <span><span class="tip" data-tip="Monthly rent minus mortgage, vacancy, maintenance, insurance, and property taxes. Green = positive cash flow.">Cash flow</span> <strong style="color:${cfColor}">${cfSign}$${Math.round(Math.abs(up.netCashFlow))}/mo</strong></span>
       <span><span class="tip" data-tip="Cash-on-Cash: annual cash flow ÷ total cash invested (down payment + reno). Your cash yield on deployed capital.">CoC</span> <strong>${cocPct}%</strong></span>
       <span><span class="tip" data-tip="Cap Rate: Net Operating Income ÷ purchase price, with no mortgage factored in. The industry-standard way to compare properties regardless of financing. 5%+ is decent, 6%+ is good in STL.">Cap</span> <strong>${capPct}%</strong></span>
-    </div>
-    <div class="investment-row investment-row-sub">
       <span><span class="tip" data-tip="The maximum price you could pay for this property and still break even on monthly cash flow, at current rates and estimated rents.">Break-even</span> <strong style="color:${beColor}">${fmtK(up.breakEvenPrice)}</strong></span>
       <span>est. rent <strong>${fmtK(up.rent)}/mo</strong></span>
     </div>
@@ -587,13 +601,12 @@ function scoreClass(s) {
 function domLabel(dom) {
   if (dom == null) return "";
   if (investmentConfig) {
-    // Investment mode: high DOM = motivated seller (bonus starts at 30d)
-    if (dom > 30) return `<span class="dom-ok">(${dom}d ↑)</span>`;
-    return `<span class="dom-ok">(${dom}d)</span>`;
+    if (dom > 30) return `<span class="dom-ok">${dom}d ↑</span>`;
+    return `<span class="dom-ok">${dom}d</span>`;
   }
-  if (dom > 120) return `<span class="dom-warn">(⚠ ${dom} d)</span>`;
-  if (dom > 30) return `<span class="dom-mild">(~${dom} d)</span>`;
-  return `<span class="dom-ok">(${dom} d)</span>`;
+  if (dom <= 7) return `<span class="dom-ok">${dom}d ↑</span>`;
+  if (dom > 30) return `<span class="dom-ok">${dom}d ↓</span>`;
+  return `<span class="dom-ok">${dom}d</span>`;
 }
 
 function priceChange(l) {
@@ -601,7 +614,7 @@ function priceChange(l) {
   const diff = l.price - l.price_at_first_seen;
   const sign = diff < 0 ? "▼" : "▲";
   const color = diff < 0 ? "var(--green)" : "var(--red)";
-  return `<span style="font-size:11px;color:${color};margin-left:6px">${sign} $${Math.abs(diff).toLocaleString()}</span>`;
+  return `<span style="font-size:16px;color:${color};margin-left:6px"><span style="font-size:10px;">${sign}</span> $${Math.abs(diff).toLocaleString()}</span>`;
 }
 
 // === SCORE BREAKDOWN BARS ===
@@ -654,6 +667,48 @@ function parseBreakdown(raw) {
   }
 }
 
+const scoreTipContent = {};
+
+function buildScoreTip(bd) {
+  const factors = Object.entries(bd.factors);
+  const rows = factors.map(([key, { pts, max }]) => {
+    const label = FACTOR_LABELS[key] ?? key;
+    const pct = max > 0 ? Math.max(0, pts) / max : 0;
+    const normalized = Math.round(pct * 100);
+    const barColor =
+      key === "domPenalty" && pts > 0
+        ? "var(--red)"
+        : pts === 0
+          ? "var(--border)"
+          : pct >= 0.7
+            ? "var(--green)"
+            : pct >= 0.4
+              ? "var(--yellow)"
+              : "var(--red)";
+    return `<div style="display:flex;align-items:center;gap:7px;margin:3px 0">
+      <span style="width:52px;flex-shrink:0;font-size:9px;color:var(--text-dim);letter-spacing:0.03em;text-transform:uppercase">${label}</span>
+      <div style="flex:1;height:14px;background:var(--surface-2);border-radius:3px;overflow:hidden">
+        <div style="width:max(${normalized}%,18px);height:100%;background:${barColor};border-radius:3px;display:flex;align-items:center;justify-content:flex-end;padding-right:4px;box-sizing:border-box">
+          <span style="font-size:9px;font-weight:700;font-family:var(--font-data);color:#fff;text-shadow:0 0 3px rgba(0,0,0,0.5)">${normalized}</span>
+        </div>
+      </div>
+    </div>`;
+  });
+  return `<div style="padding:2px 0;min-width:200px">${rows.join("")}</div>`;
+}
+
+function scoreBadge(l) {
+  const score = Math.round(l.score);
+  const cls = scoreClass(score);
+  const bd = parseBreakdown(l.score_breakdown);
+  if (bd && bd.factors && Object.keys(bd.factors).length > 0) {
+    const tipId = `score-${l.id ?? l.zpid ?? Math.random()}`;
+    scoreTipContent[tipId] = buildScoreTip(bd);
+    return `<div class="score-badge ${cls}" data-tip-id="${tipId}" style="cursor:help">${score}</div>`;
+  }
+  return `<div class="score-badge ${cls}">${score}</div>`;
+}
+
 function scoreBars(raw) {
   const bd = parseBreakdown(raw);
   if (!bd) return "";
@@ -682,13 +737,14 @@ function scoreBars(raw) {
   </div>`;
 }
 
-// === OPEN HOUSE BADGE ===
+// === OPEN HOUSE ===
 
-function openHouseBadge(l) {
-  if (!l.next_open_house_start) return "";
+// Returns tooltip string for the tip-box, or null if no upcoming open house.
+function openHouseTooltip(l) {
+  if (!l.next_open_house_start) return null;
   const start = parseOpenHouseDate(l.next_open_house_start);
   const end = parseOpenHouseDate(l.next_open_house_end);
-  if (!start || start < startOfToday()) return "";
+  if (!start || start < startOfToday()) return null;
   const opts = { weekday: "short", month: "short", day: "numeric" };
   const timeOpts = { hour: "numeric", minute: "2-digit" };
   const dateStr = start.toLocaleDateString(undefined, opts);
@@ -697,10 +753,7 @@ function openHouseBadge(l) {
     ? " – " + end.toLocaleTimeString(undefined, timeOpts)
     : "";
   const weekend = isThisWeekend(l.next_open_house_start);
-  return `<div class="open-house-badge${weekend ? " open-house-soon" : ""}">
-    <div class="oh-header"><span class="oh-icon">🏡</span> Open House</div>
-    <div class="oh-when">${dateStr} · ${startTime}${endTime}</div>
-  </div>`;
+  return `Open House${weekend ? " · This Weekend" : ""} · ${dateStr} · ${startTime}${endTime}`;
 }
 
 // === PENDING OUTCOMES ===
@@ -1035,6 +1088,18 @@ function renderOutcomes(data) {
 
 // === CARDS ===
 
+function getNeighborhood(l) {
+  if (activeLocale === "san-diego") {
+    const nb = SD_NEIGHBORHOODS.find((n) => n.zip === l.zip);
+    return nb?.name ?? null;
+  }
+  if (activeLocale === "st-louis") {
+    const nb = STL_NEIGHBORHOODS.find((n) => n.zip === l.zip);
+    return nb?.name ?? null;
+  }
+  return null;
+}
+
 function renderCards(listings) {
   const wrap = document.getElementById("cards");
   document.getElementById("results-count").textContent =
@@ -1057,38 +1122,42 @@ function renderCards(listings) {
         l.status === "Pending" ||
         l.status === "Contingent";
       const imgUrl = photoUrl(l.id);
+      const ohTip = openHouseTooltip(l);
+      const neighborhood = getNeighborhood(l);
+      const metaLine = [neighborhood, l.school_district]
+        .filter(Boolean)
+        .join(" · ");
       return `<div class="card${isPending ? " card-pending" : ""}">
-      ${
-        imgUrl
-          ? `<img class="card-photo" src="${imgUrl}" alt="${l.address}" onerror="this.outerHTML='<div class=\\'card-photo card-photo-placeholder\\'><span>🏠</span></div>'">`
-          : `<div class="card-photo card-photo-placeholder"><span>🏠</span></div>`
-      }
+      <div class="card-photo-wrap">
+        ${
+          imgUrl
+            ? `<img class="card-photo" src="${imgUrl}" alt="${l.address}" onerror="this.outerHTML='<div class=\\'card-photo card-photo-placeholder\\'><span>🏠</span></div>'">`
+            : `<div class="card-photo card-photo-placeholder"><span>🏠</span></div>`
+        }
+        <span class="type-pill type-pill-img">${typeLabel}</span>
+      </div>
       <div class="card-header">
         <div>
+          <div class="card-price">$${fmt(l.price)}${priceChange(l)}</div>
           <div class="card-address">${l.address}${isPending ? ` <span class="pending-badge">${l.status_label || "Pending"}</span>` : ""}</div>
           <div class="card-city">${l.city}, ${l.state ?? ""} ${l.zip}</div>
-          ${l.school_district ? `<div class="card-sd">${l.school_district}</div>` : ""}
+          ${metaLine ? `<div class="card-meta">${metaLine}</div>` : ""}
         </div>
-        <div class="score-badge ${scoreClass(l.score)}">${Math.round(l.score)}</div>
-      </div>
-      <div style="display:flex;align-items:flex-start;gap:8px">
-        <div style="flex:1;min-width:0">
-          <div class="card-price">$${fmt(l.price)}${priceChange(l)}</div>
-          <div class="card-price-sub">Listed ${l.first_seen_at ? new Date(l.first_seen_at).toLocaleDateString() : "—"}${l.days_on_market != null ? " · " + domLabel(l.days_on_market) : ""}</div>
+        <div style="display:flex-col;justify-content: center;gap:6px;">
+          ${scoreBadge(l)}
+          ${l.days_on_market != null ? `<div class="card-price-sub">${domLabel(l.days_on_market)}</div>` : ""}
         </div>
-        ${openHouseBadge(l)}
       </div>
       <div class="card-stats">
-        <div class="stat"><div class="stat-val">${l.beds} / ${l.baths}</div><div class="stat-lbl">Bed / Bth</div></div>
+        <div class="stat"><div class="stat-val">${l.beds} | ${l.baths}</div><div class="stat-lbl">Beds | Baths</div></div>
         <div class="stat"><div class="stat-val">${l.sqft ? fmt(l.sqft) : "—"}</div><div class="stat-lbl">Sq Ft</div></div>
         <div class="stat"><div class="stat-val">${fmtAcres(l.lot_sqft)}</div><div class="stat-lbl">Lot</div></div>
         <div class="stat"><div class="stat-val">${l.sqft ? "$" + Math.round(l.price / l.sqft) : "—"}</div><div class="stat-lbl">$/Sq Ft</div></div>
       </div>
-      ${scoreBars(l.score_breakdown)}
       ${renderInvestmentRows(l)}
       <div class="card-footer">
         <a class="redfin-link" href="${l.url}" target="_blank" rel="noopener">View on Redfin →</a>
-        <span class="type-pill">${typeLabel}</span>
+        ${ohTip ? `<span class="oh-action${isThisWeekend(l.next_open_house_start) ? " oh-soon" : ""}" data-tip="${ohTip}">🏠</span>` : ""}
         <button class="star-btn${l.starred ? " starred" : ""}" onclick="toggleStar('${l.id}', this)" title="Star this listing">${l.starred ? "★" : "☆"}</button>
       </div>
     </div>`;
@@ -1629,11 +1698,15 @@ document.addEventListener("DOMContentLoaded", () => {
 init();
 
 // ── Tooltip (fixed position — escapes overflow:hidden cards) ──
-document.addEventListener("mouseover", (e) => {
+function showTip(el) {
   const tipBox = document.getElementById("tip-box");
-  const el = e.target.closest("[data-tip]");
-  if (!el) return;
-  tipBox.textContent = el.dataset.tip;
+  if (el.dataset.tipId) {
+    const html = scoreTipContent[el.dataset.tipId];
+    if (!html) return;
+    tipBox.innerHTML = html;
+  } else {
+    tipBox.textContent = el.dataset.tip;
+  }
   tipBox.style.display = "block";
   const rect = el.getBoundingClientRect();
   const tbRect = tipBox.getBoundingClientRect();
@@ -1642,8 +1715,13 @@ document.addEventListener("mouseover", (e) => {
   left = Math.max(8, Math.min(left, window.innerWidth - tbRect.width - 8));
   tipBox.style.left = left + "px";
   tipBox.style.top = top + "px";
+}
+document.addEventListener("mouseover", (e) => {
+  const el = e.target.closest("[data-tip],[data-tip-id]");
+  if (el) showTip(el);
 });
 document.addEventListener("mouseout", (e) => {
   const tipBox = document.getElementById("tip-box");
-  if (e.target.closest("[data-tip]")) tipBox.style.display = "none";
+  if (e.target.closest("[data-tip],[data-tip-id]"))
+    tipBox.style.display = "none";
 });

@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>House Tracker</title>
     <script>
       // Apply saved theme before render to prevent flash
@@ -77,6 +77,11 @@
         </div>
 
         <div id="filters">
+          <div class="filter-group">
+            <label>Search</label>
+            <input type="text" id="f-search" placeholder="Address, city, zip…" oninput="applyFilters()" autocomplete="off" />
+          </div>
+
           <div class="filter-group">
             <div class="filter-label-row">
               <label>Min Score</label>

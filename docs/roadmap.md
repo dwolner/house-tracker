@@ -3,6 +3,7 @@
 ## Up Next
 
 ### Preference Learning
+
 - **Interactive scoring calibration** — surface listings across the score spectrum and learn from your reactions
   - Dedicated calibration view: shows a curated set of low/medium/high scored listings side by side
   - For each listing: thumbs up/down + optional freetext reason ("too small", "love the neighborhood", "price is too high")
@@ -14,18 +15,21 @@
   - Long term: auto-apply learned weights per locale, track score drift over time
 
 ### Intelligence
+
 - **Starred listing weighting** — use starred listings as a preference signal
   - Extract feature vector from starred set (city, sqft range, price range, school district)
   - Tag new listings "similar to your favorites" in dashboard and email
   - Can share the feedback table with the calibration system above
 
 ### Analytics
+
 - **Historical stats panel** — sold comps and market trends using inactive listings
   - Median list price by city over time
   - Average days on market trends
   - Score distribution of what actually sold vs. what lingered
 
 ### Dashboard
+
 - **Price history sparkline** — small inline chart per card showing price over time
   - `price_history` table already populated; needs a Chart.js sparkline per listing card
 
@@ -57,3 +61,26 @@
 
 **Last Updated:** April 24, 2026
 **Author:** Daniel Wolner
+
+Manual User Notes
+
+STL investment listings:
+sort options
+by score
+by cashflow
+by Cap
+investment stats improve design
+
+All:
+lot size is sometimes in sqft (bug or bad data?), pushes height of card
+DOM description, shows if pos or neg
+Condo/multi-family on card formatting, not an action, move from bottom of card
+add search
+add neighborhood/zip to card
+re position open house box
+tune down importance of DOM
+increase price diff font size
+improve bottom mobile bar to be above safari controls and always stick to bottom
+
+Advanced:
+integrate score breakdown into overall score circle as a pie chart outline with segments, hover over each to see more details, increase size
