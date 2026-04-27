@@ -47,6 +47,24 @@ export function getDb(): Database.Database {
   if (_db) return _db;
 
   fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+
+  // Check for pending restore file (uploaded by push-db.sh)
+  const restorePath = DB_PATH.replace(/\.db$/, '_restore.db');
+  if (fs.existsSync(restorePath)) {
+    console.log('[db] restore file found, swapping in...');
+    try {
+      // Remove main DB and its WAL files before rename to prevent WAL corruption
+      for (const suffix of ['', '-shm', '-wal']) {
+        const p = DB_PATH + suffix;
+        if (fs.existsSync(p)) fs.unlinkSync(p);
+      }
+      fs.renameSync(restorePath, DB_PATH);
+      console.log('[db] restore complete');
+    } catch (e) {
+      console.error('[db] restore failed:', e);
+    }
+  }
+
   _db = new Database(DB_PATH);
   _db.pragma('journal_mode = WAL');
 

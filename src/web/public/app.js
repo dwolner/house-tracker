@@ -478,7 +478,7 @@ function computeUpside(l) {
       .filter(o => o.id !== l.id && o.locale_id === "st-louis" && o.beds === l.beds && o.sqft && rentEstimates[o.id]?.estimated_rent)
       .map(o => rentEstimates[o.id].estimated_rent / o.sqft);
 
-    if (compRates.length >= 2) {
+    if (compRates.length >= 1) {
       const sorted = [...compRates].sort((a, b) => a - b);
       const median = sorted[Math.floor(sorted.length / 2)];
       rent = Math.round(median * l.sqft);
@@ -630,7 +630,7 @@ function renderInvestmentRows(l) {
       <span><span class="tip" data-tip="The maximum price you could pay for this property and still break even on monthly cash flow, at current rates and estimated rents.">Break-even</span> <strong style="color:${beColor}">${fmtK(up.breakEvenPrice)}</strong></span>
       <span><span class="tip" data-tip="${
         up.rentSource === "rentcast"  ? `RentCast estimate${up.rentLow && up.rentHigh ? ` · range $${up.rentLow.toLocaleString()}–$${up.rentHigh.toLocaleString()}/mo` : ""}` :
-        up.rentSource === "derived"   ? `Derived from ${allListings.filter(o => o.beds === l.beds && o.sqft && rentEstimates[o.id]?.estimated_rent).length} RentCast comps (median $/sqft × this sqft) — real estimate pending` :
+        up.rentSource === "derived"   ? `Derived from ${allListings.filter(o => o.beds === l.beds && o.sqft && rentEstimates[o.id]?.estimated_rent).length} RentCast comp(s) ($/sqft × this sqft) — real estimate pending` :
                                         "Estimated from city/beds table — no sqft comps available yet"
       }">${
         up.rentSource === "rentcast" ? "comp rent" :
