@@ -10,6 +10,7 @@ let scoreTrendChart = null;
 let outcomesChart = null;
 let investmentConfig = null;
 let stlComps = {};
+let rentEstimates = {}; // keyed by listing_id — from RentCast via cache
 
 // === LOCALE CONFIG ===
 
@@ -162,7 +163,7 @@ async function init() {
     (l) => l.locale_id === activeLocale,
   );
   await fetchInvestmentData(activeLocale);
-  renderCards(localeListings);
+  applyFilters();
   renderMap(localeListings).catch(() => {});
   renderInventoryChart(rawInventoryData);
   renderTrendCharts(rawTrendsData);
@@ -173,18 +174,22 @@ async function fetchInvestmentData(locale) {
   if (locale !== "st-louis") {
     investmentConfig = null;
     stlComps = {};
+    rentEstimates = {};
     return;
   }
   try {
-    const [invRes, compsRes] = await Promise.all([
+    const [invRes, compsRes, rentRes] = await Promise.all([
       fetch("/api/locales/st-louis/investment").then((r) => r.json()),
       fetch("/api/locales/st-louis/comps").then((r) => r.json()),
+      fetch("/api/locales/st-louis/rent-estimates").then((r) => r.json()),
     ]);
     investmentConfig = invRes.investmentConfig ?? null;
     stlComps = compsRes.byCity ?? {};
+    rentEstimates = rentRes.byListingId ?? {};
   } catch {
     investmentConfig = null;
     stlComps = {};
+    rentEstimates = {};
   }
 }
 
@@ -208,6 +213,7 @@ async function switchLocale(locale) {
     locale === "st-louis" ? "500000" : "9999999";
   document.getElementById("f-type").value = "";
   document.getElementById("f-open-house").checked = false;
+  document.getElementById("f-sort").value = "score";
 
   const statsRes = await fetch(`/api/stats?locale_id=${locale}`).then((r) =>
     r.json(),
@@ -220,7 +226,7 @@ async function switchLocale(locale) {
     (l) => l.locale_id === activeLocale,
   );
   await fetchInvestmentData(locale);
-  renderCards(localeListings);
+  applyFilters();
   renderMap(localeListings).catch(() => {});
   if (rawInventoryData.length) renderInventoryChart(rawInventoryData);
   if (rawTrendsData) renderTrendCharts(rawTrendsData);
@@ -328,11 +334,15 @@ function isThisWeekend(dateStr) {
 }
 
 function applyFilters() {
+  const isStl = activeLocale === "st-louis";
+  document.getElementById("sort-group").style.display = isStl ? "" : "none";
+
   const minScore = parseFloat(document.getElementById("f-score").value);
   const minBeds = parseInt(document.getElementById("f-beds").value);
   const maxPrice = parseInt(document.getElementById("f-price").value);
   const propType = document.getElementById("f-type").value.toLowerCase();
   const openHouseOnly = document.getElementById("f-open-house").checked;
+  const sortBy = document.getElementById("f-sort").value;
   const searchTerm = document
     .getElementById("f-search")
     .value.trim()
@@ -375,6 +385,20 @@ function applyFilters() {
       if (dateDiff !== 0) return dateDiff;
       return b.score - a.score;
     });
+  } else if (isStl && sortBy !== "score") {
+    filtered.sort((a, b) => {
+      const ua = computeUpside(a);
+      const ub = computeUpside(b);
+      if (sortBy === "cashflow") {
+        return (ub?.netCashFlow ?? -Infinity) - (ua?.netCashFlow ?? -Infinity);
+      }
+      if (sortBy === "cap") {
+        return (ub?.capRate ?? -Infinity) - (ua?.capRate ?? -Infinity);
+      }
+      return 0;
+    });
+  } else {
+    filtered.sort((a, b) => b.score - a.score);
   }
 
   renderCards(filtered);
@@ -391,6 +415,7 @@ function resetFilters() {
     activeLocale === "st-louis" ? "500000" : "9999999";
   document.getElementById("f-type").value = "";
   document.getElementById("f-open-house").checked = false;
+  document.getElementById("f-sort").value = "score";
   selectedAreas.clear();
   document
     .querySelectorAll("#city-checks input")
@@ -435,21 +460,43 @@ function computeUpside(l) {
   if (!investmentConfig || l.locale_id !== "st-louis") return null;
   const cfg = investmentConfig;
 
-  // Rent lookup — city match first, zip fallback for USPS aliases (e.g. "Saint Louis")
+  // Rent priority:
+  //   1. Real RentCast estimate for this listing
+  //   2. Derived from existing RentCast comps (median $/sqft by bed count × this listing's sqft)
+  //   3. Static city/beds table
+  let rent = 0;
+  let rentSource = "table";
   const city = (l.city ?? "").toLowerCase().trim();
-  const resolvedCity = cfg.rentByCity[city]
-    ? city
-    : (cfg.zipToCity?.[l.zip] ?? null);
-  const cityRents = resolvedCity ? cfg.rentByCity[resolvedCity] : null;
-  if (!cityRents) return null;
-  const availBeds = Object.keys(cityRents)
-    .map(Number)
-    .sort((a, b) => a - b);
-  const clampedBeds = Math.max(
-    availBeds[0],
-    Math.min(availBeds[availBeds.length - 1], l.beds ?? 3),
-  );
-  const rent = cityRents[clampedBeds] ?? 0;
+  const cached = rentEstimates[l.id];
+
+  if (cached?.estimated_rent) {
+    rent = cached.estimated_rent;
+    rentSource = "rentcast";
+  } else if (l.sqft) {
+    // Derive from comps: listings with real estimates, same bed count, and sqft data
+    const compRates = allListings
+      .filter(o => o.id !== l.id && o.locale_id === "st-louis" && o.beds === l.beds && o.sqft && rentEstimates[o.id]?.estimated_rent)
+      .map(o => rentEstimates[o.id].estimated_rent / o.sqft);
+
+    if (compRates.length >= 2) {
+      const sorted = [...compRates].sort((a, b) => a - b);
+      const median = sorted[Math.floor(sorted.length / 2)];
+      rent = Math.round(median * l.sqft);
+      rentSource = "derived";
+    }
+  }
+
+  if (!rent) {
+    // Static table fallback — city match first, zip fallback for USPS aliases
+    const resolvedCity = cfg.rentByCity[city]
+      ? city
+      : (cfg.zipToCity?.[l.zip] ?? null);
+    const cityRents = resolvedCity ? cfg.rentByCity[resolvedCity] : null;
+    if (!cityRents) return null;
+    const availBeds = Object.keys(cityRents).map(Number).sort((a, b) => a - b);
+    const clampedBeds = Math.max(availBeds[0], Math.min(availBeds[availBeds.length - 1], l.beds ?? 3));
+    rent = cityRents[clampedBeds] ?? 0;
+  }
   if (!rent) return null;
 
   // Mortgage P&I (30yr fixed)
@@ -520,6 +567,9 @@ function computeUpside(l) {
 
   return {
     rent,
+    rentSource,
+    rentLow: cached?.rent_low ?? null,
+    rentHigh: cached?.rent_high ?? null,
     mortgage,
     netCashFlow,
     coc,
@@ -578,7 +628,15 @@ function renderInvestmentRows(l) {
       <span><span class="tip" data-tip="Cash-on-Cash: annual cash flow ÷ total cash invested (down payment + reno). Your cash yield on deployed capital.">CoC</span> <strong>${cocPct}%</strong></span>
       <span><span class="tip" data-tip="Cap Rate: Net Operating Income ÷ purchase price, with no mortgage factored in. The industry-standard way to compare properties regardless of financing. 5%+ is decent, 6%+ is good in STL.">Cap</span> <strong>${capPct}%</strong></span>
       <span><span class="tip" data-tip="The maximum price you could pay for this property and still break even on monthly cash flow, at current rates and estimated rents.">Break-even</span> <strong style="color:${beColor}">${fmtK(up.breakEvenPrice)}</strong></span>
-      <span>est. rent <strong>${fmtK(up.rent)}/mo</strong></span>
+      <span><span class="tip" data-tip="${
+        up.rentSource === "rentcast"  ? `RentCast estimate${up.rentLow && up.rentHigh ? ` · range $${up.rentLow.toLocaleString()}–$${up.rentHigh.toLocaleString()}/mo` : ""}` :
+        up.rentSource === "derived"   ? `Derived from ${allListings.filter(o => o.beds === l.beds && o.sqft && rentEstimates[o.id]?.estimated_rent).length} RentCast comps (median $/sqft × this sqft) — real estimate pending` :
+                                        "Estimated from city/beds table — no sqft comps available yet"
+      }">${
+        up.rentSource === "rentcast" ? "comp rent" :
+        up.rentSource === "derived"  ? "derived rent" :
+                                       "est. rent"
+      }</span> <strong>$${up.rent.toLocaleString()}/mo</strong></span>
     </div>
     ${brrrrHtml}`;
 }

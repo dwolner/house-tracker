@@ -45,7 +45,7 @@
 - [x] New listing email — dark-themed card-style digest, only for listings above score threshold
 - [x] Price drop / status change email — batched daily digest from cron, not manual polls
 - [x] Inactive listing detection — listings not seen in 36h marked inactive; score_breakdown pruned after 6 months
-- [x] Open house mode — badge on cards, sidebar filter, sorts by soonest date
+- [x] Open house mode — badge in card footer, sidebar filter, sorts by soonest date; tip-box tooltip shows day/time
 - [x] Pending/under contract tracking — status=130 polled, active→pending transition recorded with `pending_at` + `pending_price`
 - [x] Sold tracking — status=131 polled each region, `sold_at` + `sold_price` recorded for tracked listings
 - [x] Outcomes analytics — Inventory tab shows pending count, sold count, median DOM, list→pending Δ, list→sale Δ, scatter chart (DOM vs price %), full table
@@ -58,29 +58,20 @@
 - [x] Dockerfile — npm-based, multi-stage Node 20 build; static assets copied separately
 - [x] DB_PATH env var — `src/db/index.ts` reads `process.env.DB_PATH`, falls back to local `data/`
 - [x] Fly.io deployment — live at `house-tracker-kgg27w.fly.dev`; persistent volume, all secrets deployed, daily cron running
+- [x] St. Louis locale — 12 suburbs (Kirkwood, Glendale, Webster Groves, Rock Hill, Maplewood, Richmond Heights, Ladue, Clayton, Shrewsbury, Des Peres, Sunset Hills, Crestwood); investment-tuned scoring (price/sqft dominant, lot de-weighted, DOM bonus for motivated sellers); `useJsonApi: true` routes to Redfin's JSON GIS endpoint to bypass MARIS MLS CSV restriction
+- [x] Investment mode (STL) — `computeUpside()` computes cash flow, CoC return, cap rate, break-even price, and BRRRR analysis per listing; driven by per-city rent table and locale `investmentConfig`; investment rows rendered on STL cards with color-coded cash flow and tooltips on all terms
+- [x] STL sold comps — `getSoldComps()` computes median $/sqft from the last 12 months of sold listings per city (min 3 sales); powers BRRRR ARV estimate
+- [x] Rent estimates via RentCast — `src/enrichment/rent-estimate.ts` fetches comp-based rent estimates (beds + baths + sqft); cached in `rental_estimates` (30-day TTL); hard limits: 50/month and 1/day (`RENTCAST_DAILY_LIMIT`) enforced via `rentcast_usage` table; three-tier fallback: real estimate → derived (median $/sqft from existing comps × sqft) → static city/beds table; card label and tooltip reflect source
+- [x] Investment sort options (STL) — sidebar sort control (score / cash flow / cap rate); only visible on STL locale; resets on locale switch
+- [x] Dynamic property type filter — populated from live data per locale via `/api/stats`; replaces hardcoded options
+- [x] Address search filter — free-text search across address, city, and zip
+- [x] Score badge tooltip — hovering the score circle shows a compact bar breakdown of each scoring factor, normalized to 0–100, color-coded by performance tier
+- [x] Card UI overhaul — lot size abbreviation (ac/k sf/sf); DOM directional signals (↑/↓); property type pill overlaid on photo (top-right, blurred background); neighborhood + school district merged to one dim line; open house moved to card footer as green action button; photo gradient overlay; listed date removed (DOM only shown)
+- [x] Global tip-box tooltip system — single fixed-position `#tip-box` div that escapes `overflow:hidden` card clipping; supports plain text (`data-tip`) and rich HTML (`data-tip-id` + JS map)
+- [x] Mobile nav improvements — `env(safe-area-inset-bottom)` padding for iOS Safari; Filters slide-in panel with overlay on mobile
+- [x] Price filter default per locale — STL defaults to $500K max; resets correctly on locale switch
 
-**Last Updated:** April 24, 2026
+---
+
+**Last Updated:** April 27, 2026
 **Author:** Daniel Wolner
-
-Manual User Notes
-
-STL investment listings:
-sort options
-by score
-by cashflow
-by Cap
-investment stats improve design
-
-All:
-lot size is sometimes in sqft (bug or bad data?), pushes height of card
-DOM description, shows if pos or neg
-Condo/multi-family on card formatting, not an action, move from bottom of card
-add search
-add neighborhood/zip to card
-re position open house box
-tune down importance of DOM
-increase price diff font size
-improve bottom mobile bar to be above safari controls and always stick to bottom
-
-Advanced:
-integrate score breakdown into overall score circle as a pie chart outline with segments, hover over each to see more details, increase size

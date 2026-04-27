@@ -102,6 +102,22 @@ export function getDb(): Database.Database {
       listings_found INTEGER NOT NULL,
       new_listings INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS rental_estimates (
+      listing_id TEXT PRIMARY KEY,
+      estimated_rent INTEGER NOT NULL,
+      rent_low INTEGER,
+      rent_high INTEGER,
+      source TEXT NOT NULL,
+      fetched_at TEXT NOT NULL,
+      FOREIGN KEY (listing_id) REFERENCES listings(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS rentcast_usage (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      listing_id TEXT NOT NULL,
+      called_at TEXT NOT NULL
+    );
   `);
 
   // Migrations
@@ -547,4 +563,67 @@ export function getSoldComps(localeId: string): Record<string, { medianPpsf: num
     result[city] = { medianPpsf: Math.round(median), sampleSize: values.length };
   }
   return result;
+}
+
+export interface RentalEstimate {
+  listing_id: string;
+  estimated_rent: number;
+  rent_low: number | null;
+  rent_high: number | null;
+  source: string;
+  fetched_at: string;
+}
+
+export function upsertRentalEstimate(est: RentalEstimate): void {
+  getDb().prepare(`
+    INSERT INTO rental_estimates (listing_id, estimated_rent, rent_low, rent_high, source, fetched_at)
+    VALUES (@listing_id, @estimated_rent, @rent_low, @rent_high, @source, @fetched_at)
+    ON CONFLICT(listing_id) DO UPDATE SET
+      estimated_rent = excluded.estimated_rent,
+      rent_low       = excluded.rent_low,
+      rent_high      = excluded.rent_high,
+      source         = excluded.source,
+      fetched_at     = excluded.fetched_at
+  `).run(est);
+}
+
+// Returns all rental estimates for active listings in the given locale, keyed by listing_id.
+export function getRentalEstimates(localeId: string): Record<string, RentalEstimate> {
+  const rows = getDb().prepare(`
+    SELECT re.*
+    FROM rental_estimates re
+    JOIN listings l ON l.id = re.listing_id
+    WHERE l.locale_id = ? AND l.status NOT IN ('inactive', '130')
+  `).all(localeId) as RentalEstimate[];
+
+  return Object.fromEntries(rows.map(r => [r.listing_id, r]));
+}
+
+// Returns listing IDs in a locale that need rent estimates (never fetched, or older than maxAgeDays).
+export function getListingsNeedingRentEstimate(localeId: string, maxAgeDays = 30): Listing[] {
+  const cutoff = new Date(Date.now() - maxAgeDays * 24 * 60 * 60 * 1000).toISOString();
+  return getDb().prepare(`
+    SELECT l.*
+    FROM listings l
+    LEFT JOIN rental_estimates re ON re.listing_id = l.id
+    WHERE l.locale_id = ?
+      AND l.status NOT IN ('inactive', '130')
+      AND (re.listing_id IS NULL OR re.fetched_at < ?)
+  `).all(localeId, cutoff) as Listing[];
+}
+
+export function logRentcastCall(listingId: string): void {
+  getDb().prepare(`INSERT INTO rentcast_usage (listing_id, called_at) VALUES (?, ?)`)
+    .run(listingId, new Date().toISOString());
+}
+
+export function getRentcastUsage(): { thisMonth: number; today: number } {
+  const db = getDb();
+  const now = new Date();
+  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  const todayStart = now.toISOString().slice(0, 10);
+
+  const thisMonth = (db.prepare(`SELECT COUNT(*) as n FROM rentcast_usage WHERE called_at >= ?`).get(monthStart) as { n: number }).n;
+  const today     = (db.prepare(`SELECT COUNT(*) as n FROM rentcast_usage WHERE called_at >= ?`).get(todayStart + 'T00:00:00') as { n: number }).n;
+  return { thisMonth, today };
 }

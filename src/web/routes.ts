@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { getDb, toggleStar, getOutcomesData, getSoldComps } from '../db/index.js';
+import { getDb, toggleStar, getOutcomesData, getSoldComps, getRentalEstimates, getRentcastUsage } from '../db/index.js';
 import { LOCALES } from '../locales/index.js';
 
 export function registerRoutes(app: FastifyInstance) {
@@ -150,6 +150,26 @@ export function registerRoutes(app: FastifyInstance) {
   app.get('/api/locales/:id/comps', (req) => {
     const { id } = req.params as { id: string };
     return { byCity: getSoldComps(id) };
+  });
+
+  // Cached RentCast estimates for all active listings in a locale
+  app.get('/api/locales/:id/rent-estimates', (req) => {
+    const { id } = req.params as { id: string };
+    return { byListingId: getRentalEstimates(id) };
+  });
+
+  // RentCast usage tracking
+  app.get('/api/rentcast/usage', () => {
+    const usage = getRentcastUsage();
+    return { ...usage, monthlyLimit: 50, dailyLimit: parseInt(process.env.RENTCAST_DAILY_LIMIT ?? '1', 10) };
+  });
+
+  // Trigger rent estimate refresh for a locale (admin / manual use)
+  app.post('/api/locales/:id/rent-estimates/refresh', async (req) => {
+    const { id } = req.params as { id: string };
+    const { refreshRentEstimates } = await import('../enrichment/rent-estimate.js');
+    const result = await refreshRentEstimates(id);
+    return result;
   });
 
   // Trigger a full poll + digest manually

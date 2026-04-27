@@ -7,6 +7,7 @@
     "web": "tsx src/index.ts",
     "poll": "tsx src/poller/index.ts",
     "enrich": "tsx src/enrichment/walk-score.ts",
+    "rent-estimate": "tsx src/enrichment/rent-estimate.ts",
     "build": "tsc",
     "start": "node dist/index.js"
   },

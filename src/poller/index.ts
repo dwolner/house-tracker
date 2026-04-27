@@ -3,6 +3,7 @@ import { fetchRegionListings, fetchRecentlySold, fetchRegionListingsJson, fetchR
 import { upsertListing, markListingSold, logPoll, markStaleListingsInactive, pruneOldBreakdowns } from '../db/index.js';
 import { scoreWithBreakdown } from '../scoring/index.js';
 import { runEnrichment } from '../enrichment/walk-score.js';
+import { refreshRentEstimates } from '../enrichment/rent-estimate.js';
 import { NOTIFY_SCORE_THRESHOLD } from '../notifications/email.js';
 import { LOCALES } from '../locales/index.js';
 
@@ -74,6 +75,7 @@ export async function runPoll(): Promise<{ newHighScoreIds: string[] }> {
   if (pruned > 0) console.log(`[poll] pruned score_breakdown from ${pruned} old inactive listing(s)`);
 
   await runEnrichment();
+  await refreshRentEstimates('st-louis');
 
   return { newHighScoreIds };
 }

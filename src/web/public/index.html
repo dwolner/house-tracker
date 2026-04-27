@@ -150,6 +150,15 @@
             </label>
           </div>
 
+          <div class="filter-group" id="sort-group" style="display:none">
+            <label>Sort By</label>
+            <select id="f-sort" onchange="applyFilters()">
+              <option value="score">Score</option>
+              <option value="cashflow">Cash Flow</option>
+              <option value="cap">Cap Rate</option>
+            </select>
+          </div>
+
           <button class="reset-btn" onclick="resetFilters()">
             Reset Filters
           </button>
