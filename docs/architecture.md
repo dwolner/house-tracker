@@ -42,45 +42,56 @@ To add a locale: create `src/locales/{name}.ts`, export a `LocaleConfig`, add it
 
 ```
 src/
-  locales/          — locale definitions and scoring config (see above)
+  locales/           — locale definitions and scoring config (see above)
   poller/
-    redfin.ts       — Redfin CSV + JSON GIS API clients
-    index.ts        — Poll orchestration (iterates LOCALES → regions, upserts listings, runs enrichment)
+    redfin.ts        — Redfin CSV + JSON GIS API clients
+    index.ts         — Poll orchestration (iterates LOCALES → regions, upserts listings, runs enrichment)
   enrichment/
-    walk-score.ts   — Walk score enrichment (pulls from Redfin's internal API)
-    rent-estimate.ts — RentCast rent estimate enrichment (beds+baths+sqft comps, cached in DB)
+    walk-score.ts    — Walk score enrichment (pulls from Redfin's internal API)
+    rent-estimate.ts — RentCast rent estimates + resolveRentOverride (3-tier rent priority)
+    mortgage-rate.ts — FRED 30yr fixed rate (cached in memory, 6.9% fallback)
   scoring/
-    index.ts        — Locale-aware weighted scoring engine (scoreWithBreakdown)
+    index.ts         — Locale-aware weighted scoring engine (scoreWithBreakdown)
   db/
-    index.ts        — SQLite schema, migrations, upsert logic, outcomes tracking, rent estimates
+    index.ts         — SQLite schema, migrations, upsert logic, outcomes tracking, rent estimates
   web/
-    server.ts       — Fastify server + node-cron scheduler
-    routes.ts       — API routes
+    server.ts        — Fastify server + node-cron scheduler
+    routes.ts        — API routes + /email-preview
     public/
-      index.html    — Static shell
-      app.js        — Client JS (filters, sort, investment mode, score tooltip, map, charts)
-      style.css     — CSS custom properties for light/dark theme
-  index.ts          — Entry point
+      index.html     — Static shell
+      app.js         — Client JS (filters, sort, investment mode, score tooltip, map, charts)
+      style.css      — CSS custom properties for light/dark theme
+  notifications/
+    email.ts         — Email digest: dark + light palette, buildPreviewHtml export
+  rescore.ts         — Standalone rescore script (re-scores all listings, optional locale filter)
+  index.ts           — Entry point (seeds FRED rate at startup)
+scripts/
+  push-db.sh         — Checkpoint WAL + upload local DB to Fly.io persistent volume
+  clear-stale.sh     — Remove inactive listings older than threshold
 data/
-  listings.db       — SQLite database (gitignored)
+  listings.db        — SQLite database (gitignored)
 ```
 
 ## Data Flow
 
 ```
 pnpm poll
+  └─ getCurrentMortgageRate()  — FRED 30yr rate (cached; fallback 6.9%)
   └─ for each locale in LOCALES:
+       rentalEstimates = getRentalEstimatesWithSqft(locale.id)  — if investmentConfig present
        for each region in locale.regions:
          fetchRegionListings() / fetchRegionListingsJson()  — Redfin CSV or JSON API
          drop listings where state ≠ locale.state
-         scoreWithBreakdown(l, locale)  — 0–100 + per-factor breakdown
+         rentResolution = resolveRentOverride(l, rentalEstimates, locale)  — 3-tier rent
+         scoreWithBreakdown(l, locale, rentResolution)  — 0–100 + per-factor breakdown + rentUsed/rentSource
          upsertListing({ ...l, locale_id: locale.id, score, breakdown })
          logPoll()
        fetchRecentlySold() / fetchRecentlySoldJson()  — mark sold listings
   └─ markStaleListingsInactive()  — 36h absence → inactive
   └─ pruneOldBreakdowns()         — remove score_breakdown after 6 months inactive
   └─ runEnrichment()              — backfill walk scores
-  └─ refreshRentEstimates('st-louis')  — fetch RentCast estimates for new/stale STL listings
+  └─ for each locale with investmentConfig:
+       refreshRentEstimates(locale.id)  — fetch RentCast estimates for new/stale listings (round-robin ZIP)
 
 pnpm enrich
   └─ getListingsMissingWalkScore()     — SELECT WHERE walk_score IS NULL
@@ -90,6 +101,13 @@ pnpm enrich
 
 pnpm rent-estimate
   └─ refreshRentEstimates('st-louis')  — manual one-shot run of rent estimate enrichment
+
+pnpm rescore [locale]
+  └─ fetches current FRED mortgage rate
+  └─ for each scored listing (optional locale filter):
+       resolveRentOverride(listing, estimates, locale)  — 3-tier rent resolution
+       scoreWithBreakdown(listing, locale, rentResolution)
+       UPDATE listings SET score, score_breakdown
 
 pnpm web  (or pnpm dev)
   └─ Fastify serves src/web/public/
@@ -132,22 +150,35 @@ GET https://api.rentcast.io/v1/avm/rent/long-term
 Returns `{ rent, rentRangeLow, rentRangeHigh }`. Results cached in `rental_estimates` table and only re-fetched after 30 days.
 
 **Usage limits** — enforced in DB via `rentcast_usage` table (logged before each call):
-- 50 calls/month hard cap — checked before every run, zero calls made if hit
+- 50 calls/30-day period hard cap — period start derived from `MIN(called_at)` in `rentcast_usage`; auto-rolls every 30 days without config changes
 - `RENTCAST_DAILY_LIMIT` calls/day (default: 1) — raise temporarily for backfill, then revert
 - `GET /api/rentcast/usage` returns `{ thisMonth, today, monthlyLimit, dailyLimit }`
 
-**Rent source priority** in `computeUpside()`:
-1. **Real estimate** (`rentcast`) — cached RentCast result for this exact listing
-2. **Derived estimate** (`derived`) — median $/sqft from real comps with same bed count × this listing's sqft; requires ≥2 comps; improves automatically as more real estimates accumulate
-3. **Static table** (`table`) — `rentByCity` city + bed count lookup; fallback when no comps available
+**Rent resolution — 3-tier priority** (`resolveRentOverride` in `rent-estimate.ts`):
+1. **Direct** (`rentcast`) — cached RentCast AVM result for this exact listing
+2. **Derived** (`derived`) — premium-ratio method: `median(RentCast[comp] / table[comp])` across same-bed comps × this listing's table rent; normalizes geographic noise (Kirkwood comps don't artificially inflate South City estimates); requires ≥1 comp
+3. **Table** (`table`) — `rentByCity[city][beds]` static fallback
 
-Card label reflects source: **"comp rent"** (real), **"derived rent"** (interpolated), **"est. rent"** (static table). Tooltip shows range or comp count.
+`rentUsed` and `rentSource` are stored in `score_breakdown` JSON at score time so the UI reads from there directly — no independent derivation in the frontend that could drift from the backend.
+
+Card label reflects source: **"comp rent"** (direct), **"derived rent"** (premium-ratio), **"est. rent"** (static table). Tooltip shows range or comp count.
+
+**ZIP diversity** — `getListingsNeedingRentEstimate` uses a CTE with `ROW_NUMBER() OVER (PARTITION BY zip)` so the first N results always come from N different ZIPs, ordered by least-covered ZIP first. Prevents all daily API calls going to the same neighborhood.
 
 Sign up at [app.rentcast.io](https://app.rentcast.io/app) — free tier is 50 req/month. Keep `RENTCAST_API_KEY` only in fly.io secrets, not in local `.env`, to avoid double-counting against the monthly limit.
 
 ## Scoring Engine
 
-`scoreWithBreakdown(listing, locale)` in `src/scoring/index.ts`. Takes a `RedfinListing` and a `LocaleConfig`; returns `ScoreBreakdown` with a total (0–100) and a per-factor record.
+`scoreWithBreakdown(listing, locale, rentResolution?)` in `src/scoring/index.ts`. Takes a `RedfinListing`, a `LocaleConfig`, and an optional `rentResolution` from `resolveRentOverride`; returns `ScoreBreakdown`:
+
+```ts
+interface ScoreBreakdown {
+  total: number;
+  factors: Record<string, { pts: number; max: number }>;
+  rentUsed?: number;      // actual rent used in investmentScore (stored in DB)
+  rentSource?: 'rentcast' | 'derived' | 'table';
+}
+```
 
 The score is normalized: raw positive points are summed, divided by the sum of all positive weights, then multiplied by 100. DOM penalty is subtracted after normalization.
 
@@ -169,45 +200,49 @@ The score is normalized: raw positive points are summed, divided by the sum of a
 | `neighborhoodBonus` | `NeighborhoodBonusConfig` | Distance from center; city-gated |
 | `zipBonus` | `ZipBonusConfig` | Full bonus for listed ZIP codes |
 | `domBonus` | `DomBonusConfig` | Bonus for high-DOM listings (motivated seller signal) |
+| `investmentScore` | `InvestmentScoreConfig` | Composite: 40% cash flow + 35% cap rate + 25% CoC; 0 if rent unknown |
 | `domPenalty` | `DomPenaltyConfig` | Subtracted after normalization; full at 120+ DOM |
 
 ### Scoring weights by locale
 
-**Main Line:** Property type 20 / School district 20 / Walkability 12 / Price 12 / Sqft 8 / Lot 12 / Transit 8 / Beds 4 / Price/sqft 4 / Neighborhood bonus 6 / DOM penalty −10
+**Main Line:** Property type 20 / School district 20 / Walkability 12 / Price 12 / Sqft 8 / Lot 12 / Transit 8 / Beds 4 / Price/sqft 4 / Neighborhood bonus 6 / DOM penalty −6
 
-**San Diego:** Property type 20 / Walkability 18 / Price 14 / Sqft 14 / Lot 12 / Beds 10 / Price/sqft 3 / ZIP bonus 12 / DOM penalty −10
+**San Diego:** Property type 20 / Walkability 18 / Price 14 / Sqft 14 / Lot 12 / Beds 10 / Price/sqft 10 / DOM penalty −6
 
-**St. Louis:** Property type 18 / School district 12 / Walkability 10 / Price 20 / Sqft 8 / Lot 5 / Beds 8 / Price/sqft 15 / DOM bonus 8 / DOM penalty implicit
+**St. Louis:** Property type 18 / School district 12 / Walkability 6 / Price 20 / Sqft 8 / Lot 5 / Beds 8 / Price/sqft 15 / DOM bonus 4 / Investment score 20
 
 ## Investment Mode (St. Louis)
 
-When `investmentConfig` is present on a locale, the frontend runs `computeUpside(listing)` for each STL card and renders an investment row showing:
+When `investmentConfig` is present on a locale, both the scoring engine and the frontend run investment math per listing.
 
-- **Cash flow** — monthly rent minus mortgage P&I, vacancy (8%), maintenance (8%), insurance, and property taxes
-- **CoC** — cash-on-cash: annual cash flow ÷ total cash invested (25% down + reno estimate)
-- **Cap rate** — NOI ÷ purchase price (financing-independent)
-- **Break-even price** — max price at which monthly cash flow = 0
-- **BRRRR analysis** — ARV from sold comps, forced equity, refi pull, full vs. partial BRRRR flag
+**Scoring (`investmentScore` factor):** computed inside `scoreWithBreakdown` using the resolved rent (from `resolveRentOverride`). Three sub-components, weighted within the factor:
+- Cash flow (40%) — monthly rent minus mortgage P&I, vacancy, age-based maintenance (5–13%), insurance (0.5% of value/yr), property taxes
+- Cap rate (35%) — NOI ÷ purchase price; piecewise between `capRateGood` and `capRateExcellent`
+- CoC (25%) — annual cash flow ÷ (down payment + reno estimate); piecewise between `cocGood` and `cocExcellent`
 
-Rent is sourced in priority order:
-1. Cached RentCast estimate (`rental_estimates` table) — comp-based, accounts for beds/baths/sqft
-2. Static `rentByCity` table in `investmentConfig` — city + bed count lookup
+**Mortgage rate** — live FRED 30yr fixed rate fetched at startup and poll time (falls back to 6.9%). Investment rate = base rate + `investmentRateAdder` (typically +0.5%).
+
+**Maintenance rate** — derived from `year_built`: ≤1959 → 13%, ≤1979 → 10%, ≤1999 → 7%, newer → 5%.
+
+**Frontend (`computeUpside`):** reads `score_breakdown.rentUsed` + `score_breakdown.rentSource` (written at score time) as the primary rent source — UI and backend always agree. Renders an investment row per card showing cash flow, CoC, cap rate, break-even price, and BRRRR analysis.
+
+**BRRRR analysis** — ARV from median sold $/sqft (last 12 months, min 3 sales per city), forced equity, refi pull at `refinanceLtv`, full vs. partial BRRRR flag.
 
 ### `investmentConfig` fields
 
 | Field | Description |
 |---|---|
-| `rentByCity` | `Record<city, Record<beds, monthlyRent>>` — static fallback rent table |
-| `zipToCity` | Maps USPS zip → canonical city key (needed because STL returns "Saint Louis" for many suburbs) |
+| `rentByCity` | `Record<city, Record<beds, monthlyRent>>` — calibrated from RentCast AVM data (Apr 2026) |
+| `zipToCity` | Maps USPS zip → canonical city key (STL returns "Saint Louis" for many suburbs) |
+| `taxRateByCity` | Per-city annual property tax as fraction of value; `taxRateFallback` used if city not listed |
 | `downPaymentPct` | e.g. `0.25` |
-| `baseRate30yr` | Current 30yr fixed rate |
-| `investmentRateAdder` | Premium over owner-occupied rate (typically +0.5%) |
+| `investmentRateAdder` | Premium over live FRED 30yr rate (typically `0.005`) |
 | `vacancyRate` | Fraction of rent lost to vacancy (e.g. `0.08`) |
-| `maintenanceRate` | Fraction of rent reserved for maintenance |
-| `insuranceMonthly` | Fixed monthly insurance cost |
-| `propertyTaxAnnualRate` | Annual tax as fraction of purchase price |
-| `renoTiers` | Array of `{ maxYearBuilt, cost }` — reno estimate by age of property |
+| `renoTiers` | Array of `{ maxYearBuilt, costPerSqft, minCost }` — reno estimate by age + sqft |
 | `refinanceLtv` | LTV for BRRRR refi (e.g. `0.75`) |
+| `cashFlowExcellent` | Monthly cash flow ($/mo) at which `investmentScore` earns full cash-flow points |
+| `capRateGood` / `capRateExcellent` | Cap rate thresholds for half / full cap-rate points |
+| `cocGood` / `cocExcellent` | CoC thresholds for half / full CoC points |
 
 ## Database Schema
 
@@ -254,6 +289,13 @@ rental_estimates (
   source TEXT,                   -- 'rentcast'
   fetched_at TEXT                -- ISO timestamp; stale after 30 days
 )
+
+rentcast_usage (
+  id INTEGER PRIMARY KEY,
+  listing_id TEXT,               -- which listing triggered the call ('__untracked__' for manual)
+  called_at TEXT                 -- ISO timestamp; used for 30-day billing period accounting
+)
+-- Period start = MIN(called_at); current period = floor((now - first) / 30d) * 30d
 ```
 
 ## API Routes
@@ -270,6 +312,7 @@ rental_estimates (
 | `GET /api/locales/:id/comps` | Median sold $/sqft by city (last 12 months, min 3 sales) |
 | `GET /api/locales/:id/rent-estimates` | Cached RentCast rent estimates keyed by listing ID |
 | `POST /api/locales/:id/rent-estimates/refresh` | Trigger a manual rent estimate refresh |
+| `GET /email-preview?locale=&n=&theme=` | Render email digest HTML in browser (theme: dark/light) |
 | `POST /api/digest` | Trigger an immediate poll + email digest |
 
 ## Commands
@@ -281,6 +324,9 @@ rental_estimates (
 | `pnpm poll` | Fetch listings from all locales and upsert to DB |
 | `pnpm enrich` | Backfill walk scores for listings missing them |
 | `pnpm rent-estimate` | Fetch RentCast rent estimates for STL listings missing them |
+| `pnpm rescore [locale]` | Re-score all (or one locale's) listings with current mortgage rate + RentCast data |
+| `pnpm push-db` | Checkpoint local DB and upload to Fly.io persistent volume |
+| `pnpm clear-stale` | Remove stale inactive listings from local DB |
 | `pnpm build` | Compile TypeScript to `dist/` |
 | `pnpm start` | Run compiled output |
 
@@ -296,7 +342,8 @@ rental_estimates (
 | `NOTIFY_SCORE_THRESHOLD` | No | Min score for new listing email (default: 70) |
 | `POLL_SCHEDULE` | No | Cron expression for auto-poll (default: `0 7 * * *`) |
 | `DB_PATH` | No | SQLite file path (default: `data/listings.db`) |
-| `RENTCAST_API_KEY` | No | RentCast API key for STL rent estimates (free tier: 50 req/mo) |
+| `RENTCAST_API_KEY` | No | RentCast API key for STL rent estimates (free tier: 50 req/30-day period) |
+| `RENTCAST_DAILY_LIMIT` | No | Max RentCast calls per day (default: 1; raise temporarily for backfill) |
 
 ## Related Docs
 
@@ -307,5 +354,5 @@ rental_estimates (
 
 ---
 
-**Last Updated:** April 27, 2026
+**Last Updated:** April 29, 2026
 **Author:** Daniel Wolner
