@@ -74,8 +74,8 @@ export const stLouisLocale: LocaleConfig = {
       secondaryCityPoints: 4,
       fallbackPoints: 2,
     },
-    // Renters weight walkability more than owners — lower vacancy.
-    walkability: { weight: 10 },
+    // STL suburbs are car-dependent — walkability differentiates but shouldn't dominate.
+    walkability: { weight: 6 },
     // Investment price ceiling: $250K hard max.
     price: {
       weight:        20,
@@ -122,23 +122,35 @@ export const stLouisLocale: LocaleConfig = {
       excellentPpsf: 140,  // STL suburbs realistically run $140-200/sqft for investment
       maxPpsf:       220,
     },
-    // zipBonus removed — premium zips are the wrong signal for investment.
-    // DOM bonus: high DOM signals motivated seller and negotiation room.
-    domBonus: { weight: 8 },
+    // DOM bonus: high DOM = motivated seller / negotiation room (reduced — investment fundamentals matter more).
+    domBonus: { weight: 4 },
+    // Investment quality: cash flow, cap rate, CoC — the core STL investment signal.
+    investmentScore: {
+      weight:             20,
+      cashFlowExcellent:  300,   // $300+/mo → full cash-flow pts
+      capRateGood:        0.03,  // 3% → half cap-rate pts
+      capRateExcellent:   0.06,  // 6% → full cap-rate pts
+      cocGood:            0.05,  // 5% CoC → half pts
+      cocExcellent:       0.08,  // 8% CoC → full pts
+    },
   },
   investmentConfig: {
+    // Calibrated Apr 2026 from RentCast AVM data across 5 ZIPs.
+    // Anchors: 63122 kirkwood 2BR=$1,830/3BR=$2,220–2,640 · 63119 webster groves 2BR=$1,930/3BR=$2,210 ·
+    //          63117 richmond heights 3BR=$1,890 · 63123 crestwood 2BR=$1,500
+    // Other cities scaled proportionally by tier relative to anchored ZIPs.
     rentByCity: {
-      'kirkwood':         { 2: 1100, 3: 1400, 4: 1700 },
-      'glendale':         { 2: 1100, 3: 1400, 4: 1700 },
-      'des peres':        { 2: 1100, 3: 1400, 4: 1700 },
-      'webster groves':   { 2: 1050, 3: 1300, 4: 1600 },
-      'rock hill':        { 2: 1050, 3: 1300, 4: 1600 },
-      'shrewsbury':       { 2: 1050, 3: 1300, 4: 1600 },
-      'maplewood':        { 2:  950, 3: 1150, 4: 1400 },
-      'richmond heights': { 2:  950, 3: 1150, 4: 1400 },
-      'brentwood':        { 2: 1000, 3: 1250, 4: 1500 },
-      'crestwood':        { 2: 1000, 3: 1250, 4: 1500 },
-      'sunset hills':     { 2: 1000, 3: 1250, 4: 1500 },
+      'kirkwood':         { 2: 1_850, 3: 2_300, 4: 2_700 },
+      'glendale':         { 2: 1_850, 3: 2_300, 4: 2_700 },
+      'des peres':        { 2: 1_850, 3: 2_300, 4: 2_700 },
+      'webster groves':   { 2: 1_900, 3: 2_200, 4: 2_600 },
+      'rock hill':        { 2: 1_900, 3: 2_100, 4: 2_500 },
+      'shrewsbury':       { 2: 1_800, 3: 2_100, 4: 2_500 },
+      'richmond heights': { 2: 1_550, 3: 1_900, 4: 2_200 },
+      'maplewood':        { 2: 1_500, 3: 1_850, 4: 2_150 },
+      'brentwood':        { 2: 1_700, 3: 2_100, 4: 2_500 },
+      'crestwood':        { 2: 1_500, 3: 1_900, 4: 2_300 },
+      'sunset hills':     { 2: 1_550, 3: 1_950, 4: 2_350 },
     },
     downPaymentPct: 0.25,
     // baseRate30yr is fetched live from FRED — see src/enrichment/mortgage-rate.ts
@@ -192,4 +204,3 @@ export const stLouisLocale: LocaleConfig = {
     },
   },
 };
-// Positive weight denominator: 18+12+10+20+8+5+8+15+8 = 104

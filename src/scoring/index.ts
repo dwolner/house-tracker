@@ -1,11 +1,17 @@
 import type { RedfinListing } from '../poller/redfin.js';
 import type { LocaleConfig } from '../locales/types.js';
 
+// Mortgage rate fed in by the poller at startup; falls back to a reasonable default.
+let baseRate30yr = 0.069;
+export function setBaseRate(rate: number): void { baseRate30yr = rate; }
+
 export interface ScoreBreakdown {
   total: number;
   // Each value: { pts = raw points earned, max = weight for this factor }
   // domPenalty pts = amount subtracted (positive = penalty applied)
   factors: Record<string, { pts: number; max: number }>;
+  rentUsed?: number;
+  rentSource?: 'rentcast' | 'derived' | 'table';
 }
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -46,7 +52,11 @@ function scoreThreePt(value: number, excellent: number, good: number, max: numbe
   return 0;
 }
 
-export function scoreWithBreakdown(listing: RedfinListing, locale: LocaleConfig): ScoreBreakdown {
+export function scoreWithBreakdown(
+  listing: RedfinListing,
+  locale: LocaleConfig,
+  rentResolution?: { rent: number; source: 'rentcast' | 'derived' },
+): ScoreBreakdown {
   const { scoring } = locale;
   const city = listing.city.toLowerCase().trim();
   const propType = listing.property_type?.toLowerCase().trim() ?? '';
@@ -54,6 +64,8 @@ export function scoreWithBreakdown(listing: RedfinListing, locale: LocaleConfig)
 
   let rawPositive = 0;
   let maxPositive = 0;
+  let rentUsed: number | undefined;
+  let rentSource: 'rentcast' | 'derived' | 'table' | undefined;
 
   function addFactor(key: string, pts: number, weight: number) {
     const clamped = clamp(pts, 0, weight);
@@ -167,6 +179,77 @@ export function scoreWithBreakdown(listing: RedfinListing, locale: LocaleConfig)
     addFactor('domBonus', pts, weight);
   }
 
+  if (scoring.investmentScore && locale.investmentConfig) {
+    const ic = locale.investmentConfig;
+    const sc = scoring.investmentScore;
+
+    const resolvedCity = ic.zipToCity?.[listing.zip] ?? city;
+    const bedKey = Math.min(Math.max(listing.beds, 2), 4) as 2 | 3 | 4;
+    const rentMap = ic.rentByCity[resolvedCity];
+    const rent = rentResolution?.rent ?? rentMap?.[bedKey] ?? rentMap?.[3] ?? 0;
+    rentUsed = rent || undefined;
+    rentSource = rent > 0 ? (rentResolution?.source ?? 'table') : undefined;
+
+    if (rent > 0) {
+      const yearBuilt = listing.year_built ?? 1979;
+      const maintenanceRate =
+        yearBuilt <= 1959 ? 0.13 : yearBuilt <= 1979 ? 0.10 :
+        yearBuilt <= 1999 ? 0.07 : 0.05;
+      const taxRate = ic.taxRateByCity?.[resolvedCity] ?? ic.taxRateFallback ?? 0.018;
+
+      const loanAmount = listing.price * (1 - ic.downPaymentPct);
+      const monthlyRate = (baseRate30yr + ic.investmentRateAdder) / 12;
+      const mortgage = loanAmount * (monthlyRate * (1 + monthlyRate) ** 360) / ((1 + monthlyRate) ** 360 - 1);
+
+      const insuranceAnnual = listing.price * 0.005;
+      const netCashFlow =
+        rent
+        - mortgage
+        - rent * ic.vacancyRate
+        - rent * maintenanceRate
+        - insuranceAnnual / 12
+        - (listing.price * taxRate) / 12;
+
+      const noi =
+        rent * 12 * (1 - ic.vacancyRate - maintenanceRate)
+        - insuranceAnnual
+        - listing.price * taxRate;
+      const capRate = noi / listing.price;
+
+      const sqftForReno = listing.sqft ?? 1400;
+      const renoTier = ic.renoTiers.find(t => yearBuilt <= t.maxYearBuilt);
+      const reno = renoTier
+        ? Math.max(renoTier.minCost, Math.round(renoTier.costPerSqft * sqftForReno))
+        : 8_000;
+      const totalCashIn = listing.price * ic.downPaymentPct + reno;
+      const coc = totalCashIn > 0 ? (netCashFlow * 12) / totalCashIn : 0;
+
+      // Cash flow: 40% of weight — negative → 0, scales to cashFlowExcellent
+      const cfMax = sc.weight * 0.4;
+      const cfPts = netCashFlow <= 0 ? 0
+        : netCashFlow >= sc.cashFlowExcellent ? cfMax
+        : (netCashFlow / sc.cashFlowExcellent) * cfMax;
+
+      // Cap rate: 35% of weight — piecewise between good and excellent
+      const crMax = sc.weight * 0.35;
+      const crPts = capRate <= 0 ? 0
+        : capRate >= sc.capRateExcellent ? crMax
+        : capRate >= sc.capRateGood
+          ? crMax * 0.5 + ((capRate - sc.capRateGood) / (sc.capRateExcellent - sc.capRateGood)) * crMax * 0.5
+          : (capRate / sc.capRateGood) * crMax * 0.5;
+
+      // CoC: 25% of weight
+      const cocMax = sc.weight * 0.25;
+      const cocPts = coc <= 0 ? 0
+        : coc >= sc.cocExcellent ? cocMax
+        : coc >= sc.cocGood
+          ? cocMax * 0.5 + ((coc - sc.cocGood) / (sc.cocExcellent - sc.cocGood)) * cocMax * 0.5
+          : (coc / sc.cocGood) * cocMax * 0.5;
+
+      addFactor('investmentScore', cfPts + crPts + cocPts, sc.weight);
+    }
+  }
+
   // DOM penalty — subtracted from positive total; not counted in maxPositive
   let rawPenalty = 0;
   if (scoring.domPenalty && listing.days_on_market != null) {
@@ -186,7 +269,7 @@ export function scoreWithBreakdown(listing: RedfinListing, locale: LocaleConfig)
     ? 0
     : clamp(((rawPositive - rawPenalty) / maxPositive) * 100, 0, 100);
 
-  return { total, factors };
+  return { total, factors, rentUsed, rentSource };
 }
 
 export function scoreListing(listing: RedfinListing, locale: LocaleConfig): number {

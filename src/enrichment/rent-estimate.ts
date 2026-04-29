@@ -20,7 +20,9 @@ import {
   logRentcastCall,
   getRentcastUsage,
   type Listing,
+  type RentalEstimateWithSqft,
 } from '../db/index.js';
+import type { LocaleConfig } from '../locales/types.js';
 
 const MONTHLY_HARD_LIMIT = 50;
 const API_KEY   = process.env.RENTCAST_API_KEY;
@@ -51,7 +53,7 @@ async function fetchRentEstimate(l: Listing): Promise<{ rent: number; low: numbe
     return null;
   }
   const data = await res.json() as RentCastResponse;
-  if (!data.rent) return null;
+  if (data.rent == null) return null;
   return {
     rent: Math.round(data.rent),
     low:  Math.round(data.rentRangeLow  ?? data.rent),
@@ -68,10 +70,10 @@ export async function refreshRentEstimates(localeId: string, maxAgeDays = 30): P
   }
 
   const usage = getRentcastUsage();
-  console.log(`[rent-estimate] usage — this month: ${usage.thisMonth}/${MONTHLY_HARD_LIMIT}, today: ${usage.today}/${DAILY_CAP}`);
+  console.log(`[rent-estimate] usage — this period: ${usage.thisMonth}/${MONTHLY_HARD_LIMIT}, today: ${usage.today}/${DAILY_CAP}`);
 
   if (usage.thisMonth >= MONTHLY_HARD_LIMIT) {
-    console.warn(`[rent-estimate] MONTHLY LIMIT REACHED (${usage.thisMonth}/${MONTHLY_HARD_LIMIT}) — no calls will be made`);
+    console.warn(`[rent-estimate] PERIOD LIMIT REACHED (${usage.thisMonth}/${MONTHLY_HARD_LIMIT}) — no calls will be made`);
     return { updated: 0, skipped: 0, limitHit: 'monthly' };
   }
 
@@ -117,9 +119,47 @@ export async function refreshRentEstimates(localeId: string, maxAgeDays = 30): P
   }
 
   const finalUsage = getRentcastUsage();
-  console.log(`[rent-estimate] done — updated: ${updated}, skipped: ${skipped} | month total: ${finalUsage.thisMonth}/${MONTHLY_HARD_LIMIT}`);
+  console.log(`[rent-estimate] done — updated: ${updated}, skipped: ${skipped} | period total: ${finalUsage.thisMonth}/${MONTHLY_HARD_LIMIT}`);
 
   return { updated, skipped, limitHit: null };
+}
+
+/**
+ * Resolves the best available rent for investment scoring (3-tier priority):
+ *   1. Direct RentCast estimate for this listing → source: 'rentcast'
+ *   2. Derived via median premium ratio (RentCast/table) across same-bed comps,
+ *      applied to this listing's table rent — normalises geographic differences → source: 'derived'
+ *   3. Returns undefined → scoring falls back to static rentByCity table → source: 'table'
+ */
+export function resolveRentOverride(
+  listing: { id: string; beds: number; sqft?: number | null; zip: string; city: string },
+  estimatesWithSqft: RentalEstimateWithSqft[],
+  locale?: LocaleConfig,
+): { rent: number; source: 'rentcast' | 'derived' } | undefined {
+  const direct = estimatesWithSqft.find(e => e.listing_id === listing.id);
+  if (direct) return { rent: direct.estimated_rent, source: 'rentcast' };
+
+  const ic = locale?.investmentConfig;
+  if (!ic) return undefined;
+
+  const bedKey = Math.min(Math.max(listing.beds, 2), 4) as 2 | 3 | 4;
+  const listingCity = ic.zipToCity?.[listing.zip] ?? listing.city.toLowerCase().trim();
+  const listingTableRent = ic.rentByCity[listingCity]?.[bedKey] ?? ic.rentByCity[listingCity]?.[3] ?? 0;
+  if (listingTableRent === 0) return undefined;
+
+  const premiums: number[] = [];
+  for (const comp of estimatesWithSqft.filter(e => e.listing_id !== listing.id && e.beds === listing.beds)) {
+    const compCity = ic.zipToCity?.[comp.zip] ?? comp.city.toLowerCase().trim();
+    const compTableRent = ic.rentByCity[compCity]?.[bedKey] ?? ic.rentByCity[compCity]?.[3] ?? 0;
+    if (compTableRent === 0) continue;
+    premiums.push(comp.estimated_rent / compTableRent);
+  }
+
+  if (premiums.length < 1) return undefined;
+
+  const sorted = [...premiums].sort((a, b) => a - b);
+  const medianPremium = sorted[Math.floor(sorted.length / 2)];
+  return { rent: Math.round(listingTableRent * medianPremium), source: 'derived' };
 }
 
 // Run standalone: `pnpm rent-estimate`

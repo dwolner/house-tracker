@@ -84,6 +84,25 @@ export function registerRoutes(app: FastifyInstance) {
     return { total, avgScore, fresh, lastPoll, cities: cities.map(c => c.city), propertyTypes: propertyTypes.map(r => r.pt), totalEver };
   });
 
+  // Preview email digest in browser — GET /email-preview?locale=san-diego&n=5
+  app.get('/email-preview', async (req, reply) => {
+    const q = req.query as Record<string, string>;
+    const localeId = q.locale ?? '';
+    const n = Math.min(parseInt(q.n ?? '5', 10), 20);
+    const { buildPreviewHtml } = await import('../notifications/email.js');
+    const db = getDb();
+    const localeSql = localeId ? `AND locale_id = '${localeId}'` : '';
+    const listings = db.prepare(`
+      SELECT id, address, city, state, zip, price, price_at_first_seen, beds, baths, sqft, lot_sqft,
+             days_on_market, first_seen_at, score, score_breakdown, school_district, property_type, walk_score, url
+      FROM listings
+      WHERE status NOT IN ('inactive', '130') ${localeSql}
+      ORDER BY score DESC LIMIT ?
+    `).all(n) as import('../notifications/email.js').NotifyListing[];
+    const theme = q.theme === 'light' ? 'light' : 'dark';
+    reply.type('text/html; charset=utf-8').send(buildPreviewHtml(listings, [], theme));
+  });
+
   // Send a test email using top listings already in DB
   app.post('/api/test-email', async () => {
     const { sendDigest, NOTIFY_SCORE_THRESHOLD } = await import('../notifications/email.js');

@@ -623,17 +623,56 @@ export function getRentalEstimates(localeId: string): Record<string, RentalEstim
   return Object.fromEntries(rows.map(r => [r.listing_id, r]));
 }
 
+export interface RentalEstimateWithSqft extends RentalEstimate {
+  beds: number;
+  sqft: number | null;
+  zip: string;
+  city: string;
+}
+
+// Returns rental estimates joined with listing data needed for derived rent computation.
+export function getRentalEstimatesWithSqft(localeId: string): RentalEstimateWithSqft[] {
+  return getDb().prepare(`
+    SELECT re.*, l.beds, l.sqft, l.zip, l.city
+    FROM rental_estimates re
+    JOIN listings l ON l.id = re.listing_id
+    WHERE l.locale_id = ? AND l.status NOT IN ('inactive', '130')
+  `).all(localeId) as RentalEstimateWithSqft[];
+}
+
 // Returns listing IDs in a locale that need rent estimates (never fetched, or older than maxAgeDays).
 export function getListingsNeedingRentEstimate(localeId: string, maxAgeDays = 30): Listing[] {
   const cutoff = new Date(Date.now() - maxAgeDays * 24 * 60 * 60 * 1000).toISOString();
+  // Round-robin by ZIP: rank each eligible listing within its ZIP, then order by
+  // (rank ASC, zip_coverage ASC) so the first N results are always from N different ZIPs,
+  // prioritising the least-covered ones. Within a ZIP, pick listings never fetched first,
+  // then by sqft (ascending) so we work toward median over successive calls.
   return getDb().prepare(`
-    SELECT l.*
-    FROM listings l
-    LEFT JOIN rental_estimates re ON re.listing_id = l.id
-    WHERE l.locale_id = ?
-      AND l.status NOT IN ('inactive', '130')
-      AND (re.listing_id IS NULL OR re.fetched_at < ?)
-  `).all(localeId, cutoff) as Listing[];
+    WITH zip_counts AS (
+      SELECT l2.zip, COUNT(re2.listing_id) AS estimated_count
+      FROM listings l2
+      LEFT JOIN rental_estimates re2 ON re2.listing_id = l2.id
+      WHERE l2.locale_id = ?
+      GROUP BY l2.zip
+    ),
+    candidates AS (
+      SELECT l.*,
+        COALESCE(zc.estimated_count, 0) AS zip_est_count,
+        ROW_NUMBER() OVER (
+          PARTITION BY l.zip
+          ORDER BY re.fetched_at ASC NULLS FIRST, l.sqft ASC
+        ) AS zip_rank
+      FROM listings l
+      LEFT JOIN rental_estimates re ON re.listing_id = l.id
+      LEFT JOIN zip_counts zc ON zc.zip = l.zip
+      WHERE l.locale_id = ?
+        AND l.status NOT IN ('inactive', '130')
+        AND l.sqft IS NOT NULL
+        AND (re.listing_id IS NULL OR re.fetched_at < ?)
+    )
+    SELECT * FROM candidates
+    ORDER BY zip_rank ASC, zip_est_count ASC
+  `).all(localeId, localeId, cutoff) as Listing[];
 }
 
 export function logRentcastCall(listingId: string): void {
@@ -644,10 +683,21 @@ export function logRentcastCall(listingId: string): void {
 export function getRentcastUsage(): { thisMonth: number; today: number } {
   const db = getDb();
   const now = new Date();
-  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
   const todayStart = now.toISOString().slice(0, 10);
 
-  const thisMonth = (db.prepare(`SELECT COUNT(*) as n FROM rentcast_usage WHERE called_at >= ?`).get(monthStart) as { n: number }).n;
+  // Billing period: 30-day cycles starting from the first-ever RentCast call.
+  const firstRow = db.prepare(`SELECT MIN(called_at) as first FROM rentcast_usage`).get() as { first: string | null };
+  let periodStart: string;
+  if (firstRow.first) {
+    const firstMs = new Date(firstRow.first).getTime();
+    const elapsed = now.getTime() - firstMs;
+    const periodN = Math.floor(elapsed / (30 * 24 * 60 * 60 * 1000));
+    periodStart = new Date(firstMs + periodN * 30 * 24 * 60 * 60 * 1000).toISOString();
+  } else {
+    periodStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  }
+
+  const thisMonth = (db.prepare(`SELECT COUNT(*) as n FROM rentcast_usage WHERE called_at >= ?`).get(periodStart) as { n: number }).n;
   const today     = (db.prepare(`SELECT COUNT(*) as n FROM rentcast_usage WHERE called_at >= ?`).get(todayStart + 'T00:00:00') as { n: number }).n;
   return { thisMonth, today };
 }

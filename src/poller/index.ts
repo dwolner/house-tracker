@@ -1,18 +1,26 @@
 import 'dotenv/config';
 import { fetchRegionListings, fetchRecentlySold, fetchRegionListingsJson, fetchRecentlySoldJson } from './redfin.js';
-import { upsertListing, markListingSold, logPoll, markStaleListingsInactive, pruneOldBreakdowns } from '../db/index.js';
-import { scoreWithBreakdown } from '../scoring/index.js';
+import { upsertListing, markListingSold, logPoll, markStaleListingsInactive, pruneOldBreakdowns, getRentalEstimatesWithSqft } from '../db/index.js';
+import { scoreWithBreakdown, setBaseRate } from '../scoring/index.js';
+import { getCurrentMortgageRate } from '../enrichment/mortgage-rate.js';
 import { runEnrichment } from '../enrichment/walk-score.js';
-import { refreshRentEstimates } from '../enrichment/rent-estimate.js';
+import { refreshRentEstimates, resolveRentOverride } from '../enrichment/rent-estimate.js';
 import { NOTIFY_SCORE_THRESHOLD } from '../notifications/email.js';
 import { LOCALES } from '../locales/index.js';
 
 export async function runPoll(): Promise<{ newHighScoreIds: string[] }> {
   console.log(`[poll] starting at ${new Date().toISOString()}`);
+  setBaseRate(await getCurrentMortgageRate());
 
   const newHighScoreIds: string[] = [];
 
   for (const locale of Object.values(LOCALES)) {
+    // Pre-fetch rental estimates for locales with investment scoring so rent priority
+    // (comp → derived → table) is applied at score time rather than always using the table.
+    const rentalEstimates = locale.investmentConfig
+      ? getRentalEstimatesWithSqft(locale.id)
+      : [];
+
     for (const region of locale.regions) {
       try {
         const listings = await (region.useJsonApi
@@ -31,7 +39,10 @@ export async function runPoll(): Promise<{ newHighScoreIds: string[] }> {
         }
 
         for (const listing of valid) {
-          const breakdown = scoreWithBreakdown(listing, locale);
+          const rentResolution = locale.investmentConfig
+            ? resolveRentOverride(listing, rentalEstimates, locale)
+            : undefined;
+          const breakdown = scoreWithBreakdown(listing, locale, rentResolution);
           const { isNew } = upsertListing({ ...listing, locale_id: locale.id, score: breakdown.total, breakdown });
 
           if (isNew) {
@@ -75,7 +86,9 @@ export async function runPoll(): Promise<{ newHighScoreIds: string[] }> {
   if (pruned > 0) console.log(`[poll] pruned score_breakdown from ${pruned} old inactive listing(s)`);
 
   await runEnrichment();
-  await refreshRentEstimates('st-louis');
+  for (const locale of Object.values(LOCALES)) {
+    if (locale.investmentConfig) await refreshRentEstimates(locale.id);
+  }
 
   return { newHighScoreIds };
 }

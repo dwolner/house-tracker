@@ -465,37 +465,53 @@ function computeUpside(l) {
   if (!investmentConfig || l.locale_id !== "st-louis") return null;
   const cfg = investmentConfig;
 
-  // Rent priority:
-  //   1. Real RentCast estimate for this listing
-  //   2. Derived from existing RentCast comps (median $/sqft by bed count × this listing's sqft)
-  //   3. Static city/beds table
+  // Rent priority (mirrors backend resolveRentOverride → scoreWithBreakdown):
+  //   1. rentUsed stored in score_breakdown (most accurate — set by backend at score time)
+  //   2. Direct RentCast estimate for this listing
+  //   3. Derived: median premium ratio (RentCast/table) × this listing's table rent
+  //   4. Static city/beds table
   let rent = 0;
   let rentSource = "table";
   const city = (l.city ?? "").toLowerCase().trim();
-  const cached = rentEstimates[l.id];
+  const sb = l.score_breakdown ?? {};
+  let cached = rentEstimates[l.id];
 
-  if (cached?.estimated_rent) {
-    rent = cached.estimated_rent;
-    rentSource = "rentcast";
-  } else if (l.sqft) {
-    // Derive from comps: listings with real estimates, same bed count, and sqft data
-    const compRates = allListings
-      .filter(o => o.id !== l.id && o.locale_id === "st-louis" && o.beds === l.beds && o.sqft && rentEstimates[o.id]?.estimated_rent)
-      .map(o => rentEstimates[o.id].estimated_rent / o.sqft);
+  if (sb.rentUsed) {
+    rent = sb.rentUsed;
+    rentSource = sb.rentSource ?? "table";
+  } else {
+    if (cached?.estimated_rent) {
+      rent = cached.estimated_rent;
+      rentSource = "rentcast";
+    } else {
+      // Premium-ratio derivation: matches backend logic
+      const resolvedCity = cfg.zipToCity?.[l.zip] ?? city;
+      const bedKey = Math.min(Math.max(l.beds ?? 3, 2), 4);
+      const listingTableRent = cfg.rentByCity[resolvedCity]?.[bedKey] ?? cfg.rentByCity[resolvedCity]?.[3] ?? 0;
 
-    if (compRates.length >= 1) {
-      const sorted = [...compRates].sort((a, b) => a - b);
-      const median = sorted[Math.floor(sorted.length / 2)];
-      rent = Math.round(median * l.sqft);
-      rentSource = "derived";
+      if (listingTableRent > 0) {
+        const premiums = allListings
+          .filter(o => o.id !== l.id && o.locale_id === "st-louis" && o.beds === l.beds && rentEstimates[o.id]?.estimated_rent)
+          .map(o => {
+            const oCity = cfg.zipToCity?.[o.zip] ?? (o.city ?? "").toLowerCase().trim();
+            const oTable = cfg.rentByCity[oCity]?.[bedKey] ?? cfg.rentByCity[oCity]?.[3] ?? 0;
+            return oTable > 0 ? rentEstimates[o.id].estimated_rent / oTable : null;
+          })
+          .filter(p => p !== null);
+
+        if (premiums.length >= 1) {
+          const sorted = [...premiums].sort((a, b) => a - b);
+          const median = sorted[Math.floor(sorted.length / 2)];
+          rent = Math.round(listingTableRent * median);
+          rentSource = "derived";
+        }
+      }
     }
   }
 
   if (!rent) {
-    // Static table fallback — city match first, zip fallback for USPS aliases
-    const resolvedCity = cfg.rentByCity[city]
-      ? city
-      : (cfg.zipToCity?.[l.zip] ?? null);
+    // Static table fallback
+    const resolvedCity = cfg.rentByCity[city] ? city : (cfg.zipToCity?.[l.zip] ?? null);
     const cityRents = resolvedCity ? cfg.rentByCity[resolvedCity] : null;
     if (!cityRents) return null;
     const availBeds = Object.keys(cityRents).map(Number).sort((a, b) => a - b);
@@ -657,7 +673,7 @@ function renderInvestmentRows(l) {
       <span><span class="tip" data-tip="Max price you could pay and still break even on monthly cash flow. Uses live mortgage rate, ${((up.taxRate ?? 0.018) * 100).toFixed(2)}% property tax (${l.city}), and age-based maintenance.">Break-even</span> <strong style="color:${beColor}">${fmtK(up.breakEvenPrice)}</strong></span>
       <span><span class="tip" data-tip="${
         up.rentSource === "rentcast"  ? `RentCast estimate${up.rentLow && up.rentHigh ? ` · range $${up.rentLow.toLocaleString()}–$${up.rentHigh.toLocaleString()}/mo` : ""}` :
-        up.rentSource === "derived"   ? `Derived from ${allListings.filter(o => o.beds === l.beds && o.sqft && rentEstimates[o.id]?.estimated_rent).length} RentCast comp(s) ($/sqft × this sqft) — real estimate pending` :
+        up.rentSource === "derived"   ? `Derived: median RentCast/table ratio across ${allListings.filter(o => o.beds === l.beds && rentEstimates[o.id]?.estimated_rent).length} comp(s) applied to this listing's table rent — real estimate pending` :
                                         "Estimated from city/beds table — no sqft comps available yet"
       }">${
         up.rentSource === "rentcast" ? "comp rent" :
@@ -717,6 +733,7 @@ const FACTOR_LABELS = {
   neighborhoodBonus: "Local+",
   domBonus: "DOM+",
   domPenalty: "DOM−",
+  investmentScore: "Invest",
   amtrak: "Transit",
   narberthBonus: "Local+",
 };
@@ -732,7 +749,7 @@ const OLD_MAXES = {
   beds: 4,
   pricePerSqft: 4,
   narberthBonus: 6,
-  domPenalty: 10,
+  domPenalty: 6,
 };
 const OLD_KEY_MAP = { amtrak: "transit", narberthBonus: "neighborhoodBonus" };
 
@@ -756,7 +773,7 @@ const scoreTipContent = {};
 
 function buildScoreTip(bd) {
   const factors = Object.entries(bd.factors);
-  const rows = factors.map(([key, { pts, max }]) => {
+  const rows = factors.filter(([key, { pts }]) => !(key === "domPenalty" && pts === 0)).map(([key, { pts, max }]) => {
     const label = FACTOR_LABELS[key] ?? key;
     const pct = max > 0 ? Math.max(0, pts) / max : 0;
     const normalized = Math.round(pct * 100);
@@ -798,6 +815,7 @@ function scoreBars(raw) {
   const bd = parseBreakdown(raw);
   if (!bd) return "";
   const chips = Object.entries(bd.factors)
+    .filter(([key, { pts }]) => !(key === "domPenalty" && pts === 0))
     .map(([key, { pts, max }]) => {
       const pct = max > 0 ? pts / max : 0;
       const normalized = Math.round(pct * 100);
@@ -1226,13 +1244,13 @@ function renderCards(listings) {
           <div class="card-price">$${fmt(l.price)}${priceChange(l)}</div>
           <div class="card-address">${l.address}${isPending ? ` <span class="pending-badge">${l.status_label || "Pending"}</span>` : ""}</div>
           <div class="card-city">${l.city}, ${l.state ?? ""} ${l.zip}</div>
-          ${metaLine ? `<div class="card-meta">${metaLine}</div>` : ""}
         </div>
         <div style="display:flex-col;justify-content: center;gap:6px;">
           ${scoreBadge(l)}
           ${l.days_on_market != null ? `<div class="card-price-sub">${domLabel(l.days_on_market)}</div>` : ""}
         </div>
       </div>
+      ${metaLine ? `<div class="card-meta">${metaLine}</div>` : ""}
       <div class="card-stats">
         <div class="stat"><div class="stat-val">${l.beds} | ${l.baths}</div><div class="stat-lbl">Beds | Baths</div></div>
         <div class="stat"><div class="stat-val">${l.sqft ? fmt(l.sqft) : "—"}</div><div class="stat-lbl">Sq Ft</div></div>

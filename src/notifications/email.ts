@@ -29,8 +29,12 @@ export interface NotifyListing {
   url: string | null;
 }
 
-// Dark theme palette (matches dashboard dark mode)
-const D = {
+type Palette = {
+  bg: string; surface: string; border: string; text: string; muted: string;
+  faint: string; accent: string; green: string; yellow: string; red: string; statBg: string;
+};
+
+const DARK: Palette = {
   bg:      '#0b0d12',
   surface: '#0f1219',
   border:  '#1e2636',
@@ -43,6 +47,23 @@ const D = {
   red:     '#c05a47',
   statBg:  '#161c26',
 };
+
+const LIGHT: Palette = {
+  bg:      '#f0ede6',
+  surface: '#ffffff',
+  border:  '#ddd8ce',
+  text:    '#1a1814',
+  muted:   '#6b6860',
+  faint:   '#e8e4dc',
+  accent:  '#a07020',
+  green:   '#2a7a50',
+  yellow:  '#a07020',
+  red:     '#a03828',
+  statBg:  '#f5f2eb',
+};
+
+// Keep D as an alias for dark to avoid touching non-palette code paths
+const D = DARK;
 
 function isConfigured(): boolean {
   return Boolean(SMTP_USER && SMTP_PASS && NOTIFY_TO);
@@ -69,31 +90,26 @@ function fmtAcres(sqft: number | null): string {
   return ac < 0.1 ? sqft.toLocaleString() + ' sqft' : ac.toFixed(2) + ' ac';
 }
 
-function scoreColors(score: number): { bg: string; color: string } {
-  if (score >= 80) return { bg: 'rgba(74,158,114,0.12)', color: D.green };
-  if (score >= 60) return { bg: 'rgba(196,145,58,0.12)', color: D.yellow };
-  return { bg: 'rgba(192,90,71,0.12)', color: D.red };
+function scoreColors(score: number, P: Palette): { bg: string; color: string } {
+  if (score >= 80) return { bg: 'rgba(74,158,114,0.12)', color: P.green };
+  if (score >= 60) return { bg: 'rgba(196,145,58,0.12)', color: P.yellow };
+  return { bg: 'rgba(192,90,71,0.12)', color: P.red };
 }
 
-function domLabel(dom: number | null): string {
+function domLabel(dom: number | null, P: Palette): string {
   if (dom == null) return '';
-  if (dom > 120) return `<span style="color:${D.red};font-weight:600">(⚠ ${dom} d)</span>`;
-  if (dom > 30)  return `<span style="color:${D.yellow};font-weight:600">(~${dom} d)</span>`;
-  return `<span style="color:${D.muted}">(${dom} d)</span>`;
+  if (dom > 120) return `<span style="color:${P.red};font-weight:600">(⚠ ${dom} d)</span>`;
+  if (dom > 30)  return `<span style="color:${P.yellow};font-weight:600">(~${dom} d)</span>`;
+  return `<span style="color:${P.muted}">(${dom} d)</span>`;
 }
 
-function listedLine(l: NotifyListing): string {
-  const date = l.first_seen_at ? new Date(l.first_seen_at).toLocaleDateString() : '—';
-  const dom = l.days_on_market != null ? ` · ${domLabel(l.days_on_market)}` : '';
-  return `<div style="font-size:11px;color:${D.muted};margin-top:2px">Listed ${date}${dom}</div>`;
-}
 
-function priceChangeHtml(l: NotifyListing): string {
+function priceChangeHtml(l: NotifyListing, P: Palette): string {
   if (!l.price_at_first_seen || l.price_at_first_seen === l.price) return '';
   const diff = l.price - l.price_at_first_seen;
   const sign = diff < 0 ? '▼' : '▲';
-  const color = diff < 0 ? D.green : D.red;
-  return `<span style="font-size:11px;color:${color};margin-left:6px">${sign} $${Math.abs(diff).toLocaleString()}</span>`;
+  const color = diff < 0 ? P.green : P.red;
+  return `<span style="font-size:16px;color:${color};margin-left:6px"><span style="font-size:10px">${sign}</span> $${Math.abs(diff).toLocaleString()}</span>`;
 }
 
 
@@ -110,6 +126,7 @@ const FACTOR_LABELS: Record<string, string> = {
   neighborhoodBonus: 'Local+',
   zipBonus:          'Zip+',
   domPenalty:        'DOM−',
+  investmentScore:   'Invest',
   // legacy keys from old flat breakdown format
   amtrak:            'Transit',
   narberthBonus:     'Local+',
@@ -135,111 +152,109 @@ function parseBreakdown(json: string | null): { total: number; factors: Record<s
   } catch { return null; }
 }
 
-function chipColor(key: string, pct: number): { bg: string; color: string } {
-  if (pct === 0) return { bg: D.statBg, color: D.muted };
-  if (key === 'domPenalty')        return { bg: D.red,   color: '#fff' };
-  if (key === 'neighborhoodBonus') return { bg: D.green, color: '#fff' };
-  if (pct >= 0.7) return { bg: D.green,  color: '#fff' };
-  if (pct >= 0.4) return { bg: D.yellow, color: '#fff' };
-  return { bg: D.red, color: '#fff' };
+function chipColor(key: string, pct: number, P: Palette): { bg: string; color: string } {
+  if (pct === 0) return { bg: P.statBg, color: P.muted };
+  if (key === 'domPenalty')        return { bg: P.red,   color: '#fff' };
+  if (key === 'neighborhoodBonus') return { bg: P.green, color: '#fff' };
+  if (pct >= 0.7) return { bg: P.green,  color: '#fff' };
+  if (pct >= 0.4) return { bg: P.yellow, color: '#fff' };
+  return { bg: P.red, color: '#fff' };
 }
 
-function scoreChipsHtml(l: NotifyListing): string {
+function scoreChipsHtml(l: NotifyListing, P: Palette): string {
   const bd = parseBreakdown(l.score_breakdown);
   if (!bd) return '';
 
-  const chips = Object.entries(bd.factors).map(([key, { pts, max }]) => {
+  const chips = Object.entries(bd.factors).filter(([key, { pts }]) => !(key === 'domPenalty' && pts === 0)).map(([key, { pts, max }]) => {
     const pct = max > 0 ? pts / max : 0;
-    const { bg, color } = chipColor(key, pct);
+    const { bg, color } = chipColor(key, pct, P);
     const label = FACTOR_LABELS[key] ?? key;
     const display = String(Math.round(pct * 100));
 
     return `<td style="padding:0 2px;text-align:center;vertical-align:top">
       <div style="background:${bg};color:${color};border-radius:3px;height:20px;line-height:20px;font-size:9px;font-weight:700;text-align:center;white-space:nowrap;padding:0 2px">${display}</div>
-      <div style="font-size:8px;color:${D.muted};margin-top:3px;white-space:nowrap;text-align:center">${label}</div>
+      <div style="font-size:8px;color:${P.muted};margin-top:3px;white-space:nowrap;text-align:center">${label}</div>
     </td>`;
   }).join('');
 
   return `
     <div style="margin-top:12px">
-      <div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:${D.muted};margin-bottom:5px">Score Breakdown</div>
+      <div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:${P.muted};margin-bottom:5px">Score Breakdown</div>
       <table style="border-collapse:collapse;width:100%"><tr>${chips}</tr></table>
     </div>`;
 }
 
-function buildCard(l: NotifyListing): string {
+function buildCard(l: NotifyListing, P: Palette, badge = ''): string {
   const img = photoUrl(l.id);
-  const { bg: scoreBg, color: scoreColor } = scoreColors(l.score);
+  const { bg: scoreBg, color: scoreColor } = scoreColors(l.score, P);
   const typeLabel = l.property_type
-    ? l.property_type.replace('Single Family Residential', 'SFD')
+    ? l.property_type.replace(/single family residential/i, 'SFD').replace(/single family/i, 'SFD')
     : '?';
   const ppsf = l.sqft ? `$${Math.round(l.price / l.sqft)}` : '—';
+  const city = l.city ?? '';
+  const state = l.state ?? '';
+  const zip = l.zip ?? '';
 
   return `
-  <table style="width:100%;max-width:520px;margin:0 auto 24px;border-collapse:collapse;border:1px solid ${D.border};border-radius:10px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:${D.surface}">
+  <!-- Badge + type pill row above card -->
+  <table style="width:100%;max-width:520px;margin:0 auto 6px;border-collapse:collapse"><tr>
+    <td>${badge}</td>
+    <td style="text-align:right;white-space:nowrap"><span style="font-size:10px;background:${P.statBg};border:1px solid ${P.border};border-radius:20px;padding:3px 10px;color:${P.muted};font-weight:500;letter-spacing:.03em">${typeLabel}</span></td>
+  </tr></table>
+
+  <table style="width:100%;max-width:520px;margin:0 auto 24px;border-collapse:collapse;border:1px solid ${P.border};border-radius:10px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:${P.surface}">
     ${img ? `<tr><td style="padding:0"><img src="${img}" width="520" style="display:block;width:100%;height:200px;object-fit:cover" alt="${l.address}"></td></tr>` : ''}
     <tr>
       <td style="padding:16px">
 
-        <!-- Header: address + score badge -->
+        <!-- Header: price + score badge aligned in same row -->
         <table style="width:100%;border-collapse:collapse">
           <tr>
-            <td style="vertical-align:top">
-              <div style="font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:18px;line-height:1.25;color:${D.text}">${l.address}</div>
-              <div style="font-size:11px;color:${D.muted};margin-top:4px">${l.city}, ${l.state} ${l.zip}</div>
-              ${l.school_district ? `<div style="font-size:10px;color:${D.accent};margin-top:5px;font-weight:500;letter-spacing:.02em">${l.school_district}</div>` : ''}
+            <td style="vertical-align:middle">
+              <div style="font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:32px;font-weight:700;line-height:1.1;color:${P.text}">$${fmt(l.price)}${priceChangeHtml(l, P)}</div>
+              <div style="font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-weight:400;font-size:17px;line-height:1.25;color:${P.text};margin-top:6px">${l.address}</div>
+              <div style="font-size:11px;color:${P.muted};margin-top:3px">${city}${city && (state || zip) ? ', ' : ''}${state} ${zip}</div>
+              ${l.school_district ? `<div style="font-size:10px;color:${P.accent};margin-top:4px;font-weight:500;letter-spacing:.02em">${l.school_district}</div>` : ''}
             </td>
-            <td style="text-align:right;vertical-align:top;padding-left:12px">
-              <div style="display:inline-block;background:${scoreBg};border:1px solid ${scoreColor};color:${scoreColor};border-radius:50%;width:48px;height:48px;line-height:46px;text-align:center;font-size:16px;font-weight:700;font-family:'Courier New',monospace">${Math.round(l.score)}</div>
+            <td style="text-align:right;vertical-align:top;padding-left:16px;white-space:nowrap">
+              <div style="display:inline-block;background:${scoreBg};border:1px solid ${scoreColor};color:${scoreColor};border-radius:50%;width:52px;height:52px;line-height:50px;text-align:center;font-size:18px;font-weight:700;font-family:'JetBrains Mono','Courier New',monospace">${Math.round(l.score)}</div>
+              ${l.days_on_market != null ? `<div style="font-size:11px;color:${P.muted};margin-top:5px;text-align:right">${domLabel(l.days_on_market, P)}</div>` : ''}
             </td>
           </tr>
         </table>
 
-        <!-- Price -->
-        <div style="margin-top:14px">
-          <span style="font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:400;color:${D.text}">$${fmt(l.price)}</span>${priceChangeHtml(l)}
-          ${listedLine(l)}
-        </div>
-
         <!-- Stats row -->
         <table style="width:100%;border-collapse:collapse;margin-top:12px">
           <tr>
-            <td style="width:25%;padding:7px 8px;background:${D.statBg};border-radius:5px">
-              <div style="font-family:'Courier New',monospace;font-size:12px;font-weight:700;color:${D.text}">${l.beds} / ${l.baths}</div>
-              <div style="font-size:9px;color:${D.muted};margin-top:2px;text-transform:uppercase;letter-spacing:.05em">Bed / Bth</div>
+            <td style="width:25%;padding:7px 8px;background:${P.statBg};border-radius:5px">
+              <div style="font-family:'Courier New',monospace;font-size:12px;font-weight:700;color:${P.text}">${l.beds} | ${l.baths}</div>
+              <div style="font-size:9px;color:${P.muted};margin-top:2px;text-transform:uppercase;letter-spacing:.05em">Bed | Bth</div>
             </td>
             <td style="width:5px"></td>
-            <td style="width:25%;padding:7px 8px;background:${D.statBg};border-radius:5px">
-              <div style="font-family:'Courier New',monospace;font-size:12px;font-weight:700;color:${D.text}">${l.sqft ? fmt(l.sqft) : '—'}</div>
-              <div style="font-size:9px;color:${D.muted};margin-top:2px;text-transform:uppercase;letter-spacing:.05em">Sq Ft</div>
+            <td style="width:25%;padding:7px 8px;background:${P.statBg};border-radius:5px">
+              <div style="font-family:'Courier New',monospace;font-size:12px;font-weight:700;color:${P.text}">${l.sqft ? fmt(l.sqft) : '—'}</div>
+              <div style="font-size:9px;color:${P.muted};margin-top:2px;text-transform:uppercase;letter-spacing:.05em">Sq Ft</div>
             </td>
             <td style="width:5px"></td>
-            <td style="width:25%;padding:7px 8px;background:${D.statBg};border-radius:5px">
-              <div style="font-family:'Courier New',monospace;font-size:12px;font-weight:700;color:${D.text}">${fmtAcres(l.lot_sqft)}</div>
-              <div style="font-size:9px;color:${D.muted};margin-top:2px;text-transform:uppercase;letter-spacing:.05em">Lot</div>
+            <td style="width:25%;padding:7px 8px;background:${P.statBg};border-radius:5px">
+              <div style="font-family:'Courier New',monospace;font-size:12px;font-weight:700;color:${P.text}">${fmtAcres(l.lot_sqft)}</div>
+              <div style="font-size:9px;color:${P.muted};margin-top:2px;text-transform:uppercase;letter-spacing:.05em">Lot</div>
             </td>
             <td style="width:5px"></td>
-            <td style="width:25%;padding:7px 8px;background:${D.statBg};border-radius:5px">
-              <div style="font-family:'Courier New',monospace;font-size:12px;font-weight:700;color:${D.text}">${ppsf}</div>
-              <div style="font-size:9px;color:${D.muted};margin-top:2px;text-transform:uppercase;letter-spacing:.05em">$/Sq Ft</div>
+            <td style="width:25%;padding:7px 8px;background:${P.statBg};border-radius:5px">
+              <div style="font-family:'Courier New',monospace;font-size:12px;font-weight:700;color:${P.text}">${ppsf}</div>
+              <div style="font-size:9px;color:${P.muted};margin-top:2px;text-transform:uppercase;letter-spacing:.05em">$/Sq Ft</div>
             </td>
           </tr>
         </table>
 
         <!-- Score chips -->
-        ${scoreChipsHtml(l)}
+        ${scoreChipsHtml(l, P)}
 
-        <!-- Footer: CTA + type pill -->
-        <table style="width:100%;border-collapse:collapse;margin-top:14px">
-          <tr>
-            <td style="width:100%">
-              ${l.url ? `<a href="${l.url}" style="display:block;width:100%;background:${D.accent};color:#fff;text-decoration:none;border-radius:5px;padding:8px 0;font-size:12px;font-weight:600;letter-spacing:.03em;text-align:center;box-sizing:border-box">View on Redfin →</a>` : ''}
-            </td>
-            <td style="white-space:nowrap;padding-left:8px;vertical-align:middle">
-              <span style="font-size:10px;background:${D.statBg};border:1px solid ${D.border};border-radius:20px;padding:3px 10px;color:${D.muted};font-weight:500;letter-spacing:.03em">${typeLabel}</span>
-            </td>
-          </tr>
-        </table>
+        <!-- Footer: CTA -->
+        <div style="margin-top:14px">
+          ${l.url ? `<a href="${l.url}" style="display:block;width:100%;background:${P.accent};color:#fff;text-decoration:none;border-radius:5px;padding:8px 0;font-size:12px;font-weight:600;letter-spacing:.03em;text-align:center;box-sizing:border-box">View on Redfin →</a>` : ''}
+        </div>
 
       </td>
     </tr>
@@ -248,64 +263,72 @@ function buildCard(l: NotifyListing): string {
 
 type ChangeWithListing = import('../db/index.js').ChangeWithListing;
 
-function changeBadgeHtml(c: ChangeWithListing): string {
+function changeBadgeHtml(c: ChangeWithListing, P: Palette): string {
   if (c.change_type === 'price_drop') {
     const old = parseInt(c.old_value ?? '0');
     const diff = old - c.price;
     return `<div style="margin-bottom:8px">
-      <span style="background:rgba(74,158,114,0.12);color:${D.green};border:1px solid rgba(74,158,114,0.3);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">▼ Price Drop</span>
-      <span style="font-size:12px;color:${D.muted};margin-left:8px">$${old.toLocaleString()} → <strong style="color:${D.text}">$${c.price.toLocaleString()}</strong> <span style="color:${D.green}">−$${diff.toLocaleString()}</span></span>
+      <span style="background:rgba(74,158,114,0.12);color:${P.green};border:1px solid rgba(74,158,114,0.3);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">▼ Price Drop</span>
+      <span style="font-size:12px;color:${P.muted};margin-left:8px">$${old.toLocaleString()} → <strong style="color:${P.text}">$${c.price.toLocaleString()}</strong> <span style="color:${P.green}">−$${diff.toLocaleString()}</span></span>
     </div>`;
   }
   if (c.change_type === 'price_increase') {
     const old = parseInt(c.old_value ?? '0');
     const diff = c.price - old;
     return `<div style="margin-bottom:8px">
-      <span style="background:rgba(192,90,71,0.12);color:${D.red};border:1px solid rgba(192,90,71,0.3);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">▲ Price Increase</span>
-      <span style="font-size:12px;color:${D.muted};margin-left:8px">$${old.toLocaleString()} → <strong style="color:${D.text}">$${c.price.toLocaleString()}</strong> <span style="color:${D.red}">+$${diff.toLocaleString()}</span></span>
+      <span style="background:rgba(192,90,71,0.12);color:${P.red};border:1px solid rgba(192,90,71,0.3);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">▲ Price Increase</span>
+      <span style="font-size:12px;color:${P.muted};margin-left:8px">$${old.toLocaleString()} → <strong style="color:${P.text}">$${c.price.toLocaleString()}</strong> <span style="color:${P.red}">+$${diff.toLocaleString()}</span></span>
     </div>`;
   }
   if (c.change_type === 'now_active') {
     return `<div style="margin-bottom:8px">
-      <span style="background:rgba(196,145,58,0.12);color:${D.accent};border:1px solid rgba(196,145,58,0.3);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">⚡ Now Active</span>
-      <span style="font-size:12px;color:${D.muted};margin-left:8px">Previously coming soon</span>
+      <span style="background:rgba(196,145,58,0.12);color:${P.accent};border:1px solid rgba(196,145,58,0.3);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">⚡ Now Active</span>
+      <span style="font-size:12px;color:${P.muted};margin-left:8px">Previously coming soon</span>
     </div>`;
   }
   return '';
 }
 
-function buildDigestHtml(newListings: NotifyListing[], changes: ChangeWithListing[]): string {
+function buildDigestHtml(newListings: NotifyListing[], changes: ChangeWithListing[], P: Palette): string {
   const date = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   const total = newListings.length + changes.length;
 
-  const newCards = newListings.map(l => `
-    <table style="width:100%;max-width:520px;margin:0 auto 6px;border-collapse:collapse"><tr><td>
-      <span style="background:rgba(74,158,114,0.12);color:${D.green};border:1px solid rgba(74,158,114,0.3);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">★ New Listing</span>
-    </td></tr></table>
-    ${buildCard(l)}`).join('');
+  const newBadge = `<span style="background:rgba(74,158,114,0.12);color:${P.green};border:1px solid rgba(74,158,114,0.3);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">★ New Listing</span>`;
 
-  const changeCards = changes.map(c => `
-    <table style="width:100%;max-width:520px;margin:0 auto 6px;border-collapse:collapse"><tr><td>
-      ${changeBadgeHtml(c)}
-    </td></tr></table>
-    ${buildCard(c)}`).join('');
+  const newCards = newListings.map(l => buildCard(l, P, newBadge)).join('');
+
+  const changeCards = changes.map(c => buildCard(c, P, changeBadgeHtml(c, P))).join('');
 
   return `<!DOCTYPE html>
 <html>
-<body style="margin:0;padding:0;background:${D.bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" bgcolor="${D.bg}">
-  <table style="width:100%;border-collapse:collapse" bgcolor="${D.bg}"><tr><td style="padding:24px 16px" bgcolor="${D.bg}">
+<head>
+  <meta charset="utf-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+  <style>
+    .price-text { font-family: 'Cormorant Garamond', Georgia, serif !important; }
+    .ui-text    { font-family: 'DM Sans', system-ui, sans-serif !important; }
+    .data-text  { font-family: 'JetBrains Mono', 'Courier New', monospace !important; }
+  </style>
+</head>
+<body style="margin:0;padding:0;background:${P.bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" bgcolor="${P.bg}">
+  <table style="width:100%;border-collapse:collapse" bgcolor="${P.bg}"><tr><td style="padding:24px 16px" bgcolor="${P.bg}">
     <table style="width:100%;max-width:520px;margin:0 auto 24px;border-collapse:collapse">
-      <tr><td style="background:${D.surface};border:1px solid ${D.border};border-radius:10px;padding:20px 24px">
-        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:${D.text}">HOUSE <span style="color:${D.accent}">TRACKER</span></div>
-        <div style="font-family:'Courier New',monospace;color:${D.muted};font-size:12px;margin-top:6px">${total} update${total !== 1 ? 's' : ''} · score ≥ ${NOTIFY_SCORE_THRESHOLD} · ${date}</div>
+      <tr><td style="background:${P.surface};border:1px solid ${P.border};border-radius:10px;padding:20px 24px">
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:${P.text}">HOUSE <span style="color:${P.accent}">TRACKER</span></div>
+        <div style="font-family:'Courier New',monospace;color:${P.muted};font-size:12px;margin-top:6px">${total} update${total !== 1 ? 's' : ''} · score ≥ ${NOTIFY_SCORE_THRESHOLD} · ${date}</div>
       </td></tr>
     </table>
     ${newCards}${changeCards}
     <table style="width:100%;max-width:520px;margin:0 auto;border-collapse:collapse">
-      <tr><td style="text-align:center;padding:8px 0"><span style="font-size:10px;color:${D.muted};letter-spacing:.04em">house-tracker</span></td></tr>
+      <tr><td style="text-align:center;padding:8px 0"><span style="font-size:10px;color:${P.muted};letter-spacing:.04em">house-tracker</span></td></tr>
     </table>
   </td></tr></table>
 </body></html>`;
+}
+
+export function buildPreviewHtml(newListings: NotifyListing[], changes: ChangeWithListing[], theme: 'dark' | 'light' = 'dark'): string {
+  return buildDigestHtml(newListings, changes, theme === 'light' ? LIGHT : DARK);
 }
 
 export async function sendDigest(newListings: NotifyListing[], changes: ChangeWithListing[]): Promise<void> {
@@ -335,7 +358,7 @@ export async function sendDigest(newListings: NotifyListing[], changes: ChangeWi
     from: `"House Tracker" <${SMTP_USER}>`,
     to: NOTIFY_TO,
     subject: `🏠 ${parts.join(' · ')}`,
-    html: buildDigestHtml(newListings, changes),
+    html: buildDigestHtml(newListings, changes, DARK),
   });
 
   console.log(`[notify] sent digest: ${parts.join(', ')}`);

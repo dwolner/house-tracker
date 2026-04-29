@@ -90,6 +90,15 @@ export interface DomBonusConfig {
   weight: number; // max bonus pts — ramp: 0 at 0–30d, 0→weight/2 at 30–60d, weight/2→weight at 60–120d, weight at 120d+
 }
 
+export interface InvestmentScoreConfig {
+  weight: number;
+  cashFlowExcellent: number; // monthly $ → full cash-flow pts (e.g. 300)
+  capRateGood: number;       // e.g. 0.05 → half cap-rate pts
+  capRateExcellent: number;  // e.g. 0.08 → full cap-rate pts
+  cocGood: number;           // e.g. 0.05 → half CoC pts
+  cocExcellent: number;      // e.g. 0.08 → full CoC pts
+}
+
 export interface ScoringConfig {
   propertyType?: PropertyTypeConfig;
   schoolDistrict?: SchoolDistrictConfig;
@@ -104,6 +113,7 @@ export interface ScoringConfig {
   zipBonus?: ZipBonusConfig;
   domPenalty?: DomPenaltyConfig;
   domBonus?: DomBonusConfig;
+  investmentScore?: InvestmentScoreConfig;
 }
 
 export interface RenovationTier {

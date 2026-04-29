@@ -8,6 +8,7 @@
     "poll": "tsx src/poller/index.ts",
     "enrich": "tsx src/enrichment/walk-score.ts",
     "rent-estimate": "tsx src/enrichment/rent-estimate.ts",
+    "rescore": "tsx src/rescore.ts",
     "push-db": "bash scripts/push-db.sh",
     "clear-stale": "bash scripts/clear-stale.sh",
     "build": "tsc",

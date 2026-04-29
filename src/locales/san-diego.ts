@@ -72,17 +72,12 @@ export const sanDiegoLocale: LocaleConfig = {
       ],
     },
     pricePerSqft: {
-      weight: 3,
+      weight: 10,
       // SD turnkey SFR runs $900–1,200/sqft; below $850 is competitive
-      excellentPpsf: 850,
+      excellentPpsf: 800,
       maxPpsf:       1_300,
     },
-    // Full bonus for Bay Park (92110) and Point Loma Heights (92107) — primary target neighborhoods
-    zipBonus: {
-      weight: 12,
-      zips: ['92110', '92107'],
-    },
-    domPenalty: { weight: 10 },
+    domPenalty: { weight: 6 },
   },
 };
-// Positive weight denominator: 20+18+14+14+12+10+3+12 = 103
+// Positive weight denominator: 20+18+14+14+12+10+10 = 98
