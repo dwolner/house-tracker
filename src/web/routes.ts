@@ -84,22 +84,26 @@ export function registerRoutes(app: FastifyInstance) {
     return { total, avgScore, fresh, lastPoll, cities: cities.map(c => c.city), propertyTypes: propertyTypes.map(r => r.pt), totalEver };
   });
 
-  // Preview email digest in browser — GET /email-preview?locale=san-diego&n=5&theme=dark
+  // Preview email digest in browser — GET /email-preview?locale=san-diego&days=3&theme=dark
   app.get('/email-preview', async (req, reply) => {
     const q = req.query as Record<string, string>;
     const localeId = q.locale ?? '';
-    const n = Math.min(parseInt(q.n ?? '5', 10), 20);
+    const days = parseFloat(q.days ?? '1');
     const { buildPreviewHtml, NOTIFY_SCORE_THRESHOLD } = await import('../notifications/email.js');
     const { getUnnotifiedChanges } = await import('../db/index.js');
     const db = getDb();
     const localeSql = localeId ? `AND locale_id = ?` : '';
-    const params: unknown[] = localeId ? [NOTIFY_SCORE_THRESHOLD, localeId, n] : [NOTIFY_SCORE_THRESHOLD, n];
+    const params: unknown[] = localeId
+      ? [NOTIFY_SCORE_THRESHOLD, days, localeId]
+      : [NOTIFY_SCORE_THRESHOLD, days];
     const listings = db.prepare(`
       SELECT id, address, city, state, zip, price, price_at_first_seen, beds, baths, sqft, lot_sqft,
              days_on_market, first_seen_at, score, score_breakdown, school_district, property_type, walk_score, url
       FROM listings
-      WHERE status NOT IN ('inactive', '130') AND score >= ? ${localeSql}
-      ORDER BY score DESC LIMIT ?
+      WHERE status NOT IN ('inactive', '130') AND score >= ?
+        AND first_seen_at >= datetime('now', '-' || ? || ' days')
+        ${localeSql}
+      ORDER BY first_seen_at DESC
     `).all(...params) as import('../notifications/email.js').NotifyListing[];
     const allChanges = getUnnotifiedChanges(NOTIFY_SCORE_THRESHOLD);
     const changes = localeId
