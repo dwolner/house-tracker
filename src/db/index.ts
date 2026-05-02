@@ -420,6 +420,13 @@ export function markChangesNotified(ids: number[]): void {
   getDb().prepare(`UPDATE change_log SET notified = 1 WHERE id IN (${placeholders})`).run(...ids);
 }
 
+export function sweepStaleChanges(windowHours = 48): void {
+  getDb().prepare(`
+    UPDATE change_log SET notified = 1
+    WHERE notified = 0 AND changed_at < datetime('now', '-${windowHours} hours')
+  `).run();
+}
+
 export function toggleStar(id: string): { starred: boolean } {
   const db = getDb();
   const row = db.prepare('SELECT starred FROM listings WHERE id = ?').get(id) as { starred: number } | undefined;

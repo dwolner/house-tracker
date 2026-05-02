@@ -13,7 +13,7 @@ const POLL_SCHEDULE = process.env.POLL_SCHEDULE ?? '0 7 * * *'; // default: 7am 
 async function runPollAndNotify(label: string): Promise<void> {
   const { runPoll } = await import('../poller/index.js');
   const { sendDigest, NOTIFY_SCORE_THRESHOLD } = await import('../notifications/email.js');
-  const { getUnnotifiedChanges, markChangesNotified, getDb } = await import('../db/index.js');
+  const { getUnnotifiedChanges, markChangesNotified, sweepStaleChanges, getDb } = await import('../db/index.js');
   try {
     const { newHighScoreIds } = await runPoll();
 
@@ -30,6 +30,7 @@ async function runPollAndNotify(label: string): Promise<void> {
 
     const changes = getUnnotifiedChanges(NOTIFY_SCORE_THRESHOLD);
 
+    sweepStaleChanges();
     if (newListings.length > 0 || changes.length > 0) {
       await sendDigest(newListings, changes);
       markChangesNotified(changes.map(c => c.change_id));

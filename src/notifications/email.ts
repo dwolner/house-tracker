@@ -65,6 +65,32 @@ const LIGHT: Palette = {
 // Keep D as an alias for dark to avoid touching non-palette code paths
 const D = DARK;
 
+const NEIGHBORHOOD_BY_ZIP: Record<string, string> = {
+  // San Diego
+  '92110': 'Bay Park / Loma Portal',
+  '92107': 'Point Loma Heights',
+  '92116': 'Kensington / Talmadge',
+  '92117': 'Bay Ho',
+  '92104': 'North Park',
+  '92103': 'Mission Hills',
+  '92120': 'Allied Gardens',
+  // Main Line PA
+  '19072': 'Narberth/Penn Valley',
+  '19003': 'Ardmore',
+  '19010': 'Bryn Mawr',
+  '19004': 'Bala Cynwyd',
+  '19066': 'Merion Station',
+  '19041': 'Haverford',
+  '19096': 'Wynnewood',
+  '19087': 'Wayne',
+  '19312': 'Berwyn',
+  '19406': 'King of Prussia',
+};
+
+function getNeighborhood(zip: string): string | null {
+  return NEIGHBORHOOD_BY_ZIP[zip] ?? null;
+}
+
 function isConfigured(): boolean {
   return Boolean(SMTP_USER && SMTP_PASS && NOTIFY_TO);
 }
@@ -194,6 +220,8 @@ function buildCard(l: NotifyListing, P: Palette, badge = ''): string {
   const city = l.city ?? '';
   const state = l.state ?? '';
   const zip = l.zip ?? '';
+  const neighborhood = getNeighborhood(zip);
+  const metaLine = [neighborhood, l.school_district].filter(Boolean).join(' · ');
 
   return `
   <!-- Badge + type pill row above card -->
@@ -214,7 +242,7 @@ function buildCard(l: NotifyListing, P: Palette, badge = ''): string {
               <div style="font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:32px;font-weight:700;line-height:1.1;color:${P.text}">$${fmt(l.price)}${priceChangeHtml(l, P)}</div>
               <div style="font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-weight:400;font-size:17px;line-height:1.25;color:${P.text};margin-top:6px">${l.address}</div>
               <div style="font-size:11px;color:${P.muted};margin-top:3px">${city}${city && (state || zip) ? ', ' : ''}${state} ${zip}</div>
-              ${l.school_district ? `<div style="font-size:10px;color:${P.accent};margin-top:4px;font-weight:500;letter-spacing:.02em">${l.school_district}</div>` : ''}
+              ${metaLine ? `<div style="font-size:10px;color:${P.accent};margin-top:4px;font-weight:500;letter-spacing:.02em">${metaLine}</div>` : ''}
             </td>
             <td style="text-align:right;vertical-align:top;padding-left:16px;white-space:nowrap">
               <div style="display:inline-block;background:${scoreBg};border:1px solid ${scoreColor};color:${scoreColor};border-radius:50%;width:52px;height:52px;line-height:50px;text-align:center;font-size:18px;font-weight:700;font-family:'JetBrains Mono','Courier New',monospace">${Math.round(l.score)}</div>
@@ -289,15 +317,54 @@ function changeBadgeHtml(c: ChangeWithListing, P: Palette): string {
   return '';
 }
 
+function localeLabel(state: string): string {
+  if (state === 'PA') return 'Main Line';
+  if (state === 'CA') return 'San Diego';
+  if (state === 'MO') return 'St. Louis';
+  return state;
+}
+
+function sectionHeader(label: string, P: Palette): string {
+  return `
+  <table style="width:100%;max-width:520px;margin:0 auto 10px;border-collapse:collapse">
+    <tr><td style="padding:0">
+      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:${P.muted};border-bottom:1px solid ${P.border};padding-bottom:6px">${label}</div>
+    </td></tr>
+  </table>`;
+}
+
 function buildDigestHtml(newListings: NotifyListing[], changes: ChangeWithListing[], P: Palette): string {
   const date = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   const total = newListings.length + changes.length;
 
   const newBadge = `<span style="background:rgba(74,158,114,0.12);color:${P.green};border:1px solid rgba(74,158,114,0.3);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">★ New Listing</span>`;
 
-  const newCards = newListings.map(l => buildCard(l, P, newBadge)).join('');
+  const uniqueStates = <T extends { state: string }>(items: T[]) =>
+    [...new Set(items.map(i => i.state))].sort();
 
-  const changeCards = changes.map(c => buildCard(c, P, changeBadgeHtml(c, P))).join('');
+  let body = '';
+
+  // New listings grouped by locale
+  for (const state of uniqueStates(newListings)) {
+    const group = newListings.filter(l => l.state === state);
+    body += sectionHeader(`New · ${localeLabel(state)}`, P);
+    body += group.map(l => buildCard(l, P, newBadge)).join('');
+  }
+
+  // Changes grouped by category then locale
+  const changeCategories: Array<{ label: string; type: string }> = [
+    { label: 'Price Drop', type: 'price_drop' },
+    { label: 'Price Increase', type: 'price_increase' },
+    { label: 'Now Active', type: 'now_active' },
+  ];
+  for (const { label, type } of changeCategories) {
+    const catChanges = changes.filter(c => c.change_type === type);
+    for (const state of uniqueStates(catChanges)) {
+      const group = catChanges.filter(c => c.state === state);
+      body += sectionHeader(`${label} · ${localeLabel(state)}`, P);
+      body += group.map(c => buildCard(c, P, changeBadgeHtml(c, P))).join('');
+    }
+  }
 
   return `<!DOCTYPE html>
 <html>
@@ -319,7 +386,7 @@ function buildDigestHtml(newListings: NotifyListing[], changes: ChangeWithListin
         <div style="font-family:'Courier New',monospace;color:${P.muted};font-size:12px;margin-top:6px">${total} update${total !== 1 ? 's' : ''} · score ≥ ${NOTIFY_SCORE_THRESHOLD} · ${date}</div>
       </td></tr>
     </table>
-    ${newCards}${changeCards}
+    ${body}
     <table style="width:100%;max-width:520px;margin:0 auto;border-collapse:collapse">
       <tr><td style="text-align:center;padding:8px 0"><span style="font-size:10px;color:${P.muted};letter-spacing:.04em">house-tracker</span></td></tr>
     </table>

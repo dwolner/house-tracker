@@ -62,7 +62,7 @@ src/
       app.js         — Client JS (filters, sort, investment mode, score tooltip, map, charts)
       style.css      — CSS custom properties for light/dark theme
   notifications/
-    email.ts         — Email digest: dark + light palette, buildPreviewHtml export
+    email.ts         — Email digest: dark + light palette, buildPreviewHtml export; cards show neighborhood · school district row; listings grouped by category (new/price drop) then locale
   rescore.ts         — Standalone rescore script (re-scores all listings, optional locale filter)
   index.ts           — Entry point (seeds FRED rate at startup)
 scripts/
@@ -280,6 +280,8 @@ listings (
 price_history     (listing_id, price, recorded_at)
 poll_log          (polled_at, area, listings_found, new_listings)
 change_log        (listing_id, change_type, old_value, new_value, changed_at, notified)
+                  sweepStaleChanges() marks unnotified rows older than 48h as seen on each poll cycle
+                  to prevent backlog bursts after downtime or rescores
 
 rental_estimates (
   listing_id TEXT PRIMARY KEY,   -- FK → listings.id
@@ -339,7 +341,7 @@ rentcast_usage (
 | `SMTP_USER` | Yes (email) | SMTP username |
 | `SMTP_PASS` | Yes (email) | SMTP password / app password |
 | `NOTIFY_TO` | Yes (email) | Comma-separated recipient list |
-| `NOTIFY_SCORE_THRESHOLD` | No | Min score for new listing email (default: 70) |
+| `NOTIFY_SCORE_THRESHOLD` | No | Min score for new listing email (default: 75) |
 | `POLL_SCHEDULE` | No | Cron expression for auto-poll (default: `0 7 * * *`) |
 | `DB_PATH` | No | SQLite file path (default: `data/listings.db`) |
 | `RENTCAST_API_KEY` | No | RentCast API key for STL rent estimates (free tier: 50 req/30-day period) |

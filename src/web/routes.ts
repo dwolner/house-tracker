@@ -202,7 +202,7 @@ export function registerRoutes(app: FastifyInstance) {
   app.post('/api/digest', async () => {
     const { runPoll } = await import('../poller/index.js');
     const { sendDigest, NOTIFY_SCORE_THRESHOLD } = await import('../notifications/email.js');
-    const { getUnnotifiedChanges, markChangesNotified, getDb } = await import('../db/index.js');
+    const { getUnnotifiedChanges, markChangesNotified, sweepStaleChanges, getDb } = await import('../db/index.js');
     const { newHighScoreIds } = await runPoll();
 
     let newListings: import('../notifications/email.js').NotifyListing[] = [];
@@ -217,6 +217,7 @@ export function registerRoutes(app: FastifyInstance) {
 
     const changes = getUnnotifiedChanges(NOTIFY_SCORE_THRESHOLD);
 
+    sweepStaleChanges();
     if (newListings.length > 0 || changes.length > 0) {
       await sendDigest(newListings, changes);
       markChangesNotified(changes.map(c => c.change_id));
