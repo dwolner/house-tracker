@@ -339,30 +339,34 @@ function buildDigestHtml(newListings: NotifyListing[], changes: ChangeWithListin
 
   const newBadge = `<span style="background:rgba(74,158,114,0.12);color:${P.green};border:1px solid rgba(74,158,114,0.3);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">★ New Listing</span>`;
 
-  const uniqueStates = <T extends { state: string }>(items: T[]) =>
-    [...new Set(items.map(i => i.state))].sort();
+  const byScore = <T extends { score: number }>(items: T[]) =>
+    [...items].sort((a, b) => b.score - a.score);
 
-  let body = '';
+  const allStates = [...new Set([
+    ...newListings.map(l => l.state),
+    ...changes.map(c => c.state),
+  ])].sort();
 
-  // New listings grouped by locale
-  for (const state of uniqueStates(newListings)) {
-    const group = newListings.filter(l => l.state === state);
-    body += sectionHeader(`New · ${localeLabel(state)}`, P);
-    body += group.map(l => buildCard(l, P, newBadge)).join('');
-  }
-
-  // Changes grouped by category then locale
   const changeCategories: Array<{ label: string; type: string }> = [
     { label: 'Price Drop', type: 'price_drop' },
     { label: 'Price Increase', type: 'price_increase' },
     { label: 'Now Active', type: 'now_active' },
   ];
-  for (const { label, type } of changeCategories) {
-    const catChanges = changes.filter(c => c.change_type === type);
-    for (const state of uniqueStates(catChanges)) {
-      const group = catChanges.filter(c => c.state === state);
-      body += sectionHeader(`${label} · ${localeLabel(state)}`, P);
-      body += group.map(c => buildCard(c, P, changeBadgeHtml(c, P))).join('');
+
+  let body = '';
+
+  // Locale → category → score desc
+  for (const state of allStates) {
+    const stateNew = newListings.filter(l => l.state === state);
+    if (stateNew.length > 0) {
+      body += sectionHeader(`${localeLabel(state)} · New`, P);
+      body += byScore(stateNew).map(l => buildCard(l, P, newBadge)).join('');
+    }
+    for (const { label, type } of changeCategories) {
+      const group = changes.filter(c => c.state === state && c.change_type === type);
+      if (group.length === 0) continue;
+      body += sectionHeader(`${localeLabel(state)} · ${label}`, P);
+      body += byScore(group).map(c => buildCard(c, P, changeBadgeHtml(c, P))).join('');
     }
   }
 

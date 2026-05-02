@@ -62,7 +62,7 @@ src/
       app.js         — Client JS (filters, sort, investment mode, score tooltip, map, charts)
       style.css      — CSS custom properties for light/dark theme
   notifications/
-    email.ts         — Email digest: dark + light palette, buildPreviewHtml export; cards show neighborhood · school district row; listings grouped by category (new/price drop) then locale
+    email.ts         — Email digest: dark + light palette, buildPreviewHtml export; cards show neighborhood · school district row; listings grouped by locale then category (new/price drop), sorted by score desc
   rescore.ts         — Standalone rescore script (re-scores all listings, optional locale filter)
   index.ts           — Entry point (seeds FRED rate at startup)
 scripts/
