@@ -445,6 +445,13 @@ export function getDuplicateCandidates(): Array<{ old_id: string; new_id: string
       AND a.superseded_by IS NULL AND b.superseded_by IS NULL
       AND a.status NOT IN ('inactive', '130')
       AND b.status NOT IN ('inactive', '130')
+      AND (
+        LOWER(TRIM(a.address)) = LOWER(TRIM(b.address))
+        OR (
+          SUBSTR(LOWER(TRIM(a.address)), 1, 6) = SUBSTR(LOWER(TRIM(b.address)), 1, 6)
+          AND ABS(JULIANDAY(b.first_seen_at) - JULIANDAY(a.first_seen_at)) <= 60
+        )
+      )
     ORDER BY a.zip, a.first_seen_at
   `).all() as any;
 }
