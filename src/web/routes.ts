@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { getDb, toggleStar, getOutcomesData, getSoldComps, getRentalEstimates, getRentcastUsage } from '../db/index.js';
+import { getDb, toggleStar, getOutcomesData, getSoldComps, getRentalEstimates, getRentcastUsage, supersedeListings, getDuplicateCandidates } from '../db/index.js';
 import { LOCALES } from '../locales/index.js';
 
 export function registerRoutes(app: FastifyInstance) {
@@ -142,16 +142,12 @@ export function registerRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const { superseded_by } = req.body as { superseded_by: string };
     if (!superseded_by) return { ok: false, error: 'superseded_by required' };
-    const { supersedeListings } = require('../db/index.js');
     supersedeListings(id, superseded_by);
     return { ok: true };
   });
 
   // Find active listings that look like duplicates (same zip/beds/baths/sqft)
-  app.get('/api/listings/duplicate-candidates', () => {
-    const { getDuplicateCandidates } = require('../db/index.js');
-    return getDuplicateCandidates();
-  });
+  app.get('/api/listings/duplicate-candidates', () => getDuplicateCandidates());
 
   // Pending outcomes — analytics data
   app.get('/api/outcomes', () => getOutcomesData());
