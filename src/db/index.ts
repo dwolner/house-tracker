@@ -158,6 +158,7 @@ export function getDb(): Database.Database {
   if (!cols.includes('sold_price')) _db.exec(`ALTER TABLE listings ADD COLUMN sold_price INTEGER`);
   if (!cols.includes('status_label')) _db.exec(`ALTER TABLE listings ADD COLUMN status_label TEXT`);
   if (!cols.includes('locale_id')) _db.exec(`ALTER TABLE listings ADD COLUMN locale_id TEXT NOT NULL DEFAULT 'main-line'`);
+  if (!cols.includes('superseded_by')) _db.exec(`ALTER TABLE listings ADD COLUMN superseded_by TEXT REFERENCES listings(id)`);
 
   return _db;
 }
@@ -410,6 +411,7 @@ export function getUnnotifiedChanges(minScore = 0): ChangeWithListing[] {
     WHERE c.notified = 0
       AND c.change_type IN ('price_drop', 'price_increase', 'now_active')
       AND l.score >= ?
+      AND l.superseded_by IS NULL
     ORDER BY c.changed_at ASC
   `).all(minScore) as ChangeWithListing[];
 }
@@ -425,6 +427,26 @@ export function sweepStaleChanges(windowHours = 48): void {
     UPDATE change_log SET notified = 1
     WHERE notified = 0 AND changed_at < datetime('now', '-${windowHours} hours')
   `).run();
+}
+
+export function supersedeListings(oldId: string, newId: string): void {
+  getDb().prepare(`UPDATE listings SET superseded_by = ? WHERE id = ?`).run(newId, oldId);
+}
+
+export function getDuplicateCandidates(): Array<{ old_id: string; new_id: string; address_old: string; address_new: string; score_old: number; score_new: number; first_seen_old: string; first_seen_new: string }> {
+  return getDb().prepare(`
+    SELECT a.id as old_id, b.id as new_id,
+           a.address as address_old, b.address as address_new,
+           a.score as score_old, b.score as score_new,
+           a.first_seen_at as first_seen_old, b.first_seen_at as first_seen_new
+    FROM listings a
+    JOIN listings b ON a.zip = b.zip AND a.beds = b.beds AND a.baths = b.baths AND a.sqft = b.sqft
+    WHERE a.id < b.id
+      AND a.superseded_by IS NULL AND b.superseded_by IS NULL
+      AND a.status NOT IN ('inactive', '130')
+      AND b.status NOT IN ('inactive', '130')
+    ORDER BY a.zip, a.first_seen_at
+  `).all() as any;
 }
 
 export function toggleStar(id: string): { starred: boolean } {

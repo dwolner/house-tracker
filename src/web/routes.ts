@@ -25,6 +25,7 @@ export function registerRoutes(app: FastifyInstance) {
         AND beds >= ?
         AND price >= ?
         AND price <= ?
+        AND superseded_by IS NULL
         ${includeInactive ? '' : `AND status NOT IN ('inactive', '130')`}
     `;
     const params: (string | number)[] = [minScore, minBeds, minPrice, maxPrice];
@@ -66,7 +67,7 @@ export function registerRoutes(app: FastifyInstance) {
     const q = req.query as Record<string, string>;
     const localeId = q.locale_id;
     const db = getDb();
-    const active = `status NOT IN ('inactive', '130')`;
+    const active = `status NOT IN ('inactive', '130') AND superseded_by IS NULL`;
     const lf = localeId ? ` AND locale_id = ?` : '';
 
     const g1 = (sql: string) => localeId ? db.prepare(sql + lf).get(localeId) : db.prepare(sql).get();
@@ -100,7 +101,7 @@ export function registerRoutes(app: FastifyInstance) {
       SELECT id, address, city, state, zip, price, price_at_first_seen, beds, baths, sqft, lot_sqft,
              days_on_market, first_seen_at, score, score_breakdown, school_district, property_type, walk_score, url
       FROM listings
-      WHERE status NOT IN ('inactive', '130') AND score >= ?
+      WHERE status NOT IN ('inactive', '130') AND score >= ? AND superseded_by IS NULL
         AND first_seen_at >= datetime('now', '-' || ? || ' days')
         ${localeSql}
       ORDER BY first_seen_at DESC
@@ -123,7 +124,7 @@ export function registerRoutes(app: FastifyInstance) {
     const listings = db.prepare(`
       SELECT id, address, city, state, zip, price, price_at_first_seen, beds, baths, sqft, lot_sqft,
              days_on_market, first_seen_at, score, score_breakdown, school_district, property_type, walk_score, url
-      FROM listings ORDER BY score DESC LIMIT 5
+      FROM listings WHERE superseded_by IS NULL ORDER BY score DESC LIMIT 5
     `).all() as import('../notifications/email.js').NotifyListing[];
     if (listings.length === 0) return { ok: false, error: 'no listings in DB' };
     await sendDigest(listings, []);
@@ -134,6 +135,22 @@ export function registerRoutes(app: FastifyInstance) {
   app.post('/api/listings/:id/star', (req) => {
     const { id } = req.params as { id: string };
     return toggleStar(id);
+  });
+
+  // Mark a listing as superseded by a newer re-listing
+  app.post('/api/listings/:id/supersede', (req) => {
+    const { id } = req.params as { id: string };
+    const { superseded_by } = req.body as { superseded_by: string };
+    if (!superseded_by) return { ok: false, error: 'superseded_by required' };
+    const { supersedeListings } = require('../db/index.js');
+    supersedeListings(id, superseded_by);
+    return { ok: true };
+  });
+
+  // Find active listings that look like duplicates (same zip/beds/baths/sqft)
+  app.get('/api/listings/duplicate-candidates', () => {
+    const { getDuplicateCandidates } = require('../db/index.js');
+    return getDuplicateCandidates();
   });
 
   // Pending outcomes — analytics data
