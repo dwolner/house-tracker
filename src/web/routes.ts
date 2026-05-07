@@ -237,7 +237,7 @@ export function registerRoutes(app: FastifyInstance) {
       newListings = getDb().prepare(`
         SELECT id, address, city, state, zip, price, price_at_first_seen, beds, baths, sqft, lot_sqft,
                days_on_market, first_seen_at, score, score_breakdown, school_district, property_type, walk_score, url
-        FROM listings WHERE id IN (${placeholders}) ORDER BY score DESC
+        FROM listings WHERE id IN (${placeholders}) AND superseded_by IS NULL ORDER BY score DESC
       `).all(...newHighScoreIds) as import('../notifications/email.js').NotifyListing[];
     }
 

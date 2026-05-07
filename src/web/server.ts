@@ -22,7 +22,7 @@ async function runPollAndNotify(label: string): Promise<void> {
     if (newHighScoreIds.length > 0) {
       const placeholders = newHighScoreIds.map(() => '?').join(',');
       newListings = getDb().prepare(`
-        SELECT id, address, city, zip, price, price_at_first_seen, beds, baths, sqft, lot_sqft,
+        SELECT id, address, city, state, zip, price, price_at_first_seen, beds, baths, sqft, lot_sqft,
                days_on_market, score, score_breakdown, school_district, property_type, walk_score, url
         FROM listings WHERE id IN (${placeholders}) AND superseded_by IS NULL ORDER BY score DESC
       `).all(...newHighScoreIds) as NotifyListing[];
