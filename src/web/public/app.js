@@ -1312,6 +1312,9 @@ function toggleCompare(id, checkbox) {
     checkbox.closest('.card-select-cb').classList.remove('is-checked');
   }
   updateCompareBar();
+  if (document.getElementById('compare-overlay').style.display !== 'none') {
+    openCompareOverlay();
+  }
 }
 
 function updateCompareBar() {
@@ -1333,6 +1336,7 @@ function clearCompare() {
     if (cb) cb.checked = false;
   });
   updateCompareBar();
+  closeCompareOverlay();
 }
 
 function openCompareOverlay() {
