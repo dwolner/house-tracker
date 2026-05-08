@@ -153,19 +153,14 @@ export function registerRoutes(app: FastifyInstance) {
   app.get('/api/listings/by-address', (req, reply) => {
     const q = req.query as Record<string, string>;
     const query = (q.q ?? '').trim();
-    if (!query) {
-      reply.status(400).send({ error: 'q is required' });
-      return;
-    }
-
     const queryTokens = query.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
-    if (queryTokens.length === 0) {
+    if (!queryTokens.length) {
       reply.status(400).send({ error: 'q is required' });
       return;
     }
 
     const listings = getDb()
-      .prepare(`SELECT * FROM listings ORDER BY score DESC`)
+      .prepare(`SELECT * FROM listings WHERE superseded_by IS NULL AND status NOT IN ('inactive', '130') ORDER BY score DESC`)
       .all() as import('../db/index.js').Listing[];
 
     let bestListing: import('../db/index.js').Listing | null = null;
