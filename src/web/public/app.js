@@ -2,6 +2,7 @@
 let allListings = [];
 let activeLocale = localStorage.getItem("locale") ?? "main-line";
 let selectedAreas = new Set();
+let selectedIds = new Set();
 let rawInventoryData = [];
 let rawTrendsData = null;
 let inventoryChart = null;
@@ -199,6 +200,7 @@ async function fetchInvestmentData(locale) {
 }
 
 async function switchLocale(locale) {
+  clearCompare();
   activeLocale = locale;
   localStorage.setItem("locale", locale);
   selectedAreas.clear();
@@ -385,9 +387,9 @@ function applyFilters() {
     filtered.sort((a, b) => {
       const da = parseOpenHouseDate(a.next_open_house_start);
       const db = parseOpenHouseDate(b.next_open_house_start);
-      const dateDiff =
-        (da?.getTime() ?? Infinity) - (db?.getTime() ?? Infinity);
-      if (dateDiff !== 0) return dateDiff;
+      const dayA = da ? new Date(da.getFullYear(), da.getMonth(), da.getDate()).getTime() : Infinity;
+      const dayB = db ? new Date(db.getFullYear(), db.getMonth(), db.getDate()).getTime() : Infinity;
+      if (dayA !== dayB) return dayA - dayB;
       return b.score - a.score;
     });
   } else if (isStl && sortBy !== "score") {
@@ -406,7 +408,7 @@ function applyFilters() {
     filtered.sort((a, b) => b.score - a.score);
   }
 
-  renderCards(filtered);
+  renderCards(filtered, openHouseOnly);
   renderMap(filtered).catch(() => {});
   renderOutcomes(null);
 }
@@ -1203,7 +1205,63 @@ function getNeighborhood(l) {
   return null;
 }
 
-function renderCards(listings) {
+function cardHtml(l) {
+  const typeLabel = l.property_type
+    ? l.property_type
+        .replace(/single family residential/i, "SFD")
+        .replace(/single family/i, "SFD")
+    : "?";
+  const isPending =
+    l.status === "130" ||
+    l.status === "Pending" ||
+    l.status === "Contingent";
+  const imgUrl = photoUrl(l.id);
+  const ohTip = openHouseTooltip(l);
+  const neighborhood = getNeighborhood(l);
+  const metaLine = [neighborhood, l.school_district]
+    .filter(Boolean)
+    .join(" · ");
+  const isSelected = selectedIds.has(l.id);
+  return `<div class="card${isPending ? " card-pending" : ""}">
+    <div class="card-photo-wrap">
+      ${
+        imgUrl
+          ? `<img class="card-photo" src="${imgUrl}" alt="${l.address}" onerror="this.outerHTML='<div class=\\'card-photo card-photo-placeholder\\'><span>🏠</span></div>'">`
+          : `<div class="card-photo card-photo-placeholder"><span>🏠</span></div>`
+      }
+      <label class="card-select-cb${isSelected ? " is-checked" : ""}" onclick="event.stopPropagation()">
+        <input type="checkbox" onchange="toggleCompare('${l.id}', this)" ${isSelected ? "checked" : ""} />
+      </label>
+      <span class="type-pill type-pill-img">${typeLabel}</span>
+    </div>
+    <div class="card-header">
+      <div>
+        <div class="card-price">$${fmt(l.price)}${priceChange(l)}</div>
+        <div class="card-address">${l.address}${isPending ? ` <span class="pending-badge">${l.status_label || "Pending"}</span>` : ""}</div>
+        <div class="card-city">${l.city}, ${l.state ?? ""} ${l.zip}</div>
+      </div>
+      <div style="display:flex-col;justify-content: center;gap:6px;">
+        ${scoreBadge(l)}
+        ${l.days_on_market != null ? `<div class="card-price-sub">${domLabel(l.days_on_market)}</div>` : ""}
+      </div>
+    </div>
+    ${metaLine ? `<div class="card-meta">${metaLine}</div>` : ""}
+    <div class="card-stats">
+      <div class="stat"><div class="stat-val">${l.beds} | ${l.baths}</div><div class="stat-lbl">Beds | Baths</div></div>
+      <div class="stat"><div class="stat-val">${l.sqft ? fmt(l.sqft) : "—"}</div><div class="stat-lbl">Sq Ft</div></div>
+      <div class="stat"><div class="stat-val">${fmtAcres(l.lot_sqft)}</div><div class="stat-lbl">Lot</div></div>
+      <div class="stat"><div class="stat-val">${l.sqft ? "$" + Math.round(l.price / l.sqft) : "—"}</div><div class="stat-lbl">$/Sq Ft</div></div>
+    </div>
+    ${renderInvestmentRows(l)}
+    <div class="card-footer">
+      <a class="redfin-link" href="${l.url}" target="_blank" rel="noopener">View on Redfin →</a>
+      ${ohTip ? `<span class="oh-action${isThisWeekend(l.next_open_house_start) ? " oh-soon" : ""}" data-tip="${ohTip}">🏠</span>` : ""}
+      <button class="star-btn${l.starred ? " starred" : ""}" onclick="toggleStar('${l.id}', this)" title="Star this listing">${l.starred ? "★" : "☆"}</button>
+    </div>
+  </div>`;
+}
+
+function renderCards(listings, openHouseOnly = false) {
   const wrap = document.getElementById("cards");
   document.getElementById("results-count").textContent =
     listings.length + " listings";
@@ -1213,59 +1271,95 @@ function renderCards(listings) {
     return;
   }
 
-  wrap.innerHTML = listings
-    .map((l) => {
-      const typeLabel = l.property_type
-        ? l.property_type
-            .replace(/single family residential/i, "SFD")
-            .replace(/single family/i, "SFD")
-        : "?";
-      const isPending =
-        l.status === "130" ||
-        l.status === "Pending" ||
-        l.status === "Contingent";
-      const imgUrl = photoUrl(l.id);
-      const ohTip = openHouseTooltip(l);
-      const neighborhood = getNeighborhood(l);
-      const metaLine = [neighborhood, l.school_district]
-        .filter(Boolean)
-        .join(" · ");
-      return `<div class="card${isPending ? " card-pending" : ""}">
-      <div class="card-photo-wrap">
-        ${
-          imgUrl
-            ? `<img class="card-photo" src="${imgUrl}" alt="${l.address}" onerror="this.outerHTML='<div class=\\'card-photo card-photo-placeholder\\'><span>🏠</span></div>'">`
-            : `<div class="card-photo card-photo-placeholder"><span>🏠</span></div>`
-        }
-        <span class="type-pill type-pill-img">${typeLabel}</span>
-      </div>
-      <div class="card-header">
-        <div>
-          <div class="card-price">$${fmt(l.price)}${priceChange(l)}</div>
-          <div class="card-address">${l.address}${isPending ? ` <span class="pending-badge">${l.status_label || "Pending"}</span>` : ""}</div>
-          <div class="card-city">${l.city}, ${l.state ?? ""} ${l.zip}</div>
-        </div>
-        <div style="display:flex-col;justify-content: center;gap:6px;">
-          ${scoreBadge(l)}
-          ${l.days_on_market != null ? `<div class="card-price-sub">${domLabel(l.days_on_market)}</div>` : ""}
-        </div>
-      </div>
-      ${metaLine ? `<div class="card-meta">${metaLine}</div>` : ""}
-      <div class="card-stats">
-        <div class="stat"><div class="stat-val">${l.beds} | ${l.baths}</div><div class="stat-lbl">Beds | Baths</div></div>
-        <div class="stat"><div class="stat-val">${l.sqft ? fmt(l.sqft) : "—"}</div><div class="stat-lbl">Sq Ft</div></div>
-        <div class="stat"><div class="stat-val">${fmtAcres(l.lot_sqft)}</div><div class="stat-lbl">Lot</div></div>
-        <div class="stat"><div class="stat-val">${l.sqft ? "$" + Math.round(l.price / l.sqft) : "—"}</div><div class="stat-lbl">$/Sq Ft</div></div>
-      </div>
-      ${renderInvestmentRows(l)}
-      <div class="card-footer">
-        <a class="redfin-link" href="${l.url}" target="_blank" rel="noopener">View on Redfin →</a>
-        ${ohTip ? `<span class="oh-action${isThisWeekend(l.next_open_house_start) ? " oh-soon" : ""}" data-tip="${ohTip}">🏠</span>` : ""}
-        <button class="star-btn${l.starred ? " starred" : ""}" onclick="toggleStar('${l.id}', this)" title="Star this listing">${l.starred ? "★" : "☆"}</button>
-      </div>
-    </div>`;
-    })
-    .join("");
+  const dayLabel = (dateStr) => {
+    const d = parseOpenHouseDate(dateStr);
+    if (!d) return null;
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    const sameDay = (a, b) =>
+      a.getFullYear() === b.getFullYear() &&
+      a.getMonth() === b.getMonth() &&
+      a.getDate() === b.getDate();
+    if (sameDay(d, today)) return "Today";
+    if (sameDay(d, tomorrow)) return "Tomorrow";
+    return d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+  };
+
+  let lastDay = null;
+  const parts = [];
+  listings.forEach((l) => {
+    if (openHouseOnly) {
+      const label = dayLabel(l.next_open_house_start);
+      if (label && label !== lastDay) {
+        parts.push(`<div class="oh-day-header">${label}</div>`);
+        lastDay = label;
+      }
+    }
+    parts.push(cardHtml(l));
+  });
+  wrap.innerHTML = parts.join("");
+}
+
+// === COMPARE MODE ===
+
+function toggleCompare(id, checkbox) {
+  if (checkbox.checked) {
+    selectedIds.add(id);
+    checkbox.closest('.card-select-cb').classList.add('is-checked');
+  } else {
+    selectedIds.delete(id);
+    checkbox.closest('.card-select-cb').classList.remove('is-checked');
+  }
+  updateCompareBar();
+}
+
+function updateCompareBar() {
+  const bar = document.getElementById('compare-bar');
+  const countEl = document.getElementById('compare-count');
+  if (selectedIds.size === 0) {
+    bar.style.display = 'none';
+  } else {
+    bar.style.display = 'flex';
+    countEl.textContent = `${selectedIds.size} selected`;
+  }
+}
+
+function clearCompare() {
+  selectedIds.clear();
+  document.querySelectorAll('.card-select-cb').forEach(label => {
+    label.classList.remove('is-checked');
+    const cb = label.querySelector('input[type="checkbox"]');
+    if (cb) cb.checked = false;
+  });
+  updateCompareBar();
+}
+
+function openCompareOverlay() {
+  const selected = allListings.filter(l => selectedIds.has(l.id));
+  document.getElementById('compare-overlay-title').textContent =
+    `Comparing ${selected.length} listing${selected.length !== 1 ? 's' : ''}`;
+  document.getElementById('compare-cards').innerHTML = selected.map(cardHtml).join('');
+  document.getElementById('compare-overlay').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeCompareOverlay() {
+  document.getElementById('compare-overlay').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function downloadCompareJson() {
+  const selected = allListings.filter(l => selectedIds.has(l.id));
+  const blob = new Blob([JSON.stringify(selected, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'compare-listings.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // === MAP ===
