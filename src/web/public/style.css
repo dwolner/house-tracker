@@ -494,6 +494,18 @@ html.dark .card:hover {
   opacity: 0.75;
 }
 
+.oh-day-header {
+  grid-column: 1 / -1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 8px 0 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
 /* Card inner padding container */
 .card > *:not(.card-photo-wrap) {
   padding-left: 16px;
@@ -1255,4 +1267,130 @@ html.dark .pending-badge {
   border-radius: 3px;
   margin-left: 4px;
   vertical-align: middle;
+}
+
+/* ===== COMPARE MODE ===== */
+
+.card-photo-wrap {
+  position: relative;
+}
+
+.card-select-cb {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.15s;
+  cursor: pointer;
+  background: rgba(0,0,0,0.45);
+  border-radius: 4px;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+}
+
+.card:hover .card-select-cb {
+  opacity: 1;
+}
+
+.card-select-cb.is-checked {
+  opacity: 1;
+}
+
+.card-select-cb input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--accent);
+  margin: 0;
+}
+
+/* ===== COMPARE BAR ===== */
+
+#compare-bar {
+  position: fixed;
+  bottom: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 900;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.22);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.compare-bar-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-ui);
+}
+
+.compare-bar-btn:hover {
+  opacity: 0.88;
+}
+
+.compare-bar-clear {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+/* ===== COMPARE OVERLAY ===== */
+
+#compare-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+#compare-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+}
+
+#compare-overlay-inner {
+  position: relative;
+  z-index: 1;
+  background: var(--bg);
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  padding: 0 24px 40px;
+}
+
+#compare-overlay-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+  margin-bottom: 16px;
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  z-index: 10;
+}
+
+#compare-overlay-title {
+  font-size: 15px;
+  font-weight: 600;
+  flex: 1;
 }
