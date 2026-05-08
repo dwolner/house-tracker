@@ -216,6 +216,26 @@
       <button class="mobile-nav-btn" id="mnav-inventory" onclick="switchView('inventory')">Inventory</button>
     </nav>
 
+    <!-- Compare floating bar -->
+    <div id="compare-bar" style="display:none">
+      <span id="compare-count"></span>
+      <button class="compare-bar-btn" onclick="openCompareOverlay()">Compare</button>
+      <button class="compare-bar-btn compare-bar-clear" onclick="clearCompare()">Clear</button>
+    </div>
+
+    <!-- Compare overlay -->
+    <div id="compare-overlay" style="display:none">
+      <div id="compare-overlay-backdrop" onclick="closeCompareOverlay()"></div>
+      <div id="compare-overlay-inner">
+        <div id="compare-overlay-header">
+          <span id="compare-overlay-title"></span>
+          <button class="compare-bar-btn" onclick="downloadCompareJson()">Download JSON</button>
+          <button class="compare-bar-btn compare-bar-clear" onclick="closeCompareOverlay()">✕ Close</button>
+        </div>
+        <div class="cards" id="compare-cards"></div>
+      </div>
+    </div>
+
     <script src="/app.js"></script>
   <div id="tip-box"></div>
   </body>
