@@ -476,7 +476,7 @@ export function markListingSold(id: string, soldPrice: number, soldDate: string 
     .prepare(`
       UPDATE listings SET status = '131', sold_at = @soldAt, sold_price = @soldPrice,
         days_on_market = COALESCE(@dom, days_on_market), last_seen_at = @now
-      WHERE id = @id AND sold_at IS NULL
+      WHERE id = @id AND sold_at IS NULL AND status NOT IN ('9', '1')
     `)
     .run({ id, soldPrice, soldAt, dom, now });
   if (result.changes > 0) {
