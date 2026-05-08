@@ -1,0 +1,2 @@
+{"type":"server-started","port":56440,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:56440","screen_dir":"/Users/danno/Documents/_devRoot/house-tracker/.superpowers/brainstorm/82406-1778189250/content","state_dir":"/Users/danno/Documents/_devRoot/house-tracker/.superpowers/brainstorm/82406-1778189250/state"}
+{"type":"server-stopped","reason":"idle timeout"}

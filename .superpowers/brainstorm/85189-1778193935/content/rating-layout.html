@@ -1,0 +1,100 @@
+<h2>How should listings be presented for rating?</h2>
+<p class="subtitle">Each approach has different tradeoffs for speed and context</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#1a1a2e;padding:24px;display:flex;flex-direction:column;align-items:center;gap:12px;min-height:160px;justify-content:center">
+      <div style="width:180px;background:#16213e;border-radius:10px;padding:16px;border:1px solid #0f3460;text-align:center">
+        <div style="font-size:11px;color:#888;margin-bottom:6px">123 Oak Lane, Narberth</div>
+        <div style="font-size:20px;font-weight:700;color:#e0e0e0">$549,000</div>
+        <div style="font-size:11px;color:#aaa;margin-top:4px">Score 74 · 4bd · 1,820 sqft</div>
+        <div style="display:flex;gap:12px;justify-content:center;margin-top:14px">
+          <div style="width:36px;height:36px;border-radius:50%;background:#c0392b;display:flex;align-items:center;justify-content:center;font-size:18px">👎</div>
+          <div style="width:36px;height:36px;border-radius:50%;background:#27ae60;display:flex;align-items:center;justify-content:center;font-size:18px">👍</div>
+        </div>
+      </div>
+      <div style="font-size:10px;color:#555;margin-top:4px">← swipe or click →</div>
+    </div>
+    <div class="card-body">
+      <h3>A — One at a time</h3>
+      <p>Focus mode. See one listing, rate it, move to next. Fast, low cognitive load. Like Tinder.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#1a1a2e;padding:16px;min-height:160px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <div style="background:#16213e;border-radius:6px;padding:10px;border:1px solid #0f3460">
+          <div style="font-size:9px;color:#888">47 Elm St</div>
+          <div style="font-size:13px;font-weight:700;color:#e0e0e0;margin:3px 0">$420k</div>
+          <div style="font-size:9px;color:#aaa">Score 42</div>
+          <div style="display:flex;gap:4px;margin-top:8px">
+            <div style="flex:1;height:22px;background:#c0392b;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px">👎</div>
+            <div style="flex:1;height:22px;background:#27ae60;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px">👍</div>
+          </div>
+        </div>
+        <div style="background:#16213e;border-radius:6px;padding:10px;border:1px solid #0f3460">
+          <div style="font-size:9px;color:#888">12 Pine Ave</div>
+          <div style="font-size:13px;font-weight:700;color:#e0e0e0;margin:3px 0">$565k</div>
+          <div style="font-size:9px;color:#aaa">Score 67</div>
+          <div style="display:flex;gap:4px;margin-top:8px">
+            <div style="flex:1;height:22px;background:#c0392b;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px">👎</div>
+            <div style="flex:1;height:22px;background:#27ae60;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px">👍</div>
+          </div>
+        </div>
+        <div style="background:#16213e;border-radius:6px;padding:10px;border:1px solid #0f3460">
+          <div style="font-size:9px;color:#888">88 Oak Rd</div>
+          <div style="font-size:13px;font-weight:700;color:#e0e0e0;margin:3px 0">$695k</div>
+          <div style="font-size:9px;color:#aaa">Score 81</div>
+          <div style="display:flex;gap:4px;margin-top:8px">
+            <div style="flex:1;height:22px;background:#c0392b;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px">👎</div>
+            <div style="flex:1;height:22px;background:#27ae60;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px">👍</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Grid of cards</h3>
+      <p>See many at once, rate any in any order. Good for comparison. Higher cognitive load.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#1a1a2e;padding:16px;min-height:160px;display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;gap:6px;align-items:center">
+        <div style="font-size:9px;color:#888;width:36px;text-align:center">LOW<br><span style="color:#e74c3c;font-weight:700">38</span></div>
+        <div style="flex:1;background:#16213e;border-radius:6px;padding:8px;border:1px solid #333">
+          <div style="font-size:9px;color:#aaa">22 Birch St · $390k · 3bd</div>
+          <div style="display:flex;gap:4px;margin-top:6px">
+            <div style="flex:1;height:18px;background:#c0392b;border-radius:3px;font-size:10px;display:flex;align-items:center;justify-content:center">👎</div>
+            <div style="flex:1;height:18px;background:#27ae60;border-radius:3px;font-size:10px;display:flex;align-items:center;justify-content:center">👍</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <div style="font-size:9px;color:#888;width:36px;text-align:center">MID<br><span style="color:#f39c12;font-weight:700">61</span></div>
+        <div style="flex:1;background:#16213e;border-radius:6px;padding:8px;border:1px solid #333">
+          <div style="font-size:9px;color:#aaa">55 Cedar Ln · $520k · 4bd</div>
+          <div style="display:flex;gap:4px;margin-top:6px">
+            <div style="flex:1;height:18px;background:#c0392b;border-radius:3px;font-size:10px;display:flex;align-items:center;justify-content:center">👎</div>
+            <div style="flex:1;height:18px;background:#27ae60;border-radius:3px;font-size:10px;display:flex;align-items:center;justify-content:center">👍</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <div style="font-size:9px;color:#888;width:36px;text-align:center">HIGH<br><span style="color:#27ae60;font-weight:700">84</span></div>
+        <div style="flex:1;background:#16213e;border-radius:6px;padding:8px;border:1px solid #333">
+          <div style="font-size:9px;color:#aaa">9 Maple Dr · $610k · 4bd</div>
+          <div style="display:flex;gap:4px;margin-top:6px">
+            <div style="flex:1;height:18px;background:#c0392b;border-radius:3px;font-size:10px;display:flex;align-items:center;justify-content:center">👎</div>
+            <div style="flex:1;height:18px;background:#27ae60;border-radius:3px;font-size:10px;display:flex;align-items:center;justify-content:center">👍</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Score-bucketed list</h3>
+      <p>Low / mid / high buckets visible together. Helps calibrate whether the score tiers feel right to you.</p>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SD Calibration</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0d1117; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 32px 16px; }
+  .wrap { width: 100%; max-width: 560px; }
+  /* Progress */
+  .progress { display: flex; gap: 6px; margin-bottom: 20px; }
+  .pip { flex: 1; height: 4px; border-radius: 2px; background: #222; transition: background .3s; }
+  .pip.done { background: #27ae60; }
+  .pip.current { background: #3498db; }
+  .instructions { font-size: 12px; color: #555; text-align: center; margin-bottom: 16px; }
+  /* Card */
+  .card { background: #161b27; border: 1px solid #1e2a45; border-radius: 14px; overflow: hidden; }
+  .card-photo { width: 100%; height: 200px; object-fit: cover; display: block; background: #0d1117; }
+  .photo-placeholder { height: 200px; background: #0d1117; display: flex; align-items: center; justify-content: center; color: #2a2a2a; font-size: 13px; }
+  .card-header { padding: 16px 20px 12px; border-bottom: 1px solid #1e2a45; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .address { font-size: 17px; font-weight: 700; color: #e8e8e8; }
+  .neighborhood { font-size: 12px; color: #666; margin-top: 3px; }
+  .type-pill { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-top: 5px; }
+  .type-sfh { background: #0f2a1a; color: #27ae60; }
+  .type-condo { background: #2a0f0f; color: #e74c3c; }
+  .type-th { background: #1a1a0f; color: #f39c12; }
+  .score-badge { width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800; flex-shrink: 0; }
+  .score-low { background: #e74c3c; color: #1a0a0a; }
+  .score-mid { background: #f39c12; color: #1a1205; }
+  .score-high { background: #27ae60; color: #0a1a0f; }
+  /* Stats */
+  .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; border-bottom: 1px solid #1e2a45; }
+  .stat { padding: 10px 14px; border-right: 1px solid #1e2a45; }
+  .stat:last-child, .stat:nth-child(3) { border-right: none; }
+  .stat:nth-child(n+4) { border-top: 1px solid #1e2a45; }
+  .stat-label { font-size: 9px; color: #555; text-transform: uppercase; letter-spacing: .5px; }
+  .stat-value { font-size: 14px; font-weight: 600; color: #ccc; margin-top: 2px; }
+  .stat-value.price { color: #3498db; }
+  /* Factors */
+  .factors { padding: 14px 20px; border-bottom: 1px solid #1e2a45; }
+  .factors-label { font-size: 9px; color: #444; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+  .f-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .f-name { font-size: 10px; color: #666; width: 88px; flex-shrink: 0; }
+  .f-bg { flex: 1; height: 5px; background: #1e2a45; border-radius: 3px; overflow: hidden; }
+  .f-fill { height: 100%; border-radius: 3px; }
+  .f-pts { font-size: 10px; color: #444; width: 48px; text-align: right; flex-shrink: 0; }
+  /* Actions */
+  .actions { padding: 16px 20px; }
+  textarea.why { width: 100%; background: #0d1117; border: 1px solid #1e2a45; border-radius: 8px; color: #ccc; font-size: 13px; padding: 10px 12px; min-height: 60px; resize: vertical; font-family: inherit; margin-bottom: 12px; outline: none; transition: border-color .2s; }
+  textarea.why:focus { border-color: #3498db; }
+  textarea.why::placeholder { color: #333; }
+  .btn-row { display: flex; gap: 8px; }
+  .btn { flex: 1; padding: 13px 8px; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: opacity .15s, transform .1s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .btn:active { transform: scale(.96); }
+  .btn-pass { background: #c0392b; color: #fff; }
+  .btn-like { background: #27ae60; color: #fff; }
+  .btn-skip { flex: 0 0 auto; padding: 13px 14px; background: transparent; border: 1px solid #222; border-radius: 10px; color: #444; font-size: 12px; cursor: pointer; transition: border-color .2s, color .2s; }
+  .btn-skip:hover { border-color: #555; color: #888; }
+  .redfin-link { display: block; text-align: center; font-size: 11px; color: #333; margin-top: 12px; text-decoration: none; transition: color .2s; }
+  .redfin-link:hover { color: #666; }
+  /* Selected state */
+  .btn.selected { outline: 3px solid white; }
+  .btn.dimmed { opacity: 0.35; }
+  /* Summary */
+  #summary { display: none; }
+  .summary-item { background: #161b27; border: 1px solid #1e2a45; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; display: flex; align-items: flex-start; gap: 12px; }
+  .summary-rating { font-size: 20px; flex-shrink: 0; width: 28px; text-align: center; }
+  .summary-addr { font-size: 13px; font-weight: 600; color: #ccc; }
+  .summary-why { font-size: 12px; color: #666; margin-top: 4px; font-style: italic; }
+  .summary-score { font-size: 11px; color: #444; margin-top: 2px; }
+  .copy-btn { width: 100%; padding: 14px; background: #1e2a45; border: none; border-radius: 10px; color: #3498db; font-size: 14px; cursor: pointer; margin-top: 16px; transition: background .2s; }
+  .copy-btn:hover { background: #243450; }
+  h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+  .subtitle { font-size: 13px; color: #555; margin-bottom: 24px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <!-- Calibration session -->
+  <div id="session">
+    <div class="progress" id="progress"></div>
+    <p class="instructions" id="instr">Listing <span id="cur">1</span> of 8</p>
+    <div class="card" id="card"></div>
+  </div>
+
+  <!-- Summary -->
+  <div id="summary">
+    <h2>Session complete</h2>
+    <p class="subtitle">Here's what you rated — copy and paste this into the terminal for analysis.</p>
+    <div id="summary-list"></div>
+    <button class="copy-btn" onclick="copyResults()">Copy results to clipboard</button>
+  </div>
+</div>
+
+<script>
+const listings = [
+  {
+    id: '8F87306705BD',
+    address: '4517 Misty Pl',
+    neighborhood: 'Bay Ho · 92117',
+    type: 'condo',
+    typeLabel: 'Condo/Co-op',
+    price: '$1.13M',
+    beds: 3, sqft: '1,614', lot: '—', dom: 193, walk: 56, ppsf: '$699',
+    score: 47, scoreTier: 'low',
+    photo: null,
+    url: 'https://www.redfin.com/CA/San-Diego/4517-Misty-Pl-92108/home/198683385',
+    factors: [
+      { name: 'propertyType', pts: 0,  max: 20, color: '#444' },
+      { name: 'walkability',  pts: 10, max: 18, color: '#3498db' },
+      { name: 'price',        pts: 14, max: 14, color: '#27ae60' },
+      { name: 'sqft',         pts: 7,  max: 14, color: '#3498db' },
+      { name: 'beds',         pts: 5,  max: 10, color: '#3498db' },
+      { name: 'pricePerSqft', pts: 10, max: 10, color: '#27ae60' },
+      { name: 'domPenalty ⚠', pts: 6,  max: 6,  color: '#e74c3c', penalty: true },
+    ]
+  },
+  {
+    id: '260007203',
+    address: '5845 Friars Rd #1201',
+    neighborhood: 'Mission Valley · 92110',
+    type: 'condo',
+    typeLabel: 'Condo/Co-op',
+    price: '$784K',
+    beds: 3, sqft: '1,430', lot: '—', dom: 37, walk: 56, ppsf: '$548',
+    score: 49, scoreTier: 'low',
+    photo: 'https://ssl.cdn-redfin.com/photo/48/mbpaddedwide/203/genMid.260007203_0.jpg',
+    url: 'https://www.redfin.com/CA/San-Diego/5845-Friars-Rd-92110/unit-1201/home/5241316',
+    factors: [
+      { name: 'propertyType', pts: 0,  max: 20, color: '#444' },
+      { name: 'walkability',  pts: 10, max: 18, color: '#3498db' },
+      { name: 'price',        pts: 14, max: 14, color: '#27ae60' },
+      { name: 'sqft',         pts: 4,  max: 14, color: '#3498db' },
+      { name: 'beds',         pts: 5,  max: 10, color: '#3498db' },
+      { name: 'pricePerSqft', pts: 10, max: 10, color: '#27ae60' },
+      { name: 'domPenalty ⚠', pts: 0.4, max: 6, color: '#e74c3c', penalty: true },
+    ]
+  },
+  {
+    id: '260009678',
+    address: '3002 Courser Ave',
+    neighborhood: 'Bay Ho · 92117',
+    type: 'sfh',
+    typeLabel: 'Single Family',
+    price: '$1.60M',
+    beds: 3, sqft: '1,324', lot: '8,200 sqft', dom: 9, walk: 28, ppsf: '$1,205',
+    score: 55, scoreTier: 'mid',
+    photo: 'https://ssl.cdn-redfin.com/photo/48/mbpaddedwide/678/genMid.260009678_0.jpg',
+    url: 'https://www.redfin.com/CA/San-Diego/3002-Courser-Ave-92117/home/4950841',
+    factors: [
+      { name: 'propertyType', pts: 20,  max: 20, color: '#27ae60' },
+      { name: 'walkability',  pts: 5,   max: 18, color: '#3498db' },
+      { name: 'price',        pts: 9.4, max: 14, color: '#3498db' },
+      { name: 'sqft',         pts: 1.9, max: 14, color: '#e74c3c' },
+      { name: 'lot',          pts: 10.5, max: 12, color: '#27ae60' },
+      { name: 'beds',         pts: 5,   max: 10, color: '#3498db' },
+      { name: 'pricePerSqft', pts: 1.9, max: 10, color: '#e74c3c' },
+    ]
+  },
+  {
+    id: '260009070',
+    address: '1828 Cable St',
+    neighborhood: 'Ocean Beach · 92107',
+    type: 'sfh',
+    typeLabel: 'Single Family',
+    price: '$1.60M',
+    beds: 3, sqft: '1,280', lot: '2,000 sqft', dom: 16, walk: 93, ppsf: '$1,246',
+    score: 56, scoreTier: 'mid',
+    photo: 'https://ssl.cdn-redfin.com/photo/48/mbpaddedwide/070/genMid.260009070_0.jpg',
+    url: 'https://www.redfin.com/CA/San-Diego/1828-Cable-St-92107/home/5330339',
+    factors: [
+      { name: 'propertyType', pts: 20,  max: 20, color: '#27ae60' },
+      { name: 'walkability',  pts: 16.7, max: 18, color: '#27ae60' },
+      { name: 'price',        pts: 9.4, max: 14, color: '#3498db' },
+      { name: 'sqft',         pts: 1.2, max: 14, color: '#e74c3c' },
+      { name: 'lot',          pts: 1.1, max: 12, color: '#e74c3c' },
+      { name: 'beds',         pts: 5,   max: 10, color: '#3498db' },
+      { name: 'pricePerSqft', pts: 1.1, max: 10, color: '#e74c3c' },
+    ]
+  },
+  {
+    id: '250040960',
+    address: '3973 8th Ave',
+    neighborhood: 'Hillcrest · 92103',
+    type: 'sfh',
+    typeLabel: 'Single Family',
+    price: '$1.40M',
+    beds: 3, sqft: '1,340', lot: '4,440 sqft', dom: 197, walk: 96, ppsf: '$1,041',
+    score: 61, scoreTier: 'mid',
+    photo: 'https://ssl.cdn-redfin.com/photo/48/mbpaddedwide/960/genMid.250040960_0.jpg',
+    url: 'https://www.redfin.com/CA/San-Diego/3973-8th-Ave-92103/home/142941151',
+    factors: [
+      { name: 'propertyType', pts: 20,   max: 20, color: '#27ae60' },
+      { name: 'walkability',  pts: 17.3, max: 18, color: '#27ae60' },
+      { name: 'price',        pts: 11.7, max: 14, color: '#27ae60' },
+      { name: 'sqft',         pts: 2.1,  max: 14, color: '#e74c3c' },
+      { name: 'lot',          pts: 4.2,  max: 12, color: '#3498db' },
+      { name: 'beds',         pts: 5,    max: 10, color: '#3498db' },
+      { name: 'pricePerSqft', pts: 5.2,  max: 10, color: '#3498db' },
+      { name: 'domPenalty ⚠', pts: 6,    max: 6,  color: '#e74c3c', penalty: true },
+    ]
+  },
+  {
+    id: 'PTP2601630',
+    address: '5050 September St',
+    neighborhood: 'Bay Park · 92110',
+    type: 'sfh',
+    typeLabel: 'Single Family',
+    price: '$2.00M',
+    beds: 4, sqft: '1,850', lot: '5,662 sqft', dom: 45, walk: 22, ppsf: '$1,081',
+    score: 63, scoreTier: 'mid',
+    photo: 'https://ssl.cdn-redfin.com/photo/45/mbpaddedwide/630/genMid.PTP2601630_0.jpg',
+    url: 'https://www.redfin.com/CA/San-Diego/5050-September-St-92110/home/5218603',
+    factors: [
+      { name: 'propertyType', pts: 20,  max: 20, color: '#27ae60' },
+      { name: 'walkability',  pts: 4,   max: 18, color: '#e74c3c' },
+      { name: 'price',        pts: 5,   max: 14, color: '#e74c3c' },
+      { name: 'sqft',         pts: 12.3, max: 14, color: '#27ae60' },
+      { name: 'lot',          pts: 7,   max: 12, color: '#3498db' },
+      { name: 'beds',         pts: 10,  max: 10, color: '#27ae60' },
+      { name: 'pricePerSqft', pts: 4.4, max: 10, color: '#3498db' },
+      { name: 'domPenalty ⚠', pts: 0.9, max: 6,  color: '#e74c3c', penalty: true },
+    ]
+  },
+  {
+    id: 'NDP2600801',
+    address: '4444 42nd St',
+    neighborhood: 'Normal Heights · 92116',
+    type: 'sfh',
+    typeLabel: 'Single Family',
+    price: '$1.20M',
+    beds: 3, sqft: '1,306', lot: '3,135 sqft', dom: 96, walk: 88, ppsf: '$918',
+    score: 65, scoreTier: 'high',
+    photo: 'https://ssl.cdn-redfin.com/photo/45/mbpaddedwide/801/genMid.NDP2600801_0.jpg',
+    url: 'https://www.redfin.com/CA/San-Diego/4444-42nd-St-92116/home/5400022',
+    factors: [
+      { name: 'propertyType', pts: 20,  max: 20, color: '#27ae60' },
+      { name: 'walkability',  pts: 15.8, max: 18, color: '#27ae60' },
+      { name: 'price',        pts: 14,  max: 14, color: '#27ae60' },
+      { name: 'sqft',         pts: 1.6, max: 14, color: '#e74c3c' },
+      { name: 'lot',          pts: 1.8, max: 12, color: '#e74c3c' },
+      { name: 'beds',         pts: 5,   max: 10, color: '#3498db' },
+      { name: 'pricePerSqft', pts: 7.6, max: 10, color: '#27ae60' },
+      { name: 'domPenalty ⚠', pts: 2.5, max: 6,  color: '#e74c3c', penalty: true },
+    ]
+  },
+  {
+    id: '260007359',
+    address: '6315 Ridge Manor Ave',
+    neighborhood: 'Allied Gardens · 92120',
+    type: 'sfh',
+    typeLabel: 'Single Family',
+    price: '$2.35M',
+    beds: 3, sqft: '2,748', lot: '13,200 sqft', dom: 24, walk: 12, ppsf: '$855',
+    score: 65, scoreTier: 'high',
+    photo: 'https://ssl.cdn-redfin.com/photo/48/mbpaddedwide/359/genMid.260007359_0.jpg',
+    url: 'https://www.redfin.com/CA/San-Diego/6315-Ridge-Manor-Ave-92120/home/6242954',
+    factors: [
+      { name: 'propertyType', pts: 20,  max: 20, color: '#27ae60' },
+      { name: 'walkability',  pts: 2.2, max: 18, color: '#e74c3c' },
+      { name: 'price',        pts: 1.5, max: 14, color: '#e74c3c' },
+      { name: 'sqft',         pts: 14,  max: 14, color: '#27ae60' },
+      { name: 'lot',          pts: 12,  max: 12, color: '#27ae60' },
+      { name: 'beds',         pts: 5,   max: 10, color: '#3498db' },
+      { name: 'pricePerSqft', pts: 8.9, max: 10, color: '#27ae60' },
+    ]
+  },
+];
+
+const ratings = [];
+let current = 0;
+
+function scoreTierClass(tier) {
+  return tier === 'low' ? 'score-low' : tier === 'mid' ? 'score-mid' : 'score-high';
+}
+
+function typeClass(type) {
+  return type === 'sfh' ? 'type-sfh' : type === 'condo' ? 'type-condo' : 'type-th';
+}
+
+function pct(pts, max) {
+  return Math.round((pts / max) * 100);
+}
+
+function renderCard(idx) {
+  const l = listings[idx];
+  const progress = document.getElementById('progress');
+  progress.innerHTML = listings.map((_, i) => {
+    const cls = i < idx ? 'done' : i === idx ? 'current' : '';
+    return `<div class="pip ${cls}"></div>`;
+  }).join('');
+  document.getElementById('cur').textContent = idx + 1;
+
+  const card = document.getElementById('card');
+  card.innerHTML = `
+    ${l.photo
+      ? `<img class="card-photo" src="${l.photo}" onerror="this.style.display='none'" alt="${l.address}">`
+      : `<div class="photo-placeholder">No photo available</div>`}
+    <div class="card-header">
+      <div>
+        <div class="address">${l.address}</div>
+        <div class="neighborhood">${l.neighborhood}</div>
+        <span class="type-pill ${typeClass(l.type)}">${l.typeLabel}</span>
+      </div>
+      <div class="score-badge ${scoreTierClass(l.scoreTier)}">${l.score}</div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="stat-label">Price</div><div class="stat-value price">${l.price}</div></div>
+      <div class="stat"><div class="stat-label">Sqft</div><div class="stat-value">${l.sqft}</div></div>
+      <div class="stat"><div class="stat-label">Beds</div><div class="stat-value">${l.beds}bd</div></div>
+      <div class="stat"><div class="stat-label">$/sqft</div><div class="stat-value">${l.ppsf}</div></div>
+      <div class="stat"><div class="stat-label">Lot</div><div class="stat-value">${l.lot}</div></div>
+      <div class="stat"><div class="stat-label">DOM · Walk</div><div class="stat-value">${l.dom}d · ${l.walk}</div></div>
+    </div>
+    <div class="factors">
+      <div class="factors-label">Score breakdown (${l.score}/100)</div>
+      ${l.factors.map(f => `
+        <div class="f-row">
+          <div class="f-name">${f.name}</div>
+          <div class="f-bg"><div class="f-fill" style="width:${pct(f.pts,f.max)}%;background:${f.color}"></div></div>
+          <div class="f-pts">${f.penalty ? '−' : ''}${Math.round(f.pts)} / ${f.max}</div>
+        </div>
+      `).join('')}
+    </div>
+    <div class="actions">
+      <textarea class="why" id="why-input" placeholder="Why? (optional — e.g. 'love OB but tiny lot', 'too far from everything')"></textarea>
+      <div class="btn-row">
+        <button class="btn btn-pass" id="btn-pass" onclick="rate('pass')">👎 Pass</button>
+        <button class="btn btn-like" id="btn-like" onclick="rate('like')">👍 Like</button>
+        <button class="btn-skip" id="btn-skip" onclick="rate('skip')">Skip</button>
+      </div>
+      <a class="redfin-link" href="${l.url}" target="_blank">→ Open on Redfin</a>
+    </div>
+  `;
+}
+
+function rate(verdict) {
+  const l = listings[current];
+  const why = document.getElementById('why-input').value.trim();
+
+  // Visual feedback
+  const pass = document.getElementById('btn-pass');
+  const like = document.getElementById('btn-like');
+  const skip = document.getElementById('btn-skip');
+  [pass, like, skip].forEach(b => { b.classList.remove('selected','dimmed'); b.classList.add('dimmed'); });
+  const chosen = verdict === 'pass' ? pass : verdict === 'like' ? like : skip;
+  chosen.classList.remove('dimmed'); chosen.classList.add('selected');
+
+  // Store
+  ratings.push({ id: l.id, address: l.address, neighborhood: l.neighborhood, score: l.score, verdict, why });
+
+  // Advance after short delay
+  setTimeout(() => {
+    current++;
+    if (current >= listings.length) {
+      showSummary();
+    } else {
+      renderCard(current);
+    }
+  }, 380);
+}
+
+function showSummary() {
+  document.getElementById('session').style.display = 'none';
+  const summary = document.getElementById('summary');
+  summary.style.display = 'block';
+
+  const emojis = { like: '👍', pass: '👎', skip: '⏭️' };
+  summary.querySelector('#summary-list').innerHTML = ratings.map(r => `
+    <div class="summary-item">
+      <div class="summary-rating">${emojis[r.verdict]}</div>
+      <div>
+        <div class="summary-addr">${r.address} <span style="color:#444;font-weight:400;font-size:11px">${r.neighborhood}</span></div>
+        <div class="summary-score">Score ${r.score}</div>
+        ${r.why ? `<div class="summary-why">"${r.why}"</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function copyResults() {
+  const lines = ratings.map(r =>
+    `${r.verdict.toUpperCase()} | ${r.address} (${r.neighborhood}) | score ${r.score}${r.why ? ` | "${r.why}"` : ''}`
+  ).join('\n');
+  navigator.clipboard.writeText(lines).then(() => {
+    document.querySelector('.copy-btn').textContent = 'Copied!';
+    setTimeout(() => document.querySelector('.copy-btn').textContent = 'Copy results to clipboard', 2000);
+  });
+}
+
+renderCard(0);
+</script>
+</body>
+</html>

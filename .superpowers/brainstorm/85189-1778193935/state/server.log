@@ -1,0 +1,26 @@
+{"type":"server-started","port":62880,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:62880","screen_dir":"/Users/danno/Documents/_devRoot/house-tracker/.superpowers/brainstorm/85189-1778193935/content","state_dir":"/Users/danno/Documents/_devRoot/house-tracker/.superpowers/brainstorm/85189-1778193935/state"}
+{"type":"screen-added","file":"/Users/danno/Documents/_devRoot/house-tracker/.superpowers/brainstorm/85189-1778193935/content/rating-layout.html"}
+{"type":"screen-added","file":"/Users/danno/Documents/_devRoot/house-tracker/.superpowers/brainstorm/85189-1778193935/content/waiting-1.html"}
+{"type":"screen-added","file":"/Users/danno/Documents/_devRoot/house-tracker/.superpowers/brainstorm/85189-1778193935/content/analysis-results.html"}
+{"type":"screen-added","file":"/Users/danno/Documents/_devRoot/house-tracker/.superpowers/brainstorm/85189-1778193935/content/listing-01.html"}
+{"type":"screen-updated","file":"/Users/danno/Documents/_devRoot/house-tracker/.superpowers/brainstorm/85189-1778193935/content/listing-01.html"}
+{"source":"user-event","type":"click","text":"Skip","choice":"skip","id":null,"timestamp":1778195073487}
+{"source":"user-event","type":"click","text":"Skip","choice":"skip","id":null,"timestamp":1778195076597}
+{"source":"user-event","type":"click","text":"Skip","choice":"skip","id":null,"timestamp":1778195078134}
+{"source":"user-event","type":"click","text":"Skip","choice":"skip","id":null,"timestamp":1778195078621}
+{"source":"user-event","type":"click","text":"Skip","choice":"skip","id":null,"timestamp":1778195078840}
+{"source":"user-event","type":"click","text":"👎 Pass","choice":"down","id":null,"timestamp":1778195082071}
+{"source":"user-event","type":"click","text":"👎 Pass","choice":"down","id":null,"timestamp":1778195083520}
+{"source":"user-event","type":"click","text":"👎 Pass","choice":"down","id":null,"timestamp":1778195099381}
+{"source":"user-event","type":"click","text":"👎 Pass","choice":"down","id":null,"timestamp":1778195100079}
+{"source":"user-event","type":"click","text":"👎 Pass","choice":"down","id":null,"timestamp":1778195100236}
+{"source":"user-event","type":"click","text":"👎 Pass","choice":"down","id":null,"timestamp":1778195100370}
+{"source":"user-event","type":"click","text":"Skip","choice":"skip","id":null,"timestamp":1778195102390}
+{"source":"user-event","type":"click","text":"👎 Pass","choice":"down","id":null,"timestamp":1778195102755}
+{"source":"user-event","type":"click","text":"👍 Like","choice":"up","id":null,"timestamp":1778195103299}
+{"source":"user-event","type":"click","text":"Skip","choice":"skip","id":null,"timestamp":1778195103730}
+{"source":"user-event","type":"click","text":"Skip","choice":"skip","id":null,"timestamp":1778195104119}
+{"type":"screen-updated","file":"/Users/danno/Documents/_devRoot/house-tracker/.superpowers/brainstorm/85189-1778193935/content/listing-01.html"}
+{"type":"screen-updated","file":"/Users/danno/Documents/_devRoot/house-tracker/.superpowers/brainstorm/85189-1778193935/content/listing-01.html"}
+{"type":"screen-added","file":"/Users/danno/Documents/_devRoot/house-tracker/.superpowers/brainstorm/85189-1778193935/content/calibration.html"}
+{"type":"server-stopped","reason":"idle timeout"}

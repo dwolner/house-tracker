@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc --noEmit 2>&1)",
+      "Bash(sqlite3 data/listings.db \"SELECT *)",
+      "Bash(sqlite3 data/listings.db \"PRAGMA *)"
+    ]
+  }
+}

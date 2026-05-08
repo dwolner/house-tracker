@@ -1,0 +1,162 @@
+<style>
+.cal-wrap { max-width: 560px; margin: 0 auto; }
+.progress-bar { display: flex; gap: 6px; margin-bottom: 20px; }
+.progress-pip { flex: 1; height: 4px; border-radius: 2px; background: #333; }
+.progress-pip.done { background: #27ae60; }
+.progress-pip.current { background: #3498db; }
+.listing-card { background: #16213e; border: 1px solid #0f3460; border-radius: 14px; overflow: hidden; }
+.card-header { padding: 18px 20px 14px; border-bottom: 1px solid #0f3460; display: flex; justify-content: space-between; align-items: flex-start; }
+.card-address { font-size: 17px; font-weight: 700; color: #e0e0e0; line-height: 1.2; }
+.card-neighborhood { font-size: 12px; color: #888; margin-top: 3px; }
+.score-badge { min-width: 52px; height: 52px; border-radius: 50%; background: #f39c12; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800; color: #1a1a2e; flex-shrink: 0; }
+.score-badge.low { background: #e74c3c; }
+.score-badge.mid { background: #f39c12; }
+.score-badge.high { background: #27ae60; }
+.card-stats { padding: 14px 20px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; border-bottom: 1px solid #0f3460; }
+.stat { display: flex; flex-direction: column; gap: 2px; }
+.stat-label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: .5px; }
+.stat-value { font-size: 14px; font-weight: 600; color: #e0e0e0; }
+.stat-value.price { color: #3498db; font-size: 16px; }
+.card-factors { padding: 14px 20px; border-bottom: 1px solid #0f3460; }
+.factors-title { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+.factor-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.factor-name { font-size: 11px; color: #999; width: 90px; flex-shrink: 0; }
+.factor-bar-bg { flex: 1; height: 5px; background: #0f3460; border-radius: 3px; overflow: hidden; }
+.factor-bar { height: 100%; border-radius: 3px; }
+.factor-bar.penalty { background: #e74c3c; }
+.factor-bar.full { background: #27ae60; }
+.factor-bar.partial { background: #3498db; }
+.factor-bar.zero { background: #444; width: 0 !important; }
+.factor-pts { font-size: 10px; color: #666; width: 50px; text-align: right; flex-shrink: 0; }
+.card-actions { padding: 18px 20px; }
+.why-box { width: 100%; background: #1a1a2e; border: 1px solid #0f3460; border-radius: 8px; color: #ccc; font-size: 13px; padding: 10px 12px; resize: vertical; min-height: 64px; box-sizing: border-box; margin-bottom: 14px; font-family: inherit; }
+.why-box::placeholder { color: #444; }
+.action-row { display: flex; gap: 10px; align-items: center; }
+.btn-down { flex: 1; padding: 14px; background: #c0392b; border: none; border-radius: 10px; color: white; font-size: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; }
+.btn-up { flex: 1; padding: 14px; background: #27ae60; border: none; border-radius: 10px; color: white; font-size: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; }
+.btn-skip { padding: 14px 16px; background: transparent; border: 1px solid #333; border-radius: 10px; color: #666; font-size: 13px; cursor: pointer; }
+.redfin-link { display: block; text-align: center; font-size: 11px; color: #555; margin-top: 12px; text-decoration: none; }
+.redfin-link:hover { color: #888; }
+.type-pill { display: inline-block; background: #0f3460; color: #888; font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-top: 4px; }
+.type-pill.condo { background: #2c1810; color: #e74c3c; }
+.instructions { font-size: 12px; color: #666; margin-bottom: 16px; text-align: center; }
+</style>
+
+<div class="cal-wrap">
+  <div class="progress-bar">
+    <div class="progress-pip current"></div>
+    <div class="progress-pip"></div>
+    <div class="progress-pip"></div>
+    <div class="progress-pip"></div>
+    <div class="progress-pip"></div>
+    <div class="progress-pip"></div>
+    <div class="progress-pip"></div>
+    <div class="progress-pip"></div>
+  </div>
+  <p class="instructions">Listing 1 of 8 · Rate it, add a note if you have thoughts, then tell me in terminal</p>
+
+  <div class="listing-card">
+    <div class="card-photo" style="height:200px;background:#0d1117;display:flex;align-items:center;justify-content:center;color:#333;font-size:13px;border-bottom:1px solid #0f3460;">
+      No photo available for this listing
+    </div>
+
+    <div class="card-header">
+      <div>
+        <div class="card-address">4517 Misty Pl</div>
+        <div class="card-neighborhood">Bay Ho · San Diego · 92117</div>
+        <span class="type-pill condo">Condo/Co-op</span>
+      </div>
+      <div class="score-badge low">47</div>
+    </div>
+
+    <div class="card-stats">
+      <div class="stat">
+        <div class="stat-label">Price</div>
+        <div class="stat-value price">$1.13M</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Beds / Sqft</div>
+        <div class="stat-value">3bd · 1,614</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">DOM · Walk</div>
+        <div class="stat-value">193d · 56</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">$/sqft</div>
+        <div class="stat-value">$699</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Lot</div>
+        <div class="stat-value">—</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">First seen</div>
+        <div class="stat-value">193d ago</div>
+      </div>
+    </div>
+
+    <div class="card-factors">
+      <div class="factors-title">Score breakdown (47 / 100)</div>
+
+      <div class="factor-row">
+        <div class="factor-name">propertyType</div>
+        <div class="factor-bar-bg"><div class="factor-bar zero" style="width:0%"></div></div>
+        <div class="factor-pts">0 / 20</div>
+      </div>
+      <div class="factor-row">
+        <div class="factor-name">walkability</div>
+        <div class="factor-bar-bg"><div class="factor-bar partial" style="width:56%"></div></div>
+        <div class="factor-pts">10 / 18</div>
+      </div>
+      <div class="factor-row">
+        <div class="factor-name">price</div>
+        <div class="factor-bar-bg"><div class="factor-bar full" style="width:100%"></div></div>
+        <div class="factor-pts">14 / 14</div>
+      </div>
+      <div class="factor-row">
+        <div class="factor-name">sqft</div>
+        <div class="factor-bar-bg"><div class="factor-bar partial" style="width:53%"></div></div>
+        <div class="factor-pts">7 / 14</div>
+      </div>
+      <div class="factor-row">
+        <div class="factor-name">beds</div>
+        <div class="factor-bar-bg"><div class="factor-bar partial" style="width:50%"></div></div>
+        <div class="factor-pts">5 / 10</div>
+      </div>
+      <div class="factor-row">
+        <div class="factor-name">pricePerSqft</div>
+        <div class="factor-bar-bg"><div class="factor-bar full" style="width:100%"></div></div>
+        <div class="factor-pts">10 / 10</div>
+      </div>
+      <div class="factor-row">
+        <div class="factor-name">domPenalty ⚠</div>
+        <div class="factor-bar-bg"><div class="factor-bar penalty" style="width:100%"></div></div>
+        <div class="factor-pts">−6 / 6</div>
+      </div>
+    </div>
+
+    <div class="card-actions">
+      <textarea class="why-box" placeholder="Optional: why do you feel this way? (e.g. 'condo fee must be insane', 'Bay Ho is sketchy', 'love the area but not a condo')"></textarea>
+      <div class="action-row">
+        <button class="btn-down" id="btn-down" onclick="rate('down')">👎 Pass</button>
+        <button class="btn-up" id="btn-up" onclick="rate('up')">👍 Like</button>
+        <button class="btn-skip" id="btn-skip" onclick="rate('skip')">Skip</button>
+      </div>
+      <a class="redfin-link" href="https://www.redfin.com/CA/San-Diego/4517-Misty-Pl-92108/home/198683385" target="_blank">→ Open on Redfin</a>
+    </div>
+  </div>
+</div>
+
+<script>
+var selected = null;
+function rate(choice) {
+  selected = choice;
+  document.getElementById('btn-down').style.opacity = choice === 'down' ? '1' : '0.4';
+  document.getElementById('btn-up').style.opacity = choice === 'up' ? '1' : '0.4';
+  document.getElementById('btn-skip').style.opacity = choice === 'skip' ? '1' : '0.4';
+  document.getElementById('btn-' + choice).style.transform = 'scale(1.05)';
+  // Record via the helper if available
+  if (typeof recordEvent === 'function') recordEvent(choice, choice);
+}
+</script>

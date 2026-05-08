@@ -14,6 +14,7 @@ export const sanDiegoLocale: LocaleConfig = {
     { name: 'North Park',                region_id: '38104', region_type: 2 },
     { name: 'Mission Hills',             region_id: '38103', region_type: 2 },
     { name: 'Allied Gardens',            region_id: '38120', region_type: 2 },
+    { name: 'Talmadge / Rolando',         region_id: '38115', region_type: 2 },
   ],
   minBeds: 3,
   maxPrice: 2_500_000,
