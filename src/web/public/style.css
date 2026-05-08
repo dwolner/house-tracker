@@ -1271,10 +1271,6 @@ html.dark .pending-badge {
 
 /* ===== COMPARE MODE ===== */
 
-.card-photo-wrap {
-  position: relative;
-}
-
 .card-select-cb {
   position: absolute;
   top: 8px;
@@ -1283,7 +1279,7 @@ html.dark .pending-badge {
   opacity: 0;
   transition: opacity 0.15s;
   cursor: pointer;
-  background: rgba(0,0,0,0.45);
+  background: var(--surface-2);
   border-radius: 4px;
   padding: 2px;
   display: flex;
