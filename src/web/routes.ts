@@ -149,6 +149,59 @@ export function registerRoutes(app: FastifyInstance) {
   // Find active listings that look like duplicates (same zip/beds/baths/sqft)
   app.get('/api/listings/duplicate-candidates', () => getDuplicateCandidates());
 
+  // Fuzzy address lookup — GET /api/listings/by-address?q=123+Main+St
+  app.get('/api/listings/by-address', (req, reply) => {
+    const q = req.query as Record<string, string>;
+    const query = (q.q ?? '').trim();
+    if (!query) {
+      reply.status(400).send({ error: 'q is required' });
+      return;
+    }
+
+    const queryTokens = query.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+    if (queryTokens.length === 0) {
+      reply.status(400).send({ error: 'q is required' });
+      return;
+    }
+
+    const listings = getDb()
+      .prepare(`SELECT * FROM listings ORDER BY score DESC`)
+      .all() as import('../db/index.js').Listing[];
+
+    let bestListing: import('../db/index.js').Listing | null = null;
+    let bestMatchScore = 0;
+
+    for (const listing of listings) {
+      const targetTokens = new Set(
+        `${listing.address} ${listing.city} ${listing.state}`
+          .toLowerCase()
+          .split(/[^a-z0-9]+/)
+          .filter(Boolean),
+      );
+      let matchScore = 0;
+      for (const token of queryTokens) {
+        if (targetTokens.has(token)) matchScore++;
+      }
+      if (matchScore > bestMatchScore) {
+        bestMatchScore = matchScore;
+        bestListing = listing;
+      }
+    }
+
+    if (!bestListing || bestMatchScore === 0) {
+      reply.status(404).send({ error: 'not found' });
+      return;
+    }
+
+    return {
+      ...bestListing,
+      score_breakdown: bestListing.score_breakdown
+        ? JSON.parse(bestListing.score_breakdown)
+        : null,
+      match_score: bestMatchScore,
+    };
+  });
+
   // Pending outcomes — analytics data
   app.get('/api/outcomes', () => getOutcomesData());
 
