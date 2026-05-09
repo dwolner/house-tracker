@@ -1285,6 +1285,11 @@ async function requestBrief(id, btn) {
     const res = await fetch(`/api/listings/${id}/brief`, { method: 'POST' });
     if (!res.ok) throw new Error('failed');
     const data = await res.json();
+    const listing = allListings.find(l => l.id === id);
+    if (listing) {
+      listing.brief_short = data.brief_short;
+      listing.brief_full = data.brief_full;
+    }
     const wrap = btn.closest('.card').querySelector('.brief-wrap');
     if (wrap) {
       const fullBullets = Array.isArray(data.brief_full) ? data.brief_full : JSON.parse(data.brief_full || '[]');
