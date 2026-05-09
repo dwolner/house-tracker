@@ -330,6 +330,24 @@ export function getListingsMissingSchoolDistrict(): ListingForEnrichment[] {
     .all() as ListingForEnrichment[];
 }
 
+export function getListingsMissingBrief(scoreThreshold: number): ListingForEnrichment[] {
+  return getDb()
+    .prepare(`SELECT id, address, city, state, zip, lat, lng, beds, price, sqft, lot_sqft,
+                     days_on_market, property_type, walk_score, school_district, url, locale_id
+              FROM listings
+              WHERE brief_short IS NULL
+                AND score >= ?
+                AND status IN ('9', '1')
+                AND superseded_by IS NULL`)
+    .all(scoreThreshold) as ListingForEnrichment[];
+}
+
+export function saveBrief(id: string, briefShort: string, briefFull: string[]): void {
+  getDb()
+    .prepare(`UPDATE listings SET brief_short = ?, brief_full = ? WHERE id = ?`)
+    .run(briefShort, JSON.stringify(briefFull), id);
+}
+
 export function updateListingSchoolDistrict(
   id: string,
   schoolDistrict: string,
