@@ -159,6 +159,8 @@ export function getDb(): Database.Database {
   if (!cols.includes('status_label')) _db.exec(`ALTER TABLE listings ADD COLUMN status_label TEXT`);
   if (!cols.includes('locale_id')) _db.exec(`ALTER TABLE listings ADD COLUMN locale_id TEXT NOT NULL DEFAULT 'main-line'`);
   if (!cols.includes('superseded_by')) _db.exec(`ALTER TABLE listings ADD COLUMN superseded_by TEXT REFERENCES listings(id)`);
+  if (!cols.includes('brief_short')) _db.exec(`ALTER TABLE listings ADD COLUMN brief_short TEXT`);
+  if (!cols.includes('brief_full')) _db.exec(`ALTER TABLE listings ADD COLUMN brief_full TEXT`);
 
   return _db;
 }
