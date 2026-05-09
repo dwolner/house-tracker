@@ -19,7 +19,8 @@ export function registerRoutes(app: FastifyInstance) {
       SELECT id, address, city, state, zip, price, price_at_first_seen, beds, baths,
              sqft, lot_sqft, year_built, walk_score, school_district, property_type, days_on_market,
              score, score_breakdown, url, first_seen_at, last_seen_at, status, status_label, starred,
-             next_open_house_start, next_open_house_end, lat, lng, locale_id
+             next_open_house_start, next_open_house_end, lat, lng, locale_id,
+             brief_short, brief_full
       FROM listings
       WHERE score >= ?
         AND beds >= ?
@@ -49,6 +50,25 @@ export function registerRoutes(app: FastifyInstance) {
     return getDb()
       .prepare(`SELECT price, recorded_at FROM price_history WHERE listing_id = ? ORDER BY recorded_at ASC`)
       .all(id);
+  });
+
+  // Generate AI brief on demand for a single listing
+  app.post('/api/listings/:id/brief', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const row = getDb()
+      .prepare(`SELECT url, address, city, price, beds, sqft, days_on_market FROM listings WHERE id = ?`)
+      .get(id) as { url: string; address: string; city: string; price: number; beds: number; sqft: number | null; days_on_market: number | null } | undefined;
+
+    if (!row) return reply.status(404).send({ error: 'not found' });
+
+    const { generateBriefForListing } = await import('../enrichment/brief.js');
+    try {
+      const result = await generateBriefForListing(id, row.url, row.address, row.city, row.price, row.beds, row.sqft, row.days_on_market);
+      return result;
+    } catch (err) {
+      console.error(`[brief] on-demand failed for ${id}:`, err);
+      return reply.status(500).send({ error: 'brief generation failed' });
+    }
   });
 
   // Inventory over time per area (from poll_log)
