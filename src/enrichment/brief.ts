@@ -110,3 +110,62 @@ Rules:
   const parsed = JSON.parse(text) as BriefResult;
   return parsed;
 }
+
+const BRIEF_SCORE_THRESHOLD = 60;
+
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+export async function runBriefEnrichment(): Promise<void> {
+  const listings = getListingsMissingBrief(BRIEF_SCORE_THRESHOLD);
+  console.log(`[brief] ${listings.length} listings need briefs`);
+  if (listings.length === 0) return;
+
+  let updated = 0;
+  let failed = 0;
+
+  for (const listing of listings) {
+    try {
+      const html = await fetchListingPage(listing.url ?? '');
+      const description = extractDescription(html);
+      const history = extractSaleHistory(html);
+      const brief = await generateBrief(
+        `${listing.address}, ${listing.city}`,
+        listing.price,
+        listing.beds,
+        listing.sqft,
+        listing.days_on_market,
+        description,
+        history,
+      );
+      saveBrief(listing.id, brief.short, brief.full);
+      console.log(`[brief] ${listing.address}, ${listing.city} — done`);
+      updated++;
+    } catch (err) {
+      console.error(`[brief] error for ${listing.address}:`, err);
+      failed++;
+    }
+    await sleep(1500);
+  }
+
+  console.log(`[brief] done — ${updated} generated, ${failed} failed/skipped`);
+}
+
+export async function generateBriefForListing(
+  id: string,
+  url: string,
+  address: string,
+  city: string,
+  price: number,
+  beds: number,
+  sqft: number | null,
+  dom: number | null,
+): Promise<{ brief_short: string; brief_full: string[] }> {
+  const html = await fetchListingPage(url);
+  const description = extractDescription(html);
+  const history = extractSaleHistory(html);
+  const brief = await generateBrief(`${address}, ${city}`, price, beds, sqft, dom, description, history);
+  saveBrief(id, brief.short, brief.full);
+  return { brief_short: brief.short, brief_full: brief.full };
+}

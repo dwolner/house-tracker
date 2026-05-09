@@ -8,6 +8,7 @@ import {
 import { scoreWithBreakdown } from '../scoring/index.js';
 import { getLocale, LOCALES } from '../locales/index.js';
 import type { RedfinListing } from '../poller/redfin.js';
+import { runBriefEnrichment } from './brief.js';
 
 const REDFIN_BASE = 'https://www.redfin.com';
 const HEADERS = {
@@ -181,6 +182,8 @@ async function runEnrichment(): Promise<void> {
   }
 
   console.log(`[enrich] school districts done — ${sdUpdated} updated, ${sdFailed} failed/skipped`);
+
+  await runBriefEnrichment();
 }
 
 export { runEnrichment };
