@@ -126,7 +126,8 @@ export function registerRoutes(app: FastifyInstance) {
         ${localeSql}
       ORDER BY first_seen_at DESC
     `).all(...params) as import('../notifications/email.js').NotifyListing[];
-    const allChanges = getUnnotifiedChanges(NOTIFY_SCORE_THRESHOLD);
+    const enabledLocaleIds = Object.values(LOCALES).filter(l => !l.disableNotifications).map(l => l.id);
+    const allChanges = getUnnotifiedChanges(NOTIFY_SCORE_THRESHOLD, enabledLocaleIds);
     const changes = localeId
       ? allChanges.filter(c => {
           const row = db.prepare(`SELECT locale_id FROM listings WHERE id = ?`).get(c.id) as { locale_id: string } | undefined;
@@ -309,7 +310,8 @@ export function registerRoutes(app: FastifyInstance) {
       `).all(...newHighScoreIds) as import('../notifications/email.js').NotifyListing[];
     }
 
-    const changes = getUnnotifiedChanges(NOTIFY_SCORE_THRESHOLD);
+    const enabledLocaleIds2 = Object.values(LOCALES).filter(l => !l.disableNotifications).map(l => l.id);
+    const changes = getUnnotifiedChanges(NOTIFY_SCORE_THRESHOLD, enabledLocaleIds2);
 
     sweepStaleChanges();
     if (newListings.length > 0 || changes.length > 0) {

@@ -420,7 +420,13 @@ export interface ChangeWithListing {
   url: string | null;
 }
 
-export function getUnnotifiedChanges(minScore = 0): ChangeWithListing[] {
+export function getUnnotifiedChanges(minScore = 0, enabledLocaleIds?: string[]): ChangeWithListing[] {
+  const localeSql = enabledLocaleIds && enabledLocaleIds.length > 0
+    ? `AND l.locale_id IN (${enabledLocaleIds.map(() => '?').join(',')})`
+    : '';
+  const params: unknown[] = enabledLocaleIds && enabledLocaleIds.length > 0
+    ? [minScore, ...enabledLocaleIds]
+    : [minScore];
   return getDb().prepare(`
     SELECT c.id as change_id, c.change_type, c.old_value, c.new_value, c.changed_at,
            l.id, l.address, l.city, l.state, l.zip, l.price, l.price_at_first_seen,
@@ -432,8 +438,9 @@ export function getUnnotifiedChanges(minScore = 0): ChangeWithListing[] {
       AND c.change_type IN ('price_drop', 'price_increase', 'now_active')
       AND l.score >= ?
       AND l.superseded_by IS NULL
+      ${localeSql}
     ORDER BY c.changed_at ASC
-  `).all(minScore) as ChangeWithListing[];
+  `).all(...params) as ChangeWithListing[];
 }
 
 export function markChangesNotified(ids: number[]): void {

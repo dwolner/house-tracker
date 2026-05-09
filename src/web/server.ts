@@ -14,6 +14,8 @@ async function runPollAndNotify(label: string): Promise<void> {
   const { runPoll } = await import('../poller/index.js');
   const { sendDigest, NOTIFY_SCORE_THRESHOLD } = await import('../notifications/email.js');
   const { getUnnotifiedChanges, markChangesNotified, sweepStaleChanges, getDb } = await import('../db/index.js');
+  const { LOCALES } = await import('../locales/index.js');
+  const enabledLocaleIds = Object.values(LOCALES).filter(l => !l.disableNotifications).map(l => l.id);
   try {
     const { newHighScoreIds } = await runPoll();
 
@@ -28,7 +30,7 @@ async function runPollAndNotify(label: string): Promise<void> {
       `).all(...newHighScoreIds) as NotifyListing[];
     }
 
-    const changes = getUnnotifiedChanges(NOTIFY_SCORE_THRESHOLD);
+    const changes = getUnnotifiedChanges(NOTIFY_SCORE_THRESHOLD, enabledLocaleIds);
 
     sweepStaleChanges();
     if (newListings.length > 0 || changes.length > 0) {
