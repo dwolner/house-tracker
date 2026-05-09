@@ -1246,6 +1246,7 @@ function cardHtml(l) {
       </div>
     </div>
     ${metaLine ? `<div class="card-meta">${metaLine}</div>` : ""}
+      <div class="brief-wrap">${renderBrief(l)}</div>
     <div class="card-stats">
       <div class="stat"><div class="stat-val">${l.beds} | ${l.baths}</div><div class="stat-lbl">Beds | Baths</div></div>
       <div class="stat"><div class="stat-val">${l.sqft ? fmt(l.sqft) : "—"}</div><div class="stat-lbl">Sq Ft</div></div>
@@ -1259,6 +1260,45 @@ function cardHtml(l) {
       <button class="star-btn${l.starred ? " starred" : ""}" onclick="toggleStar('${l.id}', this)" title="Star this listing">${l.starred ? "★" : "☆"}</button>
     </div>
   </div>`;
+}
+
+function renderBrief(l) {
+  if (l.brief_short) {
+    const fullBullets = (() => {
+      try { return JSON.parse(l.brief_full || '[]'); } catch { return []; }
+    })();
+    const id = `brief-${l.id}`;
+    const bullets = fullBullets.map(b => `<li>${b}</li>`).join('');
+    return `
+      <div class="brief-short" onclick="document.getElementById('${id}').classList.toggle('open')">
+        ${l.brief_short}
+      </div>
+      <ul id="${id}" class="brief-full">${bullets}</ul>`;
+  }
+  return `<button class="brief-btn" onclick="requestBrief('${l.id}', this)">Brief</button>`;
+}
+
+async function requestBrief(id, btn) {
+  btn.textContent = '…';
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/api/listings/${id}/brief`, { method: 'POST' });
+    if (!res.ok) throw new Error('failed');
+    const data = await res.json();
+    const wrap = btn.closest('.card').querySelector('.brief-wrap');
+    if (wrap) {
+      const fullBullets = Array.isArray(data.brief_full) ? data.brief_full : JSON.parse(data.brief_full || '[]');
+      const listId = `brief-${id}`;
+      wrap.innerHTML = `
+        <div class="brief-short" onclick="document.getElementById('${listId}').classList.toggle('open')">
+          ${data.brief_short}
+        </div>
+        <ul id="${listId}" class="brief-full open">${fullBullets.map(b => `<li>${b}</li>`).join('')}</ul>`;
+    }
+  } catch {
+    btn.textContent = 'Brief';
+    btn.disabled = false;
+  }
 }
 
 function renderCards(listings, openHouseOnly = false) {
