@@ -5,7 +5,7 @@ const SMTP_PORT = parseInt(process.env.SMTP_PORT ?? '587', 10);
 const SMTP_USER = process.env.SMTP_USER ?? '';
 const SMTP_PASS = process.env.SMTP_PASS ?? '';
 const NOTIFY_TO = process.env.NOTIFY_TO ?? '';
-export const NOTIFY_SCORE_THRESHOLD = parseFloat(process.env.NOTIFY_SCORE_THRESHOLD ?? '75');
+export const NOTIFY_SCORE_THRESHOLD = parseFloat(process.env.NOTIFY_SCORE_THRESHOLD ?? '70');
 
 export interface NotifyListing {
   id: string;
