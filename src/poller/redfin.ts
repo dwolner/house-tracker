@@ -25,6 +25,7 @@ export interface RedfinListing {
   next_open_house_end: string | null;
   sold_date: string | null;        // ISO date from "SOLD DATE" column, only in sold feed
   brief_short?: string | null;     // AI-generated summary — populated from DB during rescore
+  brief_full?: string | null;      // AI-generated bullet JSON — populated from DB during rescore
 }
 
 const REDFIN_BASE = 'https://www.redfin.com';

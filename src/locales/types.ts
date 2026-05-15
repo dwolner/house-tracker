@@ -102,7 +102,16 @@ export interface ZipPenaltyConfig {
 }
 
 export interface MultiUnitPenaltyConfig {
-  weight: number; // flat penalty applied when brief_short matches multi-unit keywords
+  weight: number; // flat penalty applied when brief_short/brief_full matches multi-unit keywords
+}
+
+export interface FlipPenaltyConfig {
+  weight: number; // flat penalty applied when brief_short/brief_full matches flip keywords (without suppressor)
+}
+
+export interface BathsConfig {
+  weight: number;
+  steps: { minBaths: number; points: number }[]; // sorted descending; first match wins
 }
 
 export interface InvestmentScoreConfig {
@@ -132,6 +141,8 @@ export interface ScoringConfig {
   domBonus?: DomBonusConfig;
   investmentScore?: InvestmentScoreConfig;
   multiUnitPenalty?: MultiUnitPenaltyConfig;
+  flipPenalty?: FlipPenaltyConfig;
+  baths?: BathsConfig;
 }
 
 export interface RenovationTier {

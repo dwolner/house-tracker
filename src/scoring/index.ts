@@ -143,6 +143,12 @@ export function scoreWithBreakdown(
     addFactor('beds', pts, scoring.beds.weight);
   }
 
+  if (scoring.baths) {
+    const sorted = [...scoring.baths.steps].sort((a, b) => b.minBaths - a.minBaths);
+    const pts = sorted.find(s => listing.baths >= s.minBaths)?.points ?? 0;
+    addFactor('baths', pts, scoring.baths.weight);
+  }
+
   if (scoring.pricePerSqft && listing.sqft != null && listing.sqft > 0) {
     const { weight, excellentPpsf, maxPpsf } = scoring.pricePerSqft;
     const ppsf = listing.price / listing.sqft;
@@ -276,12 +282,24 @@ export function scoreWithBreakdown(
     factors['zipPenalty'] = { pts, max: weight };
   }
 
-  if (scoring.multiUnitPenalty && listing.brief_short) {
+  if (scoring.multiUnitPenalty) {
     const MULTI_UNIT_KW = /duplex|dual.unit|multi.unit|income property|upper.{0,10}lower|lower.{0,10}upper|\b2 units\b|two units|both units|student rental|stabilized rental/i;
-    if (MULTI_UNIT_KW.test(listing.brief_short)) {
+    const briefText = (listing.brief_short ?? '') + ' ' + (listing.brief_full ?? '');
+    if (MULTI_UNIT_KW.test(briefText)) {
       const { weight } = scoring.multiUnitPenalty;
       rawPenalty += weight;
       factors['multiUnitPenalty'] = { pts: weight, max: weight };
+    }
+  }
+
+  if (scoring.flipPenalty) {
+    const FLIP_KW  = /\bflip\b|flipped|markup|relisted.{0,20}\$|purchased.{0,30}relisted/i;
+    const FLIP_SUP = /since \d{4}|over \d+ years?|\d+.year.{0,10}(hold|appreciation|ownership)|not a flip|no flip|move.up sale|original.{0,20}(developer|builder)/i;
+    const briefText = (listing.brief_short ?? '') + ' ' + (listing.brief_full ?? '');
+    if (briefText && FLIP_KW.test(briefText) && !FLIP_SUP.test(briefText)) {
+      const { weight } = scoring.flipPenalty;
+      rawPenalty += weight;
+      factors['flipPenalty'] = { pts: weight, max: weight };
     }
   }
 

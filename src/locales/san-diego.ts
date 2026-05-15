@@ -76,6 +76,14 @@ export const sanDiegoLocale: LocaleConfig = {
         { minBeds: 3, points: 5  },
       ],
     },
+    baths: {
+      weight: 6,
+      steps: [
+        { minBaths: 3,   points: 6 },
+        { minBaths: 2.5, points: 4 },
+        { minBaths: 2,   points: 2 },
+      ],
+    },
     pricePerSqft: {
       weight: 10,
       // SD turnkey SFR runs $900–1,200/sqft; below $850 is competitive
@@ -87,6 +95,7 @@ export const sanDiegoLocale: LocaleConfig = {
     // 92115 = Rolando/College Area (SDSU-adjacent — student rental market, not ideal for a family forever home)
     zipPenalty: { weight: 15, zips: ['92115'] },
     multiUnitPenalty: { weight: 25 },
+    flipPenalty: { weight: 15 },
   },
 };
-// Positive weight denominator: 20+18+14+14+12+10+10 = 98
+// Positive weight denominator: 20+12+14+18+12+10+6+10 = 102
