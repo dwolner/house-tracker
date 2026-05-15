@@ -55,8 +55,11 @@ export const sanDiegoLocale: LocaleConfig = {
     lot: {
       weight: 12,
       // SD urban lots run 5,000–7,500 sqft (0.11–0.17 ac); 0.25+ ac is a standout yard
+      // defaultAcres: used for SFRs with missing lot data (assumes minimum urban lot)
+      defaultAcres: 0.08,
       breakpoints: [
         { acres: 0,    points: 0  },
+        { acres: 0.05, points: 0  }, // < 2,200 sqft = essentially no yard
         { acres: 0.08, points: 2  },
         { acres: 0.11, points: 5  },
         { acres: 0.15, points: 9  },

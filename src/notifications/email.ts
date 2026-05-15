@@ -239,7 +239,8 @@ function scoreChipsHtml(l: NotifyListing, P: Palette): string {
 
 const DEV_KEYWORDS = /developer|zoning|land value|teardown|redevelopment|upside potential|fixer|handyman|needs work|gut rehab|original condition|unimproved|lot value|demo|tlc/i;
 const DEV_SUPPRESSOR = /renovated|remodeled|updated|turnkey|move.in ready|fully.updated|new kitchen|new bath|new roof|new floors|freshly/i;
-const FLIP_KEYWORDS = /\bflip\b|flipped|markup|relisted.{0,20}\$|price jump|purchased.{0,30}relisted/i;
+const FLIP_KEYWORDS = /\bflip\b|flipped|markup|relisted.{0,20}\$|purchased.{0,30}relisted/i;
+const FLIP_SUPPRESSOR = /since \d{4}|over \d+ years?|\d+.year.{0,10}(hold|appreciation|ownership)/i;
 const MULTI_UNIT_KEYWORDS = /duplex|dual.unit|multi.unit|income property|upper.{0,10}lower|lower.{0,10}upper|\b2 units\b|two units|both units|student rental|stabilized rental/i;
 
 function buildCard(l: NotifyListing, P: Palette, badge = ''): string {
@@ -257,7 +258,7 @@ function buildCard(l: NotifyListing, P: Palette, badge = ''): string {
   const devBadge = l.brief_short && DEV_KEYWORDS.test(l.brief_short) && !DEV_SUPPRESSOR.test(l.brief_short)
     ? `<span style="background:#78350f;color:#fde68a;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:.04em;margin-right:6px">⚠ DEVELOPER PLAY</span>`
     : '';
-  const flipBadge = l.brief_short && FLIP_KEYWORDS.test(l.brief_short)
+  const flipBadge = l.brief_short && FLIP_KEYWORDS.test(l.brief_short) && !FLIP_SUPPRESSOR.test(l.brief_short)
     ? `<span style="background:#713f12;color:#fef08a;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:.04em;margin-right:6px">↑ RECENT FLIP</span>`
     : '';
   const multiUnitBadge = l.brief_short && MULTI_UNIT_KEYWORDS.test(l.brief_short)

@@ -119,8 +119,12 @@ export function scoreWithBreakdown(
 
   if (scoring.lot) {
     const cfg = scoring.lot;
-    if (listing.lot_sqft != null) {
-      const pts = interpolateBp(listing.lot_sqft / 43_560, cfg.breakpoints.map(b => ({ floor: b.acres, points: b.points })));
+    const isSfr = propType.includes('single family');
+    const lotAcres = listing.lot_sqft != null
+      ? listing.lot_sqft / 43_560
+      : (cfg.defaultAcres != null && isSfr ? cfg.defaultAcres : null);
+    if (lotAcres != null) {
+      const pts = interpolateBp(lotAcres, cfg.breakpoints.map(b => ({ floor: b.acres, points: b.points })));
       addFactor('lot', pts, cfg.weight);
     }
   }

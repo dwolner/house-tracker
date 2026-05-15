@@ -1224,14 +1224,15 @@ function getNeighborhood(l) {
 
 const DEV_KEYWORDS = /developer|zoning|land value|teardown|redevelopment|upside potential|fixer|handyman|needs work|gut rehab|original condition|unimproved|lot value|demo|tlc/i;
 const DEV_SUPPRESSOR = /renovated|remodeled|updated|turnkey|move.in ready|fully.updated|new kitchen|new bath|new roof|new floors|freshly/i;
-const FLIP_KEYWORDS = /\bflip\b|flipped|markup|relisted.{0,20}\$|price jump|purchased.{0,30}relisted/i;
+const FLIP_KEYWORDS = /\bflip\b|flipped|markup|relisted.{0,20}\$|purchased.{0,30}relisted/i;
+const FLIP_SUPPRESSOR = /since \d{4}|over \d+ years?|\d+.year.{0,10}(hold|appreciation|ownership)/i;
 const MULTI_UNIT_KEYWORDS = /duplex|dual.unit|multi.unit|income property|upper.{0,10}lower|lower.{0,10}upper|\b2 units\b|two units|both units|student rental|stabilized rental/i;
 
 function isDeveloperPlay(l) {
   return l.brief_short && DEV_KEYWORDS.test(l.brief_short) && !DEV_SUPPRESSOR.test(l.brief_short);
 }
 function isRecentFlip(l) {
-  return l.brief_short && FLIP_KEYWORDS.test(l.brief_short);
+  return l.brief_short && FLIP_KEYWORDS.test(l.brief_short) && !FLIP_SUPPRESSOR.test(l.brief_short);
 }
 function isMultiUnit(l) {
   return l.brief_short && MULTI_UNIT_KEYWORDS.test(l.brief_short);

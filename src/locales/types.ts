@@ -47,6 +47,7 @@ export interface SqftConfig {
 export interface LotConfig {
   weight: number;
   breakpoints: { acres: number; points: number }[];
+  defaultAcres?: number; // assumed lot size for SFRs with missing lot_sqft data
 }
 
 export interface TransitConfig {
