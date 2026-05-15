@@ -1216,10 +1216,12 @@ function getNeighborhood(l) {
   return null;
 }
 
-const DEV_KEYWORDS = /developer|zoning|land value|teardown|redevelopment|upside potential|investor|flip|as-is|as is|fixer|handyman|needs work|tlc/i;
+const DEV_KEYWORDS = /developer|zoning|land value|teardown|redevelopment|upside potential|fixer|handyman|needs work|gut rehab|original condition|unimproved|lot value|demo|tlc/i;
+// Suppress badge if the brief signals the work is already done
+const DEV_SUPPRESSOR = /renovated|remodeled|updated|turnkey|move.in ready|fully.updated|new kitchen|new bath|new roof|new floors|freshly/i;
 
 function isDeveloperPlay(l) {
-  return l.brief_short && DEV_KEYWORDS.test(l.brief_short);
+  return l.brief_short && DEV_KEYWORDS.test(l.brief_short) && !DEV_SUPPRESSOR.test(l.brief_short);
 }
 
 function cardHtml(l) {

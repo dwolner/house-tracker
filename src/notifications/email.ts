@@ -231,7 +231,8 @@ function scoreChipsHtml(l: NotifyListing, P: Palette): string {
     </div>`;
 }
 
-const DEV_KEYWORDS = /developer|zoning|land value|teardown|redevelopment|upside potential|investor|flip|as-is|as is|fixer|handyman|needs work|tlc/i;
+const DEV_KEYWORDS = /developer|zoning|land value|teardown|redevelopment|upside potential|fixer|handyman|needs work|gut rehab|original condition|unimproved|lot value|demo|tlc/i;
+const DEV_SUPPRESSOR = /renovated|remodeled|updated|turnkey|move.in ready|fully.updated|new kitchen|new bath|new roof|new floors|freshly/i;
 
 function buildCard(l: NotifyListing, P: Palette, badge = ''): string {
   const img = photoUrl(l.id);
@@ -245,7 +246,7 @@ function buildCard(l: NotifyListing, P: Palette, badge = ''): string {
   const zip = l.zip ?? '';
   const neighborhood = getNeighborhood(zip, l.lat, l.lng);
   const metaLine = [neighborhood, l.school_district].filter(Boolean).join(' · ');
-  const devBadge = l.brief_short && DEV_KEYWORDS.test(l.brief_short)
+  const devBadge = l.brief_short && DEV_KEYWORDS.test(l.brief_short) && !DEV_SUPPRESSOR.test(l.brief_short)
     ? `<span style="background:#78350f;color:#fde68a;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:.04em;margin-right:6px">⚠ DEVELOPER PLAY</span>`
     : '';
 
