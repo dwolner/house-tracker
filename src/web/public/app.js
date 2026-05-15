@@ -449,7 +449,7 @@ function photoUrl(id) {
   let region;
   if (id.startsWith("PAMC"))
     region = 235; // PA TREND MLS
-  else if (id.startsWith("NDP") || id.startsWith("PTP") || id.startsWith("DW"))
+  else if (id.startsWith("NDP") || id.startsWith("PTP") || id.startsWith("DW") || id.startsWith("NP"))
     region = 45; // SD CRMLS
   else if (/^\d{9}$/.test(id))
     region = 48; // SD SDMLS (Sandicor)
