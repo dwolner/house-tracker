@@ -247,10 +247,8 @@ export function registerRoutes(app: FastifyInstance) {
     return { listPrice, soldPrice, score };
   });
 
-  // Re-score all listings for a locale using current scoring config
-  app.post('/api/rescore', async (req) => {
-    const q = req.query as Record<string, string>;
-    const localeId = q.locale_id;
+  // Re-score all listings for a locale using current scoring config (GET or POST)
+  const doRescore = async (localeId: string | undefined) => {
     const { scoreWithBreakdown } = await import('../scoring/index.js');
     const db = getDb();
     const sql = localeId
@@ -267,7 +265,9 @@ export function registerRoutes(app: FastifyInstance) {
       updated++;
     }
     return { ok: true, updated };
-  });
+  };
+  app.get('/api/rescore',  async (req) => doRescore((req.query as Record<string, string>).locale_id));
+  app.post('/api/rescore', async (req) => doRescore((req.query as Record<string, string>).locale_id));
 
   // Trigger a poll manually
   app.post('/api/poll', async () => {
