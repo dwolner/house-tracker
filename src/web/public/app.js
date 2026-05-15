@@ -21,6 +21,7 @@ const SD_NEIGHBORHOODS = [
   { zip: "92107", name: "Point Loma Heights", color: "#22c55e" },
   { zip: "92116", name: "Kensington / Talmadge", color: "#a855f7" },
   { zip: "92117", name: "Bay Ho", color: "#f97316" },
+  { zip: "92117", name: "Clairemont Mesa", color: "#f97316" },
   { zip: "92104", name: "North Park", color: "#06b6d4" },
   { zip: "92103", name: "Mission Hills", color: "#eab308" },
   { zip: "92120", name: "Allied Gardens", color: "#ec4899" },
@@ -1195,6 +1196,10 @@ function renderOutcomes(data) {
 
 function getNeighborhood(l) {
   if (activeLocale === "san-diego") {
+    if (l.zip === "92117") {
+      if (l.lat != null && l.lng != null && l.lat < 32.815 && l.lng < -117.190) return "Bay Ho";
+      return "Clairemont Mesa";
+    }
     const nb = SD_NEIGHBORHOODS.find((n) => n.zip === l.zip);
     return nb?.name ?? null;
   }

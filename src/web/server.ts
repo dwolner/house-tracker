@@ -26,7 +26,7 @@ async function runPollAndNotify(label: string): Promise<void> {
       newListings = getDb().prepare(`
         SELECT id, address, city, state, zip, price, price_at_first_seen, beds, baths, sqft, lot_sqft,
                days_on_market, first_seen_at, score, score_breakdown, school_district, property_type, walk_score, url,
-               brief_short
+               brief_short, lat, lng
         FROM listings WHERE id IN (${placeholders}) AND superseded_by IS NULL AND score >= ? ORDER BY score DESC
       `).all(...newHighScoreIds, NOTIFY_SCORE_THRESHOLD) as NotifyListing[];
     }

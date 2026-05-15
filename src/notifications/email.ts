@@ -28,6 +28,8 @@ export interface NotifyListing {
   walk_score: number | null;
   url: string | null;
   brief_short: string | null;
+  lat: number | null;
+  lng: number | null;
 }
 
 type Palette = {
@@ -71,7 +73,8 @@ const NEIGHBORHOOD_BY_ZIP: Record<string, string> = {
   '92110': 'Bay Park / Loma Portal',
   '92107': 'Point Loma Heights',
   '92116': 'Kensington / Talmadge',
-  '92117': 'Bay Ho',
+  // 92117 is split by lat/lng — see getNeighborhood
+
   '92104': 'North Park',
   '92103': 'Mission Hills',
   '92120': 'Allied Gardens',
@@ -94,7 +97,11 @@ const NEIGHBORHOOD_BY_ZIP: Record<string, string> = {
   '19428': 'Conshohocken',
 };
 
-function getNeighborhood(zip: string): string | null {
+function getNeighborhood(zip: string, lat?: number | null, lng?: number | null): string | null {
+  if (zip === '92117') {
+    if (lat != null && lng != null && lat < 32.815 && lng < -117.190) return 'Bay Ho';
+    return 'Clairemont Mesa';
+  }
   return NEIGHBORHOOD_BY_ZIP[zip] ?? null;
 }
 
@@ -227,7 +234,7 @@ function buildCard(l: NotifyListing, P: Palette, badge = ''): string {
   const city = l.city ?? '';
   const state = l.state ?? '';
   const zip = l.zip ?? '';
-  const neighborhood = getNeighborhood(zip);
+  const neighborhood = getNeighborhood(zip, l.lat, l.lng);
   const metaLine = [neighborhood, l.school_district].filter(Boolean).join(' · ');
 
   return `

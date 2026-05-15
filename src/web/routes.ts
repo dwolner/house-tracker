@@ -120,7 +120,7 @@ export function registerRoutes(app: FastifyInstance) {
     const listings = db.prepare(`
       SELECT id, address, city, state, zip, price, price_at_first_seen, beds, baths, sqft, lot_sqft,
              days_on_market, first_seen_at, score, score_breakdown, school_district, property_type, walk_score, url,
-             brief_short
+             brief_short, lat, lng
       FROM listings
       WHERE status NOT IN ('inactive', '130') AND score >= ? AND superseded_by IS NULL
         AND first_seen_at >= datetime('now', '-' || ? || ' days')
@@ -146,7 +146,7 @@ export function registerRoutes(app: FastifyInstance) {
     const listings = db.prepare(`
       SELECT id, address, city, state, zip, price, price_at_first_seen, beds, baths, sqft, lot_sqft,
              days_on_market, first_seen_at, score, score_breakdown, school_district, property_type, walk_score, url,
-             brief_short
+             brief_short, lat, lng
       FROM listings WHERE superseded_by IS NULL ORDER BY score DESC LIMIT 5
     `).all() as import('../notifications/email.js').NotifyListing[];
     if (listings.length === 0) return { ok: false, error: 'no listings in DB' };
@@ -308,7 +308,7 @@ export function registerRoutes(app: FastifyInstance) {
       newListings = getDb().prepare(`
         SELECT id, address, city, state, zip, price, price_at_first_seen, beds, baths, sqft, lot_sqft,
                days_on_market, first_seen_at, score, score_breakdown, school_district, property_type, walk_score, url,
-               brief_short
+               brief_short, lat, lng
         FROM listings WHERE id IN (${placeholders}) AND superseded_by IS NULL AND score >= ? ORDER BY score DESC
       `).all(...newHighScoreIds, NOTIFY_SCORE_THRESHOLD) as import('../notifications/email.js').NotifyListing[];
     }
