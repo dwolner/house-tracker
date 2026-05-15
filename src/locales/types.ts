@@ -101,6 +101,10 @@ export interface ZipPenaltyConfig {
   zips: string[];
 }
 
+export interface MultiUnitPenaltyConfig {
+  weight: number; // flat penalty applied when brief_short matches multi-unit keywords
+}
+
 export interface InvestmentScoreConfig {
   weight: number;
   cashFlowExcellent: number; // monthly $ → full cash-flow pts (e.g. 300)
@@ -127,6 +131,7 @@ export interface ScoringConfig {
   yearBuiltPenalty?: YearBuiltPenaltyConfig;
   domBonus?: DomBonusConfig;
   investmentScore?: InvestmentScoreConfig;
+  multiUnitPenalty?: MultiUnitPenaltyConfig;
 }
 
 export interface RenovationTier {

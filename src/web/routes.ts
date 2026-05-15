@@ -254,8 +254,8 @@ export function registerRoutes(app: FastifyInstance) {
     const { scoreWithBreakdown } = await import('../scoring/index.js');
     const db = getDb();
     const sql = localeId
-      ? `SELECT id, address, city, state, zip, price, beds, baths, sqft, lot_sqft, year_built, walk_score, school_district, property_type, days_on_market, lat, lng, locale_id FROM listings WHERE locale_id = ? AND superseded_by IS NULL`
-      : `SELECT id, address, city, state, zip, price, beds, baths, sqft, lot_sqft, year_built, walk_score, school_district, property_type, days_on_market, lat, lng, locale_id FROM listings WHERE superseded_by IS NULL`;
+      ? `SELECT id, address, city, state, zip, price, beds, baths, sqft, lot_sqft, year_built, walk_score, school_district, property_type, days_on_market, lat, lng, locale_id, brief_short FROM listings WHERE locale_id = ? AND superseded_by IS NULL`
+      : `SELECT id, address, city, state, zip, price, beds, baths, sqft, lot_sqft, year_built, walk_score, school_district, property_type, days_on_market, lat, lng, locale_id, brief_short FROM listings WHERE superseded_by IS NULL`;
     const rows = localeId ? db.prepare(sql).all(localeId) : db.prepare(sql).all();
     const update = db.prepare(`UPDATE listings SET score = ?, score_breakdown = ? WHERE id = ?`);
     let updated = 0;

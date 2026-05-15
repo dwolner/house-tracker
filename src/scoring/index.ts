@@ -276,6 +276,15 @@ export function scoreWithBreakdown(
     factors['zipPenalty'] = { pts, max: weight };
   }
 
+  if (scoring.multiUnitPenalty && listing.brief_short) {
+    const MULTI_UNIT_KW = /duplex|dual.unit|multi.unit|income property|upper.{0,10}lower|lower.{0,10}upper|\b2 units\b|two units|both units|student rental|stabilized rental/i;
+    if (MULTI_UNIT_KW.test(listing.brief_short)) {
+      const { weight } = scoring.multiUnitPenalty;
+      rawPenalty += weight;
+      factors['multiUnitPenalty'] = { pts: weight, max: weight };
+    }
+  }
+
   if (scoring.domPenalty && listing.days_on_market != null) {
     const { weight } = scoring.domPenalty;
     const dom = listing.days_on_market;

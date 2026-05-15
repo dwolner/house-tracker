@@ -86,6 +86,7 @@ export const sanDiegoLocale: LocaleConfig = {
     yearBuiltPenalty: { weight: 10 },
     // 92115 = Rolando/College Area (SDSU-adjacent — student rental market, not ideal for a family forever home)
     zipPenalty: { weight: 15, zips: ['92115'] },
+    multiUnitPenalty: { weight: 25 },
   },
 };
 // Positive weight denominator: 20+18+14+14+12+10+10 = 98
