@@ -1212,6 +1212,11 @@ function getNeighborhood(l) {
       if (l.lat != null && l.lat >= 32.752) return "Mission Hills";
       return "Hillcrest";
     }
+    if (l.zip === "92120") {
+      // lng > -117.073: eastern elevation = Del Cerro; western flats = Allied Gardens
+      if (l.lng != null && l.lng > -117.073) return "Del Cerro";
+      return "Allied Gardens";
+    }
     const nb = SD_NEIGHBORHOODS.find((n) => n.zip === l.zip);
     return nb?.name ?? null;
   }

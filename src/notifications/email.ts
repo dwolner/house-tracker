@@ -80,7 +80,7 @@ const NEIGHBORHOOD_BY_ZIP: Record<string, string> = {
   // 92103 is split by lat — see getNeighborhood
 
   '92104': 'North Park',
-  '92120': 'Allied Gardens',
+  // 92120 is split by lng — see getNeighborhood
   '92115': 'Rolando / College Area',
   // Main Line PA
   '19072': 'Narberth/Penn Valley',
@@ -113,6 +113,11 @@ function getNeighborhood(zip: string, lat?: number | null, lng?: number | null):
     // Washington St runs ~lat 32.752; north = Mission Hills, south = Hillcrest
     if (lat != null && lat >= 32.752) return 'Mission Hills';
     return 'Hillcrest';
+  }
+  if (zip === '92120') {
+    // lng > -117.073: eastern elevation = Del Cerro; western flats = Allied Gardens
+    if (lng != null && lng > -117.073) return 'Del Cerro';
+    return 'Allied Gardens';
   }
   return NEIGHBORHOOD_BY_ZIP[zip] ?? null;
 }
