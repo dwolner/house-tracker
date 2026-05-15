@@ -76,8 +76,9 @@ const NEIGHBORHOOD_BY_ZIP: Record<string, string> = {
 
   // 92117 is split by lat/lng — see getNeighborhood
 
+  // 92103 is split by lat — see getNeighborhood
+
   '92104': 'North Park',
-  '92103': 'Mission Hills',
   '92120': 'Allied Gardens',
   '92115': 'Rolando / College Area',
   // Main Line PA
@@ -106,6 +107,11 @@ function getNeighborhood(zip: string, lat?: number | null, lng?: number | null):
   if (zip === '92116') {
     if (lng != null && lng < -117.130) return 'University Heights';
     return 'Kensington / Talmadge';
+  }
+  if (zip === '92103') {
+    // Washington St runs ~lat 32.752; north = Mission Hills, south = Hillcrest
+    if (lat != null && lat >= 32.752) return 'Mission Hills';
+    return 'Hillcrest';
   }
   return NEIGHBORHOOD_BY_ZIP[zip] ?? null;
 }

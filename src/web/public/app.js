@@ -25,6 +25,7 @@ const SD_NEIGHBORHOODS = [
   { zip: "92116", name: "University Heights", color: "#a855f7" },
   { zip: "92104", name: "North Park", color: "#06b6d4" },
   { zip: "92103", name: "Mission Hills", color: "#eab308" },
+  { zip: "92103", name: "Hillcrest", color: "#eab308" },
   { zip: "92120", name: "Allied Gardens", color: "#ec4899" },
   { zip: "92115", name: "Rolando / College Area", color: "#84cc16" },
 ];
@@ -1205,6 +1206,11 @@ function getNeighborhood(l) {
     if (l.zip === "92116") {
       if (l.lng != null && l.lng < -117.130) return "University Heights";
       return "Kensington / Talmadge";
+    }
+    if (l.zip === "92103") {
+      // Washington St ~lat 32.752: north = Mission Hills, south = Hillcrest
+      if (l.lat != null && l.lat >= 32.752) return "Mission Hills";
+      return "Hillcrest";
     }
     const nb = SD_NEIGHBORHOODS.find((n) => n.zip === l.zip);
     return nb?.name ?? null;
