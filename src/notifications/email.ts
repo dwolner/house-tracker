@@ -290,10 +290,16 @@ function buildCard(l: NotifyListing, P: Palette, badge = ''): string {
         ${l.brief_short ? `<div style="margin-top:12px;font-size:11px;font-style:italic;color:${P.muted};line-height:1.5">${l.brief_short}</div>` : ''}
 
         <!-- Footer: CTAs -->
-        <div style="margin-top:14px;display:flex;gap:8px">
-          <a href="https://house-tracker-kgg27w.fly.dev/?id=${l.id}" target="_blank" rel="noopener" style="flex:1;background:${P.accent};color:#fff;text-decoration:none;border-radius:5px;padding:8px 0;font-size:12px;font-weight:600;letter-spacing:.03em;text-align:center;box-sizing:border-box;display:block">View on House Tracker →</a>
-          ${l.url ? `<a href="${l.url}" target="_blank" rel="noopener" style="flex:1;background:transparent;color:${P.muted};text-decoration:none;border-radius:5px;padding:8px 0;font-size:12px;font-weight:600;letter-spacing:.03em;text-align:center;box-sizing:border-box;display:block;border:1px solid ${P.border}">View on Redfin →</a>` : ''}
-        </div>
+        <table style="margin-top:14px;width:100%;border-collapse:collapse">
+          <tr>
+            <td style="padding-right:4px">
+              <a href="https://house-tracker-kgg27w.fly.dev/?id=${l.id}" target="_blank" rel="noopener" style="display:block;background:${P.accent};color:#fff;text-decoration:none;border-radius:5px;padding:8px 0;font-size:12px;font-weight:600;letter-spacing:.03em;text-align:center;box-sizing:border-box">View on House Tracker →</a>
+            </td>
+            ${l.url ? `<td style="padding-left:4px">
+              <a href="${l.url}" target="_blank" rel="noopener" style="display:block;background:transparent;color:${P.muted};text-decoration:none;border-radius:5px;padding:8px 0;font-size:12px;font-weight:600;letter-spacing:.03em;text-align:center;box-sizing:border-box;border:1px solid ${P.border}">View on Redfin →</a>
+            </td>` : ''}
+          </tr>
+        </table>
 
       </td>
     </tr>
