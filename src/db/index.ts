@@ -418,6 +418,7 @@ export interface ChangeWithListing {
   property_type: string | null;
   walk_score: number | null;
   url: string | null;
+  brief_short: string | null;
 }
 
 export function getUnnotifiedChanges(minScore = 0, enabledLocaleIds?: string[]): ChangeWithListing[] {
@@ -431,7 +432,8 @@ export function getUnnotifiedChanges(minScore = 0, enabledLocaleIds?: string[]):
     SELECT c.id as change_id, c.change_type, c.old_value, c.new_value, c.changed_at,
            l.id, l.address, l.city, l.state, l.zip, l.price, l.price_at_first_seen,
            l.beds, l.baths, l.sqft, l.lot_sqft, l.days_on_market, l.first_seen_at,
-           l.score, l.score_breakdown, l.school_district, l.property_type, l.walk_score, l.url
+           l.score, l.score_breakdown, l.school_district, l.property_type, l.walk_score, l.url,
+           l.brief_short
     FROM change_log c
     JOIN listings l ON l.id = c.listing_id
     WHERE c.notified = 0

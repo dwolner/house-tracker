@@ -27,6 +27,7 @@ export interface NotifyListing {
   property_type: string | null;
   walk_score: number | null;
   url: string | null;
+  brief_short: string | null;
 }
 
 type Palette = {
