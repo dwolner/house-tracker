@@ -18,6 +18,7 @@ export const sanDiegoLocale: LocaleConfig = {
   ],
   minBeds: 3,
   maxPrice: 2_500_000,
+  allowedZips: ['92110', '92107', '92116', '92117', '92104', '92103', '92120', '92115'],
   scoring: {
     propertyType: {
       weight: 20,

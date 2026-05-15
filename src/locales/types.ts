@@ -168,6 +168,7 @@ export interface LocaleConfig {
   minBeds: number;
   maxPrice: number;
   uipt?: string;    // Redfin property types to include (e.g. '1,2,3'); defaults to '1,2,3' if absent
+  allowedZips?: string[]; // if set, listings outside these ZIPs are dropped even if Redfin returns them
   scoring: ScoringConfig;
   disableNotifications?: boolean; // suppress email alerts for this locale (e.g. new locales not yet fully configured)
   investmentConfig?: InvestmentConfig;

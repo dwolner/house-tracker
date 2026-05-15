@@ -31,11 +31,12 @@ export async function runPoll(): Promise<{ newHighScoreIds: string[] }> {
         const valid = listings.filter(l =>
           l.address.trim() !== '' &&
           l.beds > 0 &&
-          l.state.toUpperCase() === locale.state.toUpperCase()
+          l.state.toUpperCase() === locale.state.toUpperCase() &&
+          (!locale.allowedZips || locale.allowedZips.includes(l.zip))
         );
         const filtered = listings.length - valid.length;
         if (filtered > 0) {
-          console.log(`[poll] ${region.name}: dropped ${filtered} listings (blank address, 0 beds, or wrong state)`);
+          console.log(`[poll] ${region.name}: dropped ${filtered} listings (blank address, 0 beds, wrong state, or out-of-zone ZIP)`);
         }
 
         for (const listing of valid) {
