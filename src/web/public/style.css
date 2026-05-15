@@ -505,6 +505,9 @@ html.dark .card:hover {
   border-bottom: 1px solid var(--border);
   margin-bottom: 4px;
 }
+.brief-wrap {
+  min-height: 76px;
+}
 .brief-short {
   font-style: italic;
   font-size: 12px;
@@ -513,6 +516,10 @@ html.dark .card:hover {
   padding: 4px 0 2px;
   line-height: 1.4;
   user-select: none;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
 }
 .brief-short:hover {
   color: var(--text);
