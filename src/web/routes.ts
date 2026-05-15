@@ -247,6 +247,28 @@ export function registerRoutes(app: FastifyInstance) {
     return { listPrice, soldPrice, score };
   });
 
+  // Re-score all listings for a locale using current scoring config
+  app.post('/api/rescore', async (req) => {
+    const q = req.query as Record<string, string>;
+    const localeId = q.locale_id;
+    const { scoreWithBreakdown } = await import('../scoring/index.js');
+    const db = getDb();
+    const sql = localeId
+      ? `SELECT id, address, city, state, zip, price, beds, baths, sqft, lot_sqft, year_built, walk_score, school_district, property_type, days_on_market, lat, lng, locale_id FROM listings WHERE locale_id = ? AND superseded_by IS NULL`
+      : `SELECT id, address, city, state, zip, price, beds, baths, sqft, lot_sqft, year_built, walk_score, school_district, property_type, days_on_market, lat, lng, locale_id FROM listings WHERE superseded_by IS NULL`;
+    const rows = localeId ? db.prepare(sql).all(localeId) : db.prepare(sql).all();
+    const update = db.prepare(`UPDATE listings SET score = ?, score_breakdown = ? WHERE id = ?`);
+    let updated = 0;
+    for (const row of rows as Array<Record<string, unknown>>) {
+      const locale = LOCALES[row.locale_id as string];
+      if (!locale) continue;
+      const breakdown = scoreWithBreakdown(row as unknown as Parameters<typeof scoreWithBreakdown>[0], locale);
+      update.run(breakdown.total, JSON.stringify(breakdown), row.id as string);
+      updated++;
+    }
+    return { ok: true, updated };
+  });
+
   // Trigger a poll manually
   app.post('/api/poll', async () => {
     const { runPoll } = await import('../poller/index.js');

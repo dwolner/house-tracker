@@ -86,8 +86,18 @@ export interface DomPenaltyConfig {
   weight: number; // max penalty pts — ramp shape is fixed: full at 120+ days, proportional below
 }
 
+export interface YearBuiltPenaltyConfig {
+  weight: number; // max penalty pts
+  // pre-1930 → full; 1930-1960 → half; 1960-1980 → quarter; post-1980 → 0
+}
+
 export interface DomBonusConfig {
   weight: number; // max bonus pts — ramp: 0 at 0–30d, 0→weight/2 at 30–60d, weight/2→weight at 60–120d, weight at 120d+
+}
+
+export interface ZipPenaltyConfig {
+  weight: number; // flat penalty applied to any listing whose ZIP is in the list
+  zips: string[];
 }
 
 export interface InvestmentScoreConfig {
@@ -111,7 +121,9 @@ export interface ScoringConfig {
   pricePerSqft?: PricePerSqftConfig;
   neighborhoodBonus?: NeighborhoodBonusConfig;
   zipBonus?: ZipBonusConfig;
+  zipPenalty?: ZipPenaltyConfig;
   domPenalty?: DomPenaltyConfig;
+  yearBuiltPenalty?: YearBuiltPenaltyConfig;
   domBonus?: DomBonusConfig;
   investmentScore?: InvestmentScoreConfig;
 }

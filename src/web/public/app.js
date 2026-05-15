@@ -22,9 +22,11 @@ const SD_NEIGHBORHOODS = [
   { zip: "92116", name: "Kensington / Talmadge", color: "#a855f7" },
   { zip: "92117", name: "Bay Ho", color: "#f97316" },
   { zip: "92117", name: "Clairemont Mesa", color: "#f97316" },
+  { zip: "92116", name: "University Heights", color: "#a855f7" },
   { zip: "92104", name: "North Park", color: "#06b6d4" },
   { zip: "92103", name: "Mission Hills", color: "#eab308" },
   { zip: "92120", name: "Allied Gardens", color: "#ec4899" },
+  { zip: "92115", name: "Rolando / College Area", color: "#84cc16" },
 ];
 
 const SD_POLLING_REGIONS = {
@@ -1200,6 +1202,10 @@ function getNeighborhood(l) {
       if (l.lat != null && l.lng != null && l.lat < 32.815 && l.lng < -117.190) return "Bay Ho";
       return "Clairemont Mesa";
     }
+    if (l.zip === "92116") {
+      if (l.lng != null && l.lng < -117.130) return "University Heights";
+      return "Kensington / Talmadge";
+    }
     const nb = SD_NEIGHBORHOODS.find((n) => n.zip === l.zip);
     return nb?.name ?? null;
   }
@@ -1208,6 +1214,12 @@ function getNeighborhood(l) {
     return nb?.name ?? null;
   }
   return null;
+}
+
+const DEV_KEYWORDS = /developer|zoning|land value|teardown|redevelopment|upside potential|investor|flip|as-is|as is|fixer|handyman|needs work|tlc/i;
+
+function isDeveloperPlay(l) {
+  return l.brief_short && DEV_KEYWORDS.test(l.brief_short);
 }
 
 function cardHtml(l) {
@@ -1251,6 +1263,7 @@ function cardHtml(l) {
       </div>
     </div>
     ${metaLine ? `<div class="card-meta">${metaLine}</div>` : ""}
+    ${isDeveloperPlay(l) ? `<div class="card-meta" style="margin-top:2px"><span style="background:#78350f;color:#fde68a;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:600;letter-spacing:.04em">⚠ DEVELOPER PLAY</span></div>` : ""}
       <div class="brief-wrap">${renderBrief(l)}</div>
     <div class="card-stats">
       <div class="stat"><div class="stat-val">${l.beds} | ${l.baths}</div><div class="stat-lbl">Beds | Baths</div></div>

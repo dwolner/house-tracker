@@ -72,7 +72,8 @@ const NEIGHBORHOOD_BY_ZIP: Record<string, string> = {
   // San Diego
   '92110': 'Bay Park / Loma Portal',
   '92107': 'Point Loma Heights',
-  '92116': 'Kensington / Talmadge',
+  // 92116 is split by lng — see getNeighborhood
+
   // 92117 is split by lat/lng — see getNeighborhood
 
   '92104': 'North Park',
@@ -101,6 +102,10 @@ function getNeighborhood(zip: string, lat?: number | null, lng?: number | null):
   if (zip === '92117') {
     if (lat != null && lng != null && lat < 32.815 && lng < -117.190) return 'Bay Ho';
     return 'Clairemont Mesa';
+  }
+  if (zip === '92116') {
+    if (lng != null && lng < -117.130) return 'University Heights';
+    return 'Kensington / Talmadge';
   }
   return NEIGHBORHOOD_BY_ZIP[zip] ?? null;
 }
@@ -165,6 +170,8 @@ const FACTOR_LABELS: Record<string, string> = {
   pricePerSqft:      '$/sqft',
   neighborhoodBonus: 'Local+',
   zipBonus:          'Zip+',
+  zipPenalty:        'Zip−',
+  yearBuiltPenalty:  'Age−',
   domPenalty:        'DOM−',
   investmentScore:   'Invest',
   // legacy keys from old flat breakdown format
@@ -224,6 +231,8 @@ function scoreChipsHtml(l: NotifyListing, P: Palette): string {
     </div>`;
 }
 
+const DEV_KEYWORDS = /developer|zoning|land value|teardown|redevelopment|upside potential|investor|flip|as-is|as is|fixer|handyman|needs work|tlc/i;
+
 function buildCard(l: NotifyListing, P: Palette, badge = ''): string {
   const img = photoUrl(l.id);
   const { bg: scoreBg, color: scoreColor } = scoreColors(l.score, P);
@@ -236,11 +245,14 @@ function buildCard(l: NotifyListing, P: Palette, badge = ''): string {
   const zip = l.zip ?? '';
   const neighborhood = getNeighborhood(zip, l.lat, l.lng);
   const metaLine = [neighborhood, l.school_district].filter(Boolean).join(' · ');
+  const devBadge = l.brief_short && DEV_KEYWORDS.test(l.brief_short)
+    ? `<span style="background:#78350f;color:#fde68a;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:.04em;margin-right:6px">⚠ DEVELOPER PLAY</span>`
+    : '';
 
   return `
   <!-- Badge + type pill row above card -->
   <table style="width:100%;max-width:520px;margin:0 auto 6px;border-collapse:collapse"><tr>
-    <td>${badge}</td>
+    <td>${devBadge}${badge}</td>
     <td style="text-align:right;white-space:nowrap"><span style="font-size:10px;background:${P.statBg};border:1px solid ${P.border};border-radius:20px;padding:3px 10px;color:${P.muted};font-weight:500;letter-spacing:.03em">${typeLabel}</span></td>
   </tr></table>
 

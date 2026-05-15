@@ -250,19 +250,37 @@ export function scoreWithBreakdown(
     }
   }
 
-  // DOM penalty — subtracted from positive total; not counted in maxPositive
+  // Penalties — subtracted from positive total; not counted in maxPositive
   let rawPenalty = 0;
+
+  if (scoring.yearBuiltPenalty && listing.year_built != null) {
+    const { weight } = scoring.yearBuiltPenalty;
+    const y = listing.year_built;
+    let pts = 0;
+    if (y < 1930)       pts = weight;
+    else if (y < 1960)  pts = weight * 0.5 + ((1960 - y) / 30) * weight * 0.5;
+    else if (y < 1980)  pts = ((1980 - y) / 20) * weight * 0.25;
+    const clamped = clamp(pts, 0, weight);
+    rawPenalty += clamped;
+    factors['yearBuiltPenalty'] = { pts: clamped, max: weight };
+  }
+
+  if (scoring.zipPenalty) {
+    const { weight, zips } = scoring.zipPenalty;
+    const pts = zips.includes(listing.zip) ? weight : 0;
+    rawPenalty += pts;
+    factors['zipPenalty'] = { pts, max: weight };
+  }
+
   if (scoring.domPenalty && listing.days_on_market != null) {
     const { weight } = scoring.domPenalty;
     const dom = listing.days_on_market;
-    if (dom > 120) {
-      rawPenalty = weight;
-    } else if (dom > 60) {
-      rawPenalty = clamp(((dom - 60) / 60) * (weight * 0.7), 0, weight * 0.7);
-    } else if (dom > 30) {
-      rawPenalty = clamp(((dom - 30) / 30) * (weight * 0.3), 0, weight * 0.3);
-    }
-    factors['domPenalty'] = { pts: rawPenalty, max: weight };
+    let pts = 0;
+    if (dom > 120)      pts = weight;
+    else if (dom > 60)  pts = clamp(((dom - 60) / 60) * (weight * 0.7), 0, weight * 0.7);
+    else if (dom > 30)  pts = clamp(((dom - 30) / 30) * (weight * 0.3), 0, weight * 0.3);
+    rawPenalty += pts;
+    factors['domPenalty'] = { pts, max: weight };
   }
 
   const total = maxPositive === 0
