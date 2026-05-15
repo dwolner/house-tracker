@@ -74,6 +74,7 @@ const NEIGHBORHOOD_BY_ZIP: Record<string, string> = {
   '92104': 'North Park',
   '92103': 'Mission Hills',
   '92120': 'Allied Gardens',
+  '92115': 'Rolando / College Area',
   // Main Line PA
   '19072': 'Narberth/Penn Valley',
   '19003': 'Ardmore',
@@ -85,6 +86,11 @@ const NEIGHBORHOOD_BY_ZIP: Record<string, string> = {
   '19087': 'Wayne',
   '19312': 'Berwyn',
   '19406': 'King of Prussia',
+  '19083': 'Havertown',
+  '19301': 'Paoli',
+  '19333': 'Devon',
+  '19355': 'Malvern',
+  '19428': 'Conshohocken',
 };
 
 function getNeighborhood(zip: string): string | null {
