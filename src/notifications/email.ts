@@ -28,6 +28,7 @@ export interface NotifyListing {
   walk_score: number | null;
   url: string | null;
   brief_short: string | null;
+  brief_full: string | null;
   lat: number | null;
   lng: number | null;
   year_built: number | null;
@@ -245,7 +246,7 @@ function scoreChipsHtml(l: NotifyListing, P: Palette): string {
 
 // Warning badge patterns
 const DEV_KEYWORDS   = /developer|zoning|land value|teardown|redevelopment|upside potential|fixer|handyman|needs work|gut rehab|original condition|unimproved|lot value|demo|tlc/i;
-const DEV_SUPPRESSOR = /renovated|remodeled|updated|turnkey|move.in ready|fully.updated|new kitchen|new bath|new roof|new floors|freshly/i;
+const DEV_SUPPRESSOR = /renovated|remodeled|updated|turnkey|fully.updated|new kitchen|new bath|new roof|new floors|freshly/i;
 const FLIP_KEYWORDS   = /\bflip\b|flipped|markup|relisted.{0,20}\$|purchased.{0,30}relisted/i;
 const FLIP_SUPPRESSOR = /since \d{4}|over \d+ years?|\d+.year.{0,10}(hold|appreciation|ownership)/i;
 const MULTI_UNIT_KW   = /duplex|dual.unit|multi.unit|income property|upper.{0,10}lower|lower.{0,10}upper|\b2 units\b|two units|both units|student rental|stabilized rental/i;
@@ -264,10 +265,13 @@ const TURNKEY_KW = /turnkey|move.in ready|fully.updated|fully renovated|totally 
 
 function getEmailBadges(l: NotifyListing): { label: string; bg: string; fg: string }[] {
   const bs = l.brief_short ?? '';
+  let bf = '';
+  try { bf = (JSON.parse(l.brief_full ?? '[]') as string[]).join(' '); } catch { /* */ }
+  const full = bs + ' ' + bf;
   const badges: { label: string; bg: string; fg: string }[] = [];
-  if (bs && DEV_KEYWORDS.test(bs) && !DEV_SUPPRESSOR.test(bs)) badges.push({ label: '⚠ DEV PLAY',   bg: '#78350f', fg: '#fde68a' });
-  if (bs && FLIP_KEYWORDS.test(bs) && !FLIP_SUPPRESSOR.test(bs)) badges.push({ label: '↑ FLIP',       bg: '#713f12', fg: '#fef08a' });
-  if (bs && MULTI_UNIT_KW.test(bs))  badges.push({ label: '⊞ MULTI-UNIT', bg: '#1e3a5f', fg: '#93c5fd' });
+  if (full && DEV_KEYWORDS.test(full) && !DEV_SUPPRESSOR.test(full)) badges.push({ label: '⚠ DEV PLAY',   bg: '#78350f', fg: '#fde68a' });
+  if (full && FLIP_KEYWORDS.test(full) && !FLIP_SUPPRESSOR.test(full)) badges.push({ label: '↑ FLIP',      bg: '#713f12', fg: '#fef08a' });
+  if (full && MULTI_UNIT_KW.test(full)) badges.push({ label: '⊞ MULTI-UNIT', bg: '#1e3a5f', fg: '#93c5fd' });
   if (l.price_at_first_seen && l.price < l.price_at_first_seen) badges.push({ label: '↓ PRICE DROP', bg: '#14532d', fg: '#86efac' });
   if (l.year_built && l.year_built >= 2018)                      badges.push({ label: '🏗 NEW BUILD',  bg: '#1e3a5f', fg: '#93c5fd' });
   if (bs && SOLAR_KW.test(bs))    badges.push({ label: '☀ SOLAR',    bg: '#713f12', fg: '#fde68a' });
