@@ -114,6 +114,23 @@ export interface BathsConfig {
   steps: { minBaths: number; points: number }[]; // sorted descending; first match wins
 }
 
+export interface BathBedRatioPenaltyConfig {
+  weight: number;  // flat penalty when beds >= minBeds but baths < minBaths
+  minBeds: number;
+  minBaths: number;
+}
+
+export interface SqftFloorPenaltyConfig {
+  weight: number;  // flat penalty when sqft < minSqft
+  minSqft: number;
+}
+
+export interface YearBuiltBonusConfig {
+  weight: number;   // max bonus pts — added after the percentage calculation, does not inflate denominator
+  minYear: number;  // year_built must be >= this to earn any bonus
+  excellent: number; // year_built >= this → full bonus; linear between minYear (0) and excellent (weight)
+}
+
 export interface InvestmentScoreConfig {
   weight: number;
   cashFlowExcellent: number; // monthly $ → full cash-flow pts (e.g. 300)
@@ -143,6 +160,9 @@ export interface ScoringConfig {
   multiUnitPenalty?: MultiUnitPenaltyConfig;
   flipPenalty?: FlipPenaltyConfig;
   baths?: BathsConfig;
+  bathBedRatioPenalty?: BathBedRatioPenaltyConfig;
+  sqftFloorPenalty?: SqftFloorPenaltyConfig;
+  yearBuiltBonus?: YearBuiltBonusConfig;
 }
 
 export interface RenovationTier {

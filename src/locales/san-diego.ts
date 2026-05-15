@@ -56,7 +56,7 @@ export const sanDiegoLocale: LocaleConfig = {
       weight: 12,
       // SD urban lots run 5,000–7,500 sqft (0.11–0.17 ac); 0.25+ ac is a standout yard
       // defaultAcres: used for SFRs with missing lot data (assumes minimum urban lot)
-      defaultAcres: 0.08,
+      defaultAcres: 0.05, // unknown lot assumed pessimistically (0pts) rather than rewarded
       breakpoints: [
         { acres: 0,    points: 0  },
         { acres: 0.05, points: 0  }, // < 2,200 sqft = essentially no yard
@@ -96,6 +96,9 @@ export const sanDiegoLocale: LocaleConfig = {
     zipPenalty: { weight: 15, zips: ['92115'] },
     multiUnitPenalty: { weight: 25 },
     flipPenalty: { weight: 15 },
+    bathBedRatioPenalty: { weight: 8, minBeds: 4, minBaths: 2.5 },
+    sqftFloorPenalty: { weight: 10, minSqft: 1500 },
+    yearBuiltBonus: { weight: 5, minYear: 2000, excellent: 2015 },
   },
 };
-// Positive weight denominator: 20+12+14+18+12+10+6+10 = 102
+// Positive weight denominator: 20+12+14+18+12+10+6+10 = 102 (yearBuiltBonus is additive, not in denominator)

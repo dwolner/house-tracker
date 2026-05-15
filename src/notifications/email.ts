@@ -245,7 +245,7 @@ function scoreChipsHtml(l: NotifyListing, P: Palette): string {
 }
 
 // Warning badge patterns
-const DEV_KEYWORDS   = /developer|zoning|land value|teardown|redevelopment|upside potential|fixer|handyman|needs work|gut rehab|original condition|unimproved|lot value|demo|tlc/i;
+const DEV_KEYWORDS   = /developer|zoning variance|rezoning|land value|teardown|redevelopment|upside potential|fixer|handyman|needs work|gut rehab|original condition|unimproved|lot value|demo|tlc/i;
 const DEV_SUPPRESSOR = /renovated|remodeled|updated|turnkey|fully.updated|new kitchen|new bath|new roof|new floors|freshly/i;
 const FLIP_KEYWORDS   = /\bflip\b|flipped|markup|relisted.{0,20}\$|purchased.{0,30}relisted/i;
 const FLIP_SUPPRESSOR = /since \d{4}|over \d+ years?|\d+.year.{0,10}(hold|appreciation|ownership)/i;

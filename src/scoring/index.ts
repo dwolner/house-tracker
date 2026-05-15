@@ -303,6 +303,22 @@ export function scoreWithBreakdown(
     }
   }
 
+  if (scoring.bathBedRatioPenalty) {
+    const { weight, minBeds, minBaths } = scoring.bathBedRatioPenalty;
+    if (listing.beds >= minBeds && listing.baths < minBaths) {
+      rawPenalty += weight;
+      factors['bathBedRatioPenalty'] = { pts: weight, max: weight };
+    }
+  }
+
+  if (scoring.sqftFloorPenalty && listing.sqft != null) {
+    const { weight, minSqft } = scoring.sqftFloorPenalty;
+    if (listing.sqft < minSqft) {
+      rawPenalty += weight;
+      factors['sqftFloorPenalty'] = { pts: weight, max: weight };
+    }
+  }
+
   if (scoring.domPenalty && listing.days_on_market != null) {
     const { weight } = scoring.domPenalty;
     const dom = listing.days_on_market;
@@ -314,9 +330,17 @@ export function scoreWithBreakdown(
     factors['domPenalty'] = { pts, max: weight };
   }
 
-  const total = maxPositive === 0
+  let total = maxPositive === 0
     ? 0
     : clamp(((rawPositive - rawPenalty) / maxPositive) * 100, 0, 100);
+
+  // yearBuiltBonus is additive after the percentage so it doesn't inflate the denominator
+  if (scoring.yearBuiltBonus && listing.year_built != null && listing.year_built >= scoring.yearBuiltBonus.minYear) {
+    const { weight, minYear, excellent } = scoring.yearBuiltBonus;
+    const pts = weight * clamp((listing.year_built - minYear) / (excellent - minYear), 0, 1);
+    factors['yearBuiltBonus'] = { pts, max: weight };
+    total = clamp(total + pts, 0, 100);
+  }
 
   return { total, factors, rentUsed, rentSource };
 }
