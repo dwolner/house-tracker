@@ -1222,7 +1222,7 @@ function cardHtml(l) {
     .filter(Boolean)
     .join(" · ");
   const isSelected = selectedIds.has(l.id);
-  return `<div class="card${isPending ? " card-pending" : ""}">
+  return `<div class="card${isPending ? " card-pending" : ""}" data-id="${l.id}">
     <div class="card-photo-wrap">
       ${
         imgUrl
@@ -1344,6 +1344,36 @@ function renderCards(listings, openHouseOnly = false) {
     parts.push(cardHtml(l));
   });
   wrap.innerHTML = parts.join("");
+  deepLinkScroll();
+}
+
+function deepLinkScroll() {
+  const params = new URLSearchParams(window.location.search);
+  const targetId = params.get("id");
+  if (!targetId) return;
+
+  const card = document.querySelector(`[data-id="${targetId}"]`);
+  if (!card) return;
+
+  if (!document.getElementById("ht-highlight-style")) {
+    const style = document.createElement("style");
+    style.id = "ht-highlight-style";
+    style.textContent = `
+      @keyframes ht-highlight-pulse {
+        0%   { box-shadow: 0 0 0 3px rgba(196,145,58,0.8); }
+        70%  { box-shadow: 0 0 0 8px rgba(196,145,58,0.2); }
+        100% { box-shadow: 0 0 0 0 rgba(196,145,58,0); }
+      }
+      .ht-highlight {
+        animation: ht-highlight-pulse 1.5s ease-out forwards;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  card.scrollIntoView({ behavior: "smooth", block: "center" });
+  card.classList.add("ht-highlight");
+  setTimeout(() => card.classList.remove("ht-highlight"), 1600);
 }
 
 // === COMPARE MODE ===
