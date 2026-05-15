@@ -1223,11 +1223,18 @@ function getNeighborhood(l) {
 }
 
 const DEV_KEYWORDS = /developer|zoning|land value|teardown|redevelopment|upside potential|fixer|handyman|needs work|gut rehab|original condition|unimproved|lot value|demo|tlc/i;
-// Suppress badge if the brief signals the work is already done
 const DEV_SUPPRESSOR = /renovated|remodeled|updated|turnkey|move.in ready|fully.updated|new kitchen|new bath|new roof|new floors|freshly/i;
+const FLIP_KEYWORDS = /\bflip\b|flipped|markup|relisted.{0,20}\$|price jump|purchased.{0,30}relisted/i;
+const MULTI_UNIT_KEYWORDS = /duplex|dual.unit|multi.unit|income property|upper.{0,10}lower|lower.{0,10}upper|\b2 units\b|two units|both units|student rental|stabilized rental/i;
 
 function isDeveloperPlay(l) {
   return l.brief_short && DEV_KEYWORDS.test(l.brief_short) && !DEV_SUPPRESSOR.test(l.brief_short);
+}
+function isRecentFlip(l) {
+  return l.brief_short && FLIP_KEYWORDS.test(l.brief_short);
+}
+function isMultiUnit(l) {
+  return l.brief_short && MULTI_UNIT_KEYWORDS.test(l.brief_short);
 }
 
 function cardHtml(l) {
@@ -1272,6 +1279,8 @@ function cardHtml(l) {
     </div>
     ${metaLine ? `<div class="card-meta">${metaLine}</div>` : ""}
     ${isDeveloperPlay(l) ? `<div class="card-meta" style="margin-top:2px"><span style="background:#78350f;color:#fde68a;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:600;letter-spacing:.04em">⚠ DEVELOPER PLAY</span></div>` : ""}
+    ${isRecentFlip(l) ? `<div class="card-meta" style="margin-top:2px"><span style="background:#713f12;color:#fef08a;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:600;letter-spacing:.04em">↑ RECENT FLIP</span></div>` : ""}
+    ${isMultiUnit(l) ? `<div class="card-meta" style="margin-top:2px"><span style="background:#1e3a5f;color:#93c5fd;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:600;letter-spacing:.04em">⊞ MULTI-UNIT</span></div>` : ""}
       <div class="brief-wrap">${renderBrief(l)}</div>
     <div class="card-stats">
       <div class="stat"><div class="stat-val">${l.beds} | ${l.baths}</div><div class="stat-lbl">Beds | Baths</div></div>

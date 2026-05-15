@@ -31,7 +31,8 @@ export const sanDiegoLocale: LocaleConfig = {
       },
     },
     // schoolDistrict omitted — all 9 neighborhoods are SDUSD, no differentiation possible
-    walkability: { weight: 18 }, // Bay Park / PLH are walkable urban neighborhoods
+    // weight reduced 18→12: SD is car-dominant; walkability shouldn't outweigh space
+    walkability: { weight: 12 },
     price: {
       weight: 14,
       // SD SFR market: $1.2M is a deal, $1.8M is normal, $2.5M is premium
@@ -40,16 +41,15 @@ export const sanDiegoLocale: LocaleConfig = {
       max:       2_500_000,
     },
     sqft: {
-      weight: 14,
-      // Strong reward for 1,800+ sqft — the target home size
+      weight: 18,
+      // Family home needs ≥1,600sf; 1,800+ is the target; no reward below 1,500
       breakpoints: [
         { sqft: 0,       points: 0  },
-        { sqft: 1_200,   points: 0  },
-        { sqft: 1_400,   points: 3  },
-        { sqft: 1_600,   points: 7  },
+        { sqft: 1_500,   points: 0  },
+        { sqft: 1_600,   points: 4  },
         { sqft: 1_800,   points: 12 },
-        { sqft: 2_200,   points: 14 },
-        { sqft: 3_000,   points: 14 },
+        { sqft: 2_200,   points: 18 },
+        { sqft: 3_000,   points: 18 },
       ],
     },
     lot: {
