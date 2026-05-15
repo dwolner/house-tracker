@@ -119,7 +119,7 @@ export function registerRoutes(app: FastifyInstance) {
       : [NOTIFY_SCORE_THRESHOLD, days];
     const listings = db.prepare(`
       SELECT id, address, city, state, zip, price, price_at_first_seen, beds, baths, sqft, lot_sqft,
-             days_on_market, first_seen_at, score, score_breakdown, school_district, property_type, walk_score, url,
+             year_built, days_on_market, first_seen_at, score, score_breakdown, school_district, property_type, walk_score, url,
              brief_short, lat, lng
       FROM listings
       WHERE status NOT IN ('inactive', '130') AND score >= ? AND superseded_by IS NULL
@@ -145,7 +145,7 @@ export function registerRoutes(app: FastifyInstance) {
     const db = getDb();
     const listings = db.prepare(`
       SELECT id, address, city, state, zip, price, price_at_first_seen, beds, baths, sqft, lot_sqft,
-             days_on_market, first_seen_at, score, score_breakdown, school_district, property_type, walk_score, url,
+             year_built, days_on_market, first_seen_at, score, score_breakdown, school_district, property_type, walk_score, url,
              brief_short, lat, lng
       FROM listings WHERE superseded_by IS NULL ORDER BY score DESC LIMIT 5
     `).all() as import('../notifications/email.js').NotifyListing[];
@@ -329,7 +329,7 @@ export function registerRoutes(app: FastifyInstance) {
       const placeholders = newHighScoreIds.map(() => '?').join(',');
       newListings = getDb().prepare(`
         SELECT id, address, city, state, zip, price, price_at_first_seen, beds, baths, sqft, lot_sqft,
-               days_on_market, first_seen_at, score, score_breakdown, school_district, property_type, walk_score, url,
+               year_built, days_on_market, first_seen_at, score, score_breakdown, school_district, property_type, walk_score, url,
                brief_short, lat, lng
         FROM listings WHERE id IN (${placeholders}) AND superseded_by IS NULL AND score >= ? ORDER BY score DESC
       `).all(...newHighScoreIds, NOTIFY_SCORE_THRESHOLD) as import('../notifications/email.js').NotifyListing[];

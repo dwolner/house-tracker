@@ -30,6 +30,7 @@ export interface NotifyListing {
   brief_short: string | null;
   lat: number | null;
   lng: number | null;
+  year_built: number | null;
 }
 
 type Palette = {
@@ -237,11 +238,45 @@ function scoreChipsHtml(l: NotifyListing, P: Palette): string {
     </div>`;
 }
 
-const DEV_KEYWORDS = /developer|zoning|land value|teardown|redevelopment|upside potential|fixer|handyman|needs work|gut rehab|original condition|unimproved|lot value|demo|tlc/i;
+// Warning badge patterns
+const DEV_KEYWORDS   = /developer|zoning|land value|teardown|redevelopment|upside potential|fixer|handyman|needs work|gut rehab|original condition|unimproved|lot value|demo|tlc/i;
 const DEV_SUPPRESSOR = /renovated|remodeled|updated|turnkey|move.in ready|fully.updated|new kitchen|new bath|new roof|new floors|freshly/i;
-const FLIP_KEYWORDS = /\bflip\b|flipped|markup|relisted.{0,20}\$|purchased.{0,30}relisted/i;
+const FLIP_KEYWORDS   = /\bflip\b|flipped|markup|relisted.{0,20}\$|purchased.{0,30}relisted/i;
 const FLIP_SUPPRESSOR = /since \d{4}|over \d+ years?|\d+.year.{0,10}(hold|appreciation|ownership)/i;
-const MULTI_UNIT_KEYWORDS = /duplex|dual.unit|multi.unit|income property|upper.{0,10}lower|lower.{0,10}upper|\b2 units\b|two units|both units|student rental|stabilized rental/i;
+const MULTI_UNIT_KW   = /duplex|dual.unit|multi.unit|income property|upper.{0,10}lower|lower.{0,10}upper|\b2 units\b|two units|both units|student rental|stabilized rental/i;
+
+// Feature badge patterns
+const SOLAR_KW   = /\bsolar\b|solar panel|photovoltaic|\bpv system\b/i;
+const EV_KW      = /\bev\b.{0,15}charg|electric.{0,10}(car|vehicle).{0,15}charg|tesla charg|charging station|240.volt outlet/i;
+const POOL_KW    = /\bpool\b|swimming pool|heated pool|lap pool/i;
+const KITCHEN_KW = /renovated kitchen|remodeled kitchen|updated kitchen|new kitchen|chef.s kitchen|gourmet kitchen|kitchen reno|kitchen remodel/i;
+const ADU_KW     = /\badu\b|casita|guest suite|guest house|guest unit|in.law|carriage house|backyard cottage|accessory dwelling/i;
+const GRASS_KW   = /grass.{0,15}(yard|lawn|backyard)|lawn.{0,10}grass|real grass|natural grass|lush.{0,10}(yard|lawn)/i;
+const VIEW_KW    = /ocean view|bay view|city view|canyon view|mountain view|panoramic view|\bviews\b|hillside view/i;
+const GARAGE_KW  = /\b(2|two|3|three|tandem|attached|detached).car garage|\bgarage\b.{0,20}(park|storage|adu)|oversized garage/i;
+const OFFICE_KW  = /home office|office space|\boffice\b.{0,20}room|dedicated office|work from home/i;
+const TURNKEY_KW = /turnkey|move.in ready|fully.updated|fully renovated|totally renovated|\blike new\b|pristine condition/i;
+
+function getEmailBadges(l: NotifyListing): { label: string; bg: string; fg: string }[] {
+  const bs = l.brief_short ?? '';
+  const badges: { label: string; bg: string; fg: string }[] = [];
+  if (bs && DEV_KEYWORDS.test(bs) && !DEV_SUPPRESSOR.test(bs)) badges.push({ label: '⚠ DEV PLAY',   bg: '#78350f', fg: '#fde68a' });
+  if (bs && FLIP_KEYWORDS.test(bs) && !FLIP_SUPPRESSOR.test(bs)) badges.push({ label: '↑ FLIP',       bg: '#713f12', fg: '#fef08a' });
+  if (bs && MULTI_UNIT_KW.test(bs))  badges.push({ label: '⊞ MULTI-UNIT', bg: '#1e3a5f', fg: '#93c5fd' });
+  if (l.price_at_first_seen && l.price < l.price_at_first_seen) badges.push({ label: '↓ PRICE DROP', bg: '#14532d', fg: '#86efac' });
+  if (l.year_built && l.year_built >= 2018)                      badges.push({ label: '🏗 NEW BUILD',  bg: '#1e3a5f', fg: '#93c5fd' });
+  if (bs && SOLAR_KW.test(bs))    badges.push({ label: '☀ SOLAR',    bg: '#713f12', fg: '#fde68a' });
+  if (bs && EV_KW.test(bs))       badges.push({ label: '⚡ EV',       bg: '#1e3a5f', fg: '#93c5fd' });
+  if (bs && POOL_KW.test(bs))     badges.push({ label: '🏊 POOL',     bg: '#164e63', fg: '#67e8f9' });
+  if (bs && KITCHEN_KW.test(bs))  badges.push({ label: '🍳 KITCHEN',  bg: '#365314', fg: '#bef264' });
+  if (bs && ADU_KW.test(bs))      badges.push({ label: '🏠 ADU',      bg: '#3b0764', fg: '#d8b4fe' });
+  if (bs && GRASS_KW.test(bs))    badges.push({ label: '🌿 GRASS',    bg: '#14532d', fg: '#86efac' });
+  if (bs && VIEW_KW.test(bs))     badges.push({ label: '🌊 VIEW',     bg: '#0c4a6e', fg: '#7dd3fc' });
+  if (bs && GARAGE_KW.test(bs))   badges.push({ label: '🚗 GARAGE',   bg: '#374151', fg: '#e5e7eb' });
+  if (bs && OFFICE_KW.test(bs))   badges.push({ label: '💼 OFFICE',   bg: '#374151', fg: '#e5e7eb' });
+  if (bs && TURNKEY_KW.test(bs))  badges.push({ label: '✓ TURNKEY',  bg: '#14532d', fg: '#86efac' });
+  return badges;
+}
 
 function buildCard(l: NotifyListing, P: Palette, badge = ''): string {
   const img = photoUrl(l.id);
@@ -255,20 +290,14 @@ function buildCard(l: NotifyListing, P: Palette, badge = ''): string {
   const zip = l.zip ?? '';
   const neighborhood = getNeighborhood(zip, l.lat, l.lng);
   const metaLine = [neighborhood, l.school_district].filter(Boolean).join(' · ');
-  const devBadge = l.brief_short && DEV_KEYWORDS.test(l.brief_short) && !DEV_SUPPRESSOR.test(l.brief_short)
-    ? `<span style="background:#78350f;color:#fde68a;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:.04em;margin-right:6px">⚠ DEVELOPER PLAY</span>`
-    : '';
-  const flipBadge = l.brief_short && FLIP_KEYWORDS.test(l.brief_short) && !FLIP_SUPPRESSOR.test(l.brief_short)
-    ? `<span style="background:#713f12;color:#fef08a;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:.04em;margin-right:6px">↑ RECENT FLIP</span>`
-    : '';
-  const multiUnitBadge = l.brief_short && MULTI_UNIT_KEYWORDS.test(l.brief_short)
-    ? `<span style="background:#1e3a5f;color:#93c5fd;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:.04em;margin-right:6px">⊞ MULTI-UNIT</span>`
-    : '';
+  const badgesHtml = getEmailBadges(l)
+    .map(b => `<span style="background:${b.bg};color:${b.fg};border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:.04em;margin-right:4px;margin-bottom:3px;display:inline-block">${b.label}</span>`)
+    .join('') + badge;
 
   return `
   <!-- Badge + type pill row above card -->
   <table style="width:100%;max-width:520px;margin:0 auto 6px;border-collapse:collapse"><tr>
-    <td>${devBadge}${flipBadge}${multiUnitBadge}${badge}</td>
+    <td>${badgesHtml}</td>
     <td style="text-align:right;white-space:nowrap"><span style="font-size:10px;background:${P.statBg};border:1px solid ${P.border};border-radius:20px;padding:3px 10px;color:${P.muted};font-weight:500;letter-spacing:.03em">${typeLabel}</span></td>
   </tr></table>
 

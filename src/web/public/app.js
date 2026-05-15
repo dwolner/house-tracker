@@ -1222,20 +1222,52 @@ function getNeighborhood(l) {
   return null;
 }
 
+// Warning badge patterns
 const DEV_KEYWORDS = /developer|zoning|land value|teardown|redevelopment|upside potential|fixer|handyman|needs work|gut rehab|original condition|unimproved|lot value|demo|tlc/i;
 const DEV_SUPPRESSOR = /renovated|remodeled|updated|turnkey|move.in ready|fully.updated|new kitchen|new bath|new roof|new floors|freshly/i;
 const FLIP_KEYWORDS = /\bflip\b|flipped|markup|relisted.{0,20}\$|purchased.{0,30}relisted/i;
 const FLIP_SUPPRESSOR = /since \d{4}|over \d+ years?|\d+.year.{0,10}(hold|appreciation|ownership)/i;
-const MULTI_UNIT_KEYWORDS = /duplex|dual.unit|multi.unit|income property|upper.{0,10}lower|lower.{0,10}upper|\b2 units\b|two units|both units|student rental|stabilized rental/i;
+const MULTI_UNIT_KW = /duplex|dual.unit|multi.unit|income property|upper.{0,10}lower|lower.{0,10}upper|\b2 units\b|two units|both units|student rental|stabilized rental/i;
 
-function isDeveloperPlay(l) {
-  return l.brief_short && DEV_KEYWORDS.test(l.brief_short) && !DEV_SUPPRESSOR.test(l.brief_short);
-}
-function isRecentFlip(l) {
-  return l.brief_short && FLIP_KEYWORDS.test(l.brief_short) && !FLIP_SUPPRESSOR.test(l.brief_short);
-}
-function isMultiUnit(l) {
-  return l.brief_short && MULTI_UNIT_KEYWORDS.test(l.brief_short);
+// Feature badge patterns
+const SOLAR_KW   = /\bsolar\b|solar panel|photovoltaic|\bpv system\b/i;
+const EV_KW      = /\bev\b.{0,15}charg|electric.{0,10}(car|vehicle).{0,15}charg|tesla charg|charging station|240.volt outlet/i;
+const POOL_KW    = /\bpool\b|swimming pool|heated pool|lap pool/i;
+const KITCHEN_KW = /renovated kitchen|remodeled kitchen|updated kitchen|new kitchen|chef.s kitchen|gourmet kitchen|kitchen reno|kitchen remodel/i;
+const ADU_KW     = /\badu\b|casita|guest suite|guest house|guest unit|in.law|carriage house|backyard cottage|accessory dwelling/i;
+const GRASS_KW   = /grass.{0,15}(yard|lawn|backyard)|lawn.{0,10}grass|real grass|natural grass|lush.{0,10}(yard|lawn)/i;
+const VIEW_KW    = /ocean view|bay view|city view|canyon view|mountain view|panoramic view|\bviews\b|hillside view/i;
+const GARAGE_KW  = /\b(2|two|3|three|tandem|attached|detached).car garage|\bgarage\b.{0,20}(park|storage|adu)|oversized garage/i;
+const OFFICE_KW  = /home office|office space|\boffice\b.{0,20}room|dedicated office|work from home/i;
+const TURNKEY_KW = /turnkey|move.in ready|fully.updated|fully renovated|totally renovated|\blike new\b|pristine condition/i;
+
+function getBadges(l) {
+  const bs = l.brief_short || '';
+  const badges = [];
+  // warning badges
+  if (bs && DEV_KEYWORDS.test(bs) && !DEV_SUPPRESSOR.test(bs))
+    badges.push({ label: '⚠ DEV PLAY',    bg: '#78350f', fg: '#fde68a' });
+  if (bs && FLIP_KEYWORDS.test(bs) && !FLIP_SUPPRESSOR.test(bs))
+    badges.push({ label: '↑ FLIP',         bg: '#713f12', fg: '#fef08a' });
+  if (bs && MULTI_UNIT_KW.test(bs))
+    badges.push({ label: '⊞ MULTI-UNIT',  bg: '#1e3a5f', fg: '#93c5fd' });
+  // data-driven badges
+  if (l.price_at_first_seen && l.price < l.price_at_first_seen)
+    badges.push({ label: '↓ PRICE DROP',  bg: '#14532d', fg: '#86efac' });
+  if (l.year_built && l.year_built >= 2018)
+    badges.push({ label: '🏗 NEW BUILD',   bg: '#1e3a5f', fg: '#93c5fd' });
+  // feature badges
+  if (bs && SOLAR_KW.test(bs))    badges.push({ label: '☀ SOLAR',    bg: '#713f12', fg: '#fde68a' });
+  if (bs && EV_KW.test(bs))       badges.push({ label: '⚡ EV',       bg: '#1e3a5f', fg: '#93c5fd' });
+  if (bs && POOL_KW.test(bs))     badges.push({ label: '🏊 POOL',     bg: '#164e63', fg: '#67e8f9' });
+  if (bs && KITCHEN_KW.test(bs))  badges.push({ label: '🍳 KITCHEN',  bg: '#365314', fg: '#bef264' });
+  if (bs && ADU_KW.test(bs))      badges.push({ label: '🏠 ADU',      bg: '#3b0764', fg: '#d8b4fe' });
+  if (bs && GRASS_KW.test(bs))    badges.push({ label: '🌿 GRASS',    bg: '#14532d', fg: '#86efac' });
+  if (bs && VIEW_KW.test(bs))     badges.push({ label: '🌊 VIEW',     bg: '#0c4a6e', fg: '#7dd3fc' });
+  if (bs && GARAGE_KW.test(bs))   badges.push({ label: '🚗 GARAGE',   bg: '#374151', fg: '#e5e7eb' });
+  if (bs && OFFICE_KW.test(bs))   badges.push({ label: '💼 OFFICE',   bg: '#374151', fg: '#e5e7eb' });
+  if (bs && TURNKEY_KW.test(bs))  badges.push({ label: '✓ TURNKEY',  bg: '#14532d', fg: '#86efac' });
+  return badges;
 }
 
 function cardHtml(l) {
@@ -1255,6 +1287,10 @@ function cardHtml(l) {
     .filter(Boolean)
     .join(" · ");
   const isSelected = selectedIds.has(l.id);
+  const badges = getBadges(l);
+  const badgeStrip = badges.length
+    ? `<div class="card-badge-strip">${badges.map(b => `<span class="card-badge" style="background:${b.bg};color:${b.fg}">${b.label}</span>`).join('')}</div>`
+    : '';
   return `<div class="card${isPending ? " card-pending" : ""}" data-id="${l.id}">
     <div class="card-photo-wrap">
       ${
@@ -1266,6 +1302,7 @@ function cardHtml(l) {
         <input type="checkbox" onchange="toggleCompare('${l.id}', this)" ${isSelected ? "checked" : ""} />
       </label>
       <span class="type-pill type-pill-img">${typeLabel}</span>
+      ${badgeStrip}
     </div>
     <div class="card-header">
       <div>
@@ -1279,9 +1316,6 @@ function cardHtml(l) {
       </div>
     </div>
     ${metaLine ? `<div class="card-meta">${metaLine}</div>` : ""}
-    ${isDeveloperPlay(l) ? `<div class="card-meta" style="margin-top:2px"><span style="background:#78350f;color:#fde68a;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:600;letter-spacing:.04em">⚠ DEVELOPER PLAY</span></div>` : ""}
-    ${isRecentFlip(l) ? `<div class="card-meta" style="margin-top:2px"><span style="background:#713f12;color:#fef08a;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:600;letter-spacing:.04em">↑ RECENT FLIP</span></div>` : ""}
-    ${isMultiUnit(l) ? `<div class="card-meta" style="margin-top:2px"><span style="background:#1e3a5f;color:#93c5fd;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:600;letter-spacing:.04em">⊞ MULTI-UNIT</span></div>` : ""}
       <div class="brief-wrap">${renderBrief(l)}</div>
     <div class="card-stats">
       <div class="stat"><div class="stat-val">${l.beds} | ${l.baths}</div><div class="stat-lbl">Beds | Baths</div></div>
