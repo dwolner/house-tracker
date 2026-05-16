@@ -72,8 +72,9 @@ export const sanDiegoLocale: LocaleConfig = {
     beds: {
       weight: 10,
       steps: [
-        { minBeds: 4, points: 10 }, // 4-bed target
-        { minBeds: 3, points: 5  },
+        { minBeds: 5, points: 10 },
+        { minBeds: 4, points: 9  }, // 4-bed target
+        { minBeds: 3, points: 2  }, // have 3bd, want 4bd — strong preference
       ],
     },
     baths: {
