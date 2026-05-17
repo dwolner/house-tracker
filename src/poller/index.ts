@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { fetchRegionListings, fetchRecentlySold, fetchRegionListingsJson, fetchRecentlySoldJson } from './redfin.js';
-import { upsertListing, markListingSold, logPoll, markStaleListingsInactive, pruneOldBreakdowns, getRentalEstimatesWithSqft } from '../db/index.js';
+import { upsertListing, markListingSold, logPoll, markStaleListingsInactive, pruneOldBreakdowns, getRentalEstimatesWithSqft, getDb } from '../db/index.js';
 import { scoreWithBreakdown, setBaseRate } from '../scoring/index.js';
 import { getCurrentMortgageRate } from '../enrichment/mortgage-rate.js';
 import { runEnrichment } from '../enrichment/walk-score.js';
@@ -20,6 +20,11 @@ export async function runPoll(): Promise<{ newHighScoreIds: string[] }> {
     const rentalEstimates = locale.investmentConfig
       ? getRentalEstimatesWithSqft(locale.id)
       : [];
+
+    // Brief fields aren't in Redfin data — fetch existing ones so brief-based penalties survive re-polls
+    type BriefRow = { id: string; brief_short: string | null; brief_full: string | null };
+    const briefRows = getDb().prepare('SELECT id, brief_short, brief_full FROM listings WHERE locale_id = ?').all(locale.id) as BriefRow[];
+    const briefMap = new Map(briefRows.map(r => [r.id, { brief_short: r.brief_short, brief_full: r.brief_full }]));
 
     for (const region of locale.regions) {
       try {
@@ -43,7 +48,9 @@ export async function runPoll(): Promise<{ newHighScoreIds: string[] }> {
           const rentResolution = locale.investmentConfig
             ? resolveRentOverride(listing, rentalEstimates, locale)
             : undefined;
-          const breakdown = scoreWithBreakdown(listing, locale, rentResolution);
+          const existing = briefMap.get(listing.id);
+          const listingWithBrief = existing ? { ...listing, ...existing } : listing;
+          const breakdown = scoreWithBreakdown(listingWithBrief, locale, rentResolution);
           const { isNew } = upsertListing({ ...listing, locale_id: locale.id, score: breakdown.total, breakdown });
 
           if (isNew) {
