@@ -177,8 +177,8 @@ export function upsertListing(
   const score_breakdown = JSON.stringify(listing.breakdown);
 
   const existing = db
-    .prepare('SELECT id, price, status, walk_score, school_district, pending_at, locale_id FROM listings WHERE id = ?')
-    .get(listing.id) as { id: string; price: number; status: string; walk_score: number | null; school_district: string | null; pending_at: string | null; locale_id: string } | undefined;
+    .prepare('SELECT id, price, status, walk_score, school_district, pending_at, locale_id, brief_short, brief_full FROM listings WHERE id = ?')
+    .get(listing.id) as { id: string; price: number; status: string; walk_score: number | null; school_district: string | null; pending_at: string | null; locale_id: string; brief_short: string | null; brief_full: string | null } | undefined;
 
   if (!existing) {
     // If the listing is already pending when we first see it, record that immediately
@@ -233,6 +233,8 @@ export function upsertListing(
       sold_date: null,
       walk_score: effectiveWalkScore,
       school_district: effectiveDistrict,
+      brief_short: existing.brief_short ?? null,
+      brief_full: existing.brief_full ?? null,
     }, locale);
     finalScore = rescored.total;
     finalBreakdown = JSON.stringify(rescored);
