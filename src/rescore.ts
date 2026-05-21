@@ -24,7 +24,7 @@ const rows = db.prepare(`
   SELECT id, address, city, state, zip, price, beds, baths, sqft, lot_sqft,
          year_built, walk_score, school_district, property_type, lat, lng,
          url, status, status_label, days_on_market, next_open_house_start,
-         next_open_house_end, locale_id
+         next_open_house_end, locale_id, brief_short, brief_full
   FROM listings
   WHERE score IS NOT NULL
     ${localeFilter ? 'AND locale_id = ?' : ''}
