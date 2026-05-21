@@ -255,7 +255,7 @@ function scoreChipsHtml(l: NotifyListing, P: Palette): string {
 const DEV_KEYWORDS   = /developer|zoning variance|rezoning|land value|teardown|redevelopment|upside potential|fixer|handyman|needs work|gut rehab|original condition|unimproved|lot value|demo|tlc/i;
 const DEV_SUPPRESSOR = /renovated|remodeled|updated|turnkey|fully.updated|new kitchen|new bath|new roof|new floors|freshly/i;
 const FLIP_KEYWORDS   = /\bflip\b|flipped|markup|relisted.{0,20}\$|purchased.{0,30}relisted/i;
-const FLIP_SUPPRESSOR = /since \d{4}|over \d+ years?|\d+.year.{0,10}(hold|appreciation|ownership)/i;
+const FLIP_SUPPRESSOR = /since \d{4}|over \d+ years?|\d+.year.{0,10}(hold|appreciation|ownership)|not a flip|no flip|move.up sale|original.{0,20}(developer|builder)/i;
 const MULTI_UNIT_KW   = /duplex|dual.unit|multi.unit|income property|upper.{0,10}lower|lower.{0,10}upper|\b2 units\b|two units|both units|student rental|stabilized rental/i;
 
 // Feature badge patterns
@@ -281,16 +281,18 @@ function getEmailBadges(l: NotifyListing): { label: string; bg: string; fg: stri
   if (full && MULTI_UNIT_KW.test(full)) badges.push({ label: '⊞ MULTI-UNIT', bg: '#1e3a5f', fg: '#93c5fd' });
   if (l.price_at_first_seen && l.price < l.price_at_first_seen) badges.push({ label: '↓ PRICE DROP', bg: '#14532d', fg: '#86efac' });
   if (l.year_built && l.year_built >= 2018)                      badges.push({ label: '🏗 NEW BUILD',  bg: '#1e3a5f', fg: '#93c5fd' });
-  if (bs && SOLAR_KW.test(bs))    badges.push({ label: '☀ SOLAR',    bg: '#713f12', fg: '#fde68a' });
-  if (bs && EV_KW.test(bs))       badges.push({ label: '⚡ EV',       bg: '#1e3a5f', fg: '#93c5fd' });
-  if (bs && POOL_KW.test(bs))     badges.push({ label: '🏊 POOL',     bg: '#164e63', fg: '#67e8f9' });
-  if (bs && KITCHEN_KW.test(bs))  badges.push({ label: '🍳 KITCHEN',  bg: '#365314', fg: '#bef264' });
-  if (bs && ADU_KW.test(bs))      badges.push({ label: '🏠 ADU',      bg: '#3b0764', fg: '#d8b4fe' });
-  if (bs && GRASS_KW.test(bs))    badges.push({ label: '🌿 GRASS',    bg: '#14532d', fg: '#86efac' });
-  if (bs && VIEW_KW.test(bs))     badges.push({ label: '🌊 VIEW',     bg: '#0c4a6e', fg: '#7dd3fc' });
-  if (bs && GARAGE_KW.test(bs))   badges.push({ label: '🚗 GARAGE',   bg: '#374151', fg: '#e5e7eb' });
-  if (bs && OFFICE_KW.test(bs))   badges.push({ label: '💼 OFFICE',   bg: '#374151', fg: '#e5e7eb' });
-  if (bs && TURNKEY_KW.test(bs))  badges.push({ label: '✓ TURNKEY',  bg: '#14532d', fg: '#86efac' });
+  const isNewBuild = l.year_built && l.year_built >= 2018;
+  const isTurnkey = bs && TURNKEY_KW.test(bs);
+  if (bs && SOLAR_KW.test(bs))                    badges.push({ label: '☀ SOLAR',    bg: '#713f12', fg: '#fde68a' });
+  if (bs && EV_KW.test(bs))                        badges.push({ label: '⚡ EV',       bg: '#1e3a5f', fg: '#93c5fd' });
+  if (bs && POOL_KW.test(bs))                      badges.push({ label: '🏊 POOL',     bg: '#164e63', fg: '#67e8f9' });
+  if (bs && KITCHEN_KW.test(bs) && !isTurnkey)     badges.push({ label: '🍳 KITCHEN',  bg: '#365314', fg: '#bef264' });
+  if (bs && ADU_KW.test(bs))                       badges.push({ label: '🏠 ADU',      bg: '#3b0764', fg: '#d8b4fe' });
+  if (bs && GRASS_KW.test(bs))                     badges.push({ label: '🌿 GRASS',    bg: '#14532d', fg: '#86efac' });
+  if (bs && VIEW_KW.test(bs))                      badges.push({ label: '🌊 VIEW',     bg: '#0c4a6e', fg: '#7dd3fc' });
+  if (bs && GARAGE_KW.test(bs))                    badges.push({ label: '🚗 GARAGE',   bg: '#374151', fg: '#e5e7eb' });
+  if (bs && OFFICE_KW.test(bs))                    badges.push({ label: '💼 OFFICE',   bg: '#374151', fg: '#e5e7eb' });
+  if (isTurnkey && !isNewBuild)                    badges.push({ label: '✓ TURNKEY',  bg: '#14532d', fg: '#86efac' });
   return badges;
 }
 

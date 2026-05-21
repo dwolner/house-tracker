@@ -1273,16 +1273,18 @@ function getBadges(l) {
   if (l.year_built && l.year_built >= 2018)
     badges.push({ label: '🏗 NEW BUILD',   bg: '#1e3a5f', fg: '#93c5fd' });
   // feature badges
-  if (bs && SOLAR_KW.test(bs))    badges.push({ label: '☀ SOLAR',    bg: '#713f12', fg: '#fde68a' });
-  if (bs && EV_KW.test(bs))       badges.push({ label: '⚡ EV',       bg: '#1e3a5f', fg: '#93c5fd' });
-  if (bs && POOL_KW.test(bs))     badges.push({ label: '🏊 POOL',     bg: '#164e63', fg: '#67e8f9' });
-  if (bs && KITCHEN_KW.test(bs))  badges.push({ label: '🍳 KITCHEN',  bg: '#365314', fg: '#bef264' });
-  if (bs && ADU_KW.test(bs))      badges.push({ label: '🏠 ADU',      bg: '#3b0764', fg: '#d8b4fe' });
-  if (bs && GRASS_KW.test(bs))    badges.push({ label: '🌿 GRASS',    bg: '#14532d', fg: '#86efac' });
-  if (bs && VIEW_KW.test(bs))     badges.push({ label: '🌊 VIEW',     bg: '#0c4a6e', fg: '#7dd3fc' });
-  if (bs && GARAGE_KW.test(bs))   badges.push({ label: '🚗 GARAGE',   bg: '#374151', fg: '#e5e7eb' });
-  if (bs && OFFICE_KW.test(bs))   badges.push({ label: '💼 OFFICE',   bg: '#374151', fg: '#e5e7eb' });
-  if (bs && TURNKEY_KW.test(bs))  badges.push({ label: '✓ TURNKEY',  bg: '#14532d', fg: '#86efac' });
+  const isNewBuild = l.year_built && l.year_built >= 2018;
+  const isTurnkey = bs && TURNKEY_KW.test(bs);
+  if (bs && SOLAR_KW.test(bs))                    badges.push({ label: '☀ SOLAR',    bg: '#713f12', fg: '#fde68a' });
+  if (bs && EV_KW.test(bs))                        badges.push({ label: '⚡ EV',       bg: '#1e3a5f', fg: '#93c5fd' });
+  if (bs && POOL_KW.test(bs))                      badges.push({ label: '🏊 POOL',     bg: '#164e63', fg: '#67e8f9' });
+  if (bs && KITCHEN_KW.test(bs) && !isTurnkey)     badges.push({ label: '🍳 KITCHEN',  bg: '#365314', fg: '#bef264' });
+  if (bs && ADU_KW.test(bs))                       badges.push({ label: '🏠 ADU',      bg: '#3b0764', fg: '#d8b4fe' });
+  if (bs && GRASS_KW.test(bs))                     badges.push({ label: '🌿 GRASS',    bg: '#14532d', fg: '#86efac' });
+  if (bs && VIEW_KW.test(bs))                      badges.push({ label: '🌊 VIEW',     bg: '#0c4a6e', fg: '#7dd3fc' });
+  if (bs && GARAGE_KW.test(bs))                    badges.push({ label: '🚗 GARAGE',   bg: '#374151', fg: '#e5e7eb' });
+  if (bs && OFFICE_KW.test(bs))                    badges.push({ label: '💼 OFFICE',   bg: '#374151', fg: '#e5e7eb' });
+  if (isTurnkey && !isNewBuild)                    badges.push({ label: '✓ TURNKEY',  bg: '#14532d', fg: '#86efac' });
   return badges;
 }
 
