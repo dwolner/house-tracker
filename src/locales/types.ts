@@ -203,6 +203,7 @@ export interface LocaleConfig {
   state: string;    // expected state abbreviation — listings from other states are dropped (Redfin region IDs are not globally unique)
   regions: RedfinRegion[];
   minBeds: number;
+  minPrice?: number;
   maxPrice: number;
   uipt?: string;    // Redfin property types to include (e.g. '1,2,3'); defaults to '1,2,3' if absent
   allowedZips?: string[]; // if set, listings outside these ZIPs are dropped even if Redfin returns them

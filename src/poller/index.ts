@@ -37,7 +37,8 @@ export async function runPoll(): Promise<{ newHighScoreIds: string[] }> {
           l.address.trim() !== '' &&
           l.beds > 0 &&
           l.state.toUpperCase() === locale.state.toUpperCase() &&
-          (!locale.allowedZips || locale.allowedZips.includes(l.zip))
+          (!locale.allowedZips || locale.allowedZips.includes(l.zip)) &&
+          (!locale.minPrice || l.price >= locale.minPrice)
         );
         const filtered = listings.length - valid.length;
         if (filtered > 0) {
