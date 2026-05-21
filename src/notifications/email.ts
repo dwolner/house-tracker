@@ -172,21 +172,28 @@ function priceChangeHtml(l: NotifyListing, P: Palette): string {
 
 
 const FACTOR_LABELS: Record<string, string> = {
-  propertyType:      'Type',
-  schoolDistrict:    'School',
-  walkability:       'Walk',
-  price:             'Price',
-  sqft:              'Sqft',
-  lot:               'Lot',
-  transit:           'Transit',
-  beds:              'Beds',
-  pricePerSqft:      '$/sqft',
-  neighborhoodBonus: 'Local+',
-  zipBonus:          'Zip+',
-  zipPenalty:        'Zip−',
-  yearBuiltPenalty:  'Age−',
-  domPenalty:        'DOM−',
-  investmentScore:   'Invest',
+  propertyType:        'Type',
+  schoolDistrict:      'School',
+  walkability:         'Walk',
+  price:               'Price',
+  sqft:                'Sqft',
+  lot:                 'Lot',
+  transit:             'Transit',
+  beds:                'Beds',
+  baths:               'Baths',
+  pricePerSqft:        '$/sqft',
+  neighborhoodBonus:   'Local+',
+  zipBonus:            'Zip+',
+  zipPenalty:          'Zip−',
+  domBonus:            'DOM+',
+  domPenalty:          'DOM−',
+  yearBuiltPenalty:    'Age−',
+  yearBuiltBonus:      'Age+',
+  multiUnitPenalty:    'Multi−',
+  flipPenalty:         'Flip−',
+  bathBedRatioPenalty: 'Bath−',
+  sqftFloorPenalty:    'Sqft−',
+  investmentScore:     'Invest',
   // legacy keys from old flat breakdown format
   amtrak:            'Transit',
   narberthBonus:     'Local+',
@@ -304,14 +311,15 @@ function buildCard(l: NotifyListing, P: Palette, badge = ''): string {
     .join('') + badge;
 
   return `
-  <!-- Badge + type pill row above card -->
-  <table style="width:100%;max-width:520px;margin:0 auto 6px;border-collapse:collapse"><tr>
-    <td>${badgesHtml}</td>
-    <td style="text-align:right;white-space:nowrap"><span style="font-size:10px;background:${P.statBg};border:1px solid ${P.border};border-radius:20px;padding:3px 10px;color:${P.muted};font-weight:500;letter-spacing:.03em">${typeLabel}</span></td>
-  </tr></table>
-
   <table style="width:100%;max-width:520px;margin:0 auto 24px;border-collapse:collapse;border:1px solid ${P.border};border-radius:10px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:${P.surface}">
-    ${img ? `<tr><td style="padding:0"><img src="${img}" width="520" style="display:block;width:100%;height:200px;object-fit:cover" alt="${l.address}"></td></tr>` : ''}
+    ${img ? `<tr><td style="padding:0;position:relative"><img src="${img}" width="520" style="display:block;width:100%;height:200px;object-fit:cover" alt="${l.address}"></td></tr>` : ''}
+    <!-- Badge + type pill row below image -->
+    <tr><td style="padding:8px 12px 0">
+      <table style="width:100%;border-collapse:collapse"><tr>
+        <td>${badgesHtml}</td>
+        <td style="text-align:right;white-space:nowrap"><span style="font-size:10px;background:${P.statBg};border:1px solid ${P.border};border-radius:20px;padding:3px 10px;color:${P.muted};font-weight:500;letter-spacing:.03em">${typeLabel}</span></td>
+      </tr></table>
+    </td></tr>
     <tr>
       <td style="padding:16px">
 
