@@ -33,12 +33,13 @@ export async function runPoll(): Promise<{ newHighScoreIds: string[] }> {
           : fetchRegionListings(region.region_id, region.region_type, locale.minBeds, locale.maxPrice, locale.uipt ?? '1,2,3'));
         let newCount = 0;
 
+        const effectiveMinPrice = Math.max(locale.minPrice ?? 0, 10_000);
         const valid = listings.filter(l =>
           l.address.trim() !== '' &&
           l.beds > 0 &&
           l.state.toUpperCase() === locale.state.toUpperCase() &&
           (!locale.allowedZips || locale.allowedZips.includes(l.zip)) &&
-          (!locale.minPrice || l.price >= locale.minPrice)
+          l.price >= effectiveMinPrice
         );
         const filtered = listings.length - valid.length;
         if (filtered > 0) {
