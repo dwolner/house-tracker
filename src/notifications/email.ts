@@ -270,7 +270,7 @@ const GARAGE_KW  = /\b(2|two|3|three|tandem|attached|detached).car garage|\bgara
 const OFFICE_KW  = /home office|office space|\boffice\b.{0,20}room|dedicated office|work from home/i;
 const TURNKEY_KW = /turnkey|move.in ready|fully.updated|fully renovated|totally renovated|\blike new\b|pristine condition/i;
 
-function getEmailBadges(l: NotifyListing): { label: string; bg: string; fg: string }[] {
+function getEmailBadges(l: NotifyListing, suppress: Set<string> = new Set()): { label: string; bg: string; fg: string }[] {
   const bs = l.brief_short ?? '';
   let bf = '';
   try { bf = (JSON.parse(l.brief_full ?? '[]') as string[]).join(' '); } catch { /* */ }
@@ -279,7 +279,7 @@ function getEmailBadges(l: NotifyListing): { label: string; bg: string; fg: stri
   if (full && DEV_KEYWORDS.test(full) && !DEV_SUPPRESSOR.test(full)) badges.push({ label: '⚠ DEV PLAY',   bg: '#78350f', fg: '#fde68a' });
   if (full && FLIP_KEYWORDS.test(full) && !FLIP_SUPPRESSOR.test(full)) badges.push({ label: '↑ FLIP',      bg: '#713f12', fg: '#fef08a' });
   if (full && MULTI_UNIT_KW.test(full)) badges.push({ label: '⊞ MULTI-UNIT', bg: '#1e3a5f', fg: '#93c5fd' });
-  if (l.price_at_first_seen && l.price < l.price_at_first_seen) badges.push({ label: '↓ PRICE DROP', bg: '#14532d', fg: '#86efac' });
+  if (!suppress.has('PRICE DROP') && l.price_at_first_seen && l.price < l.price_at_first_seen) badges.push({ label: '↓ PRICE DROP', bg: '#14532d', fg: '#86efac' });
   if (l.year_built && l.year_built >= 2018)                      badges.push({ label: '🏗 NEW BUILD',  bg: '#1e3a5f', fg: '#93c5fd' });
   const isNewBuild = l.year_built && l.year_built >= 2018;
   const isTurnkey = bs && TURNKEY_KW.test(bs);
@@ -296,7 +296,7 @@ function getEmailBadges(l: NotifyListing): { label: string; bg: string; fg: stri
   return badges;
 }
 
-function buildCard(l: NotifyListing, P: Palette, badge = ''): string {
+function buildCard(l: NotifyListing, P: Palette, badge = '', suppressBadges: Set<string> = new Set()): string {
   const img = photoUrl(l.id);
   const { bg: scoreBg, color: scoreColor } = scoreColors(l.score, P);
   const typeLabel = l.property_type
@@ -308,7 +308,7 @@ function buildCard(l: NotifyListing, P: Palette, badge = ''): string {
   const zip = l.zip ?? '';
   const neighborhood = getNeighborhood(zip, l.lat, l.lng);
   const metaLine = [neighborhood, l.school_district].filter(Boolean).join(' · ');
-  const badgesHtml = getEmailBadges(l)
+  const badgesHtml = getEmailBadges(l, suppressBadges)
     .map(b => `<span style="background:${b.bg};color:${b.fg};border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:.04em;margin-right:4px;margin-bottom:3px;display:inline-block">${b.label}</span>`)
     .join('') + badge;
 
@@ -466,7 +466,8 @@ function buildDigestHtml(newListings: NotifyListing[], changes: ChangeWithListin
       const group = changes.filter(c => c.state === state && c.change_type === type);
       if (group.length === 0) continue;
       body += sectionHeader(`${localeLabel(state)} · ${label}`, P);
-      body += byScore(group).map(c => buildCard(c, P, changeBadgeHtml(c, P))).join('');
+      const suppress = type === 'price_drop' ? new Set(['PRICE DROP']) : new Set<string>();
+      body += byScore(group).map(c => buildCard(c, P, changeBadgeHtml(c, P), suppress)).join('');
     }
   }
 
