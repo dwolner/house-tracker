@@ -24,6 +24,8 @@ const ICONS = {
   'external-link':`<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>`,
   'arrow-up':     `<line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>`,
   'arrow-down':   `<line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/>`,
+  'arrow-left':   `<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>`,
+  'arrow-right':  `<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>`,
   x:              `<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>`,
 };
 
@@ -693,7 +695,7 @@ function renderInvestmentRows(l) {
     brrrrHtml = `
       <div class="investment-brrrr" onclick="toggleBrrrr(this)">
         <div class="brrrr-summary">
-          <span class="brrrr-arrow">${ico('chevron', 14)}</span> <span class="tip ${b.isFullBrrrr ? "brrrr-full-badge" : ""}" data-tip="Buy, Rehab, Rent, Refinance, Repeat — a strategy to recover your down payment via a cash-out refi after adding value through renovation.">BRRRR ${b.isFullBrrrr ? "✓" : "✗"}</span> &nbsp; <span class="tip" data-tip="After-Repair Value: estimated market value after renovation, based on recent sold comps in this area.">ARV</span> ${fmtK(b.arv)} · Reno ~${fmtK(b.reno)} · <span class="tip" data-tip="Value created by buying below market and renovating: ARV minus purchase price minus reno cost.">Equity</span> ${fmtK(b.forcedEquity)} · <span class="tip" data-tip="Cash you'd receive from the refi after paying off the original loan. Positive means capital recovered.">Refi pull</span> ${fmtK(b.cashBack)}
+          <span class="brrrr-arrow">${ico('chevron', 14)}</span> <span class="tip ${b.isFullBrrrr ? "brrrr-full-badge" : ""}" data-tip="Buy, Rehab, Rent, Refinance, Repeat — a strategy to recover your down payment via a cash-out refi after adding value through renovation.">BRRRR ${b.isFullBrrrr ? ico('check', 12) : ico('x', 12)}</span> &nbsp; <span class="tip" data-tip="After-Repair Value: estimated market value after renovation, based on recent sold comps in this area.">ARV</span> ${fmtK(b.arv)} · Reno ~${fmtK(b.reno)} · <span class="tip" data-tip="Value created by buying below market and renovating: ARV minus purchase price minus reno cost.">Equity</span> ${fmtK(b.forcedEquity)} · <span class="tip" data-tip="Cash you'd receive from the refi after paying off the original loan. Positive means capital recovered.">Refi pull</span> ${fmtK(b.cashBack)}
         </div>
         <div class="brrrr-detail">
           <div class="brrrr-row"><span><span class="tip" data-tip="Estimated market value after renovation, based on median sold $/sqft from recent comps in this city.">After-repair value</span></span><span>$${fmt(b.arv)}</span></div>
@@ -1077,7 +1079,7 @@ function renderOutcomesTable() {
   );
 
   const { col, dir } = outcomesSort;
-  const arrow = (d) => (d === -1 ? " ↓" : " ↑");
+  const arrow = (d) => (d === -1 ? ico('arrow-down', 10) : ico('arrow-up', 10));
   const th = (label, key) =>
     `<th style="cursor:pointer;user-select:none" onclick="sortOutcomes('${key}')">${label}${col === key ? arrow(dir) : ""}</th>`;
 
@@ -1115,9 +1117,9 @@ function renderOutcomesTable() {
     total > OUTCOMES_PAGE_SIZE
       ? `
     <div style="display:flex;align-items:center;gap:12px;margin-top:12px;font-size:12px;color:var(--muted)">
-      <button class="reset-btn" style="width:auto;padding:5px 12px" onclick="outcomesPageChange(-1)" ${outcomesPage === 0 ? "disabled" : ""}>← Prev</button>
+      <button class="reset-btn" style="width:auto;padding:5px 12px" onclick="outcomesPageChange(-1)" ${outcomesPage === 0 ? "disabled" : ""}>${ico('arrow-left', 12)} Prev</button>
       <span>${outcomesPage * OUTCOMES_PAGE_SIZE + 1}–${Math.min((outcomesPage + 1) * OUTCOMES_PAGE_SIZE, total)} of ${total}</span>
-      <button class="reset-btn" style="width:auto;padding:5px 12px" onclick="outcomesPageChange(1)" ${outcomesPage >= maxPage ? "disabled" : ""}>Next →</button>
+      <button class="reset-btn" style="width:auto;padding:5px 12px" onclick="outcomesPageChange(1)" ${outcomesPage >= maxPage ? "disabled" : ""}>Next ${ico('arrow-right', 12)}</button>
     </div>`
       : "";
 
@@ -1164,11 +1166,11 @@ function renderOutcomes(data) {
     </div>
     <div class="outcome-stat">
       <div class="outcome-stat-val" style="color:${pctColor(stats.medianListToPendingPct)}">${fmtPct(stats.medianListToPendingPct)}</div>
-      <div class="outcome-stat-lbl">List → Pending Δ</div>
+      <div class="outcome-stat-lbl">List ${ico('arrow-right', 10)} Pending Δ</div>
     </div>
     <div class="outcome-stat">
       <div class="outcome-stat-val" style="color:${pctColor(stats.medianListToSoldPct)}">${fmtPct(stats.medianListToSoldPct)}</div>
-      <div class="outcome-stat-lbl">List → Sale Δ</div>
+      <div class="outcome-stat-lbl">List ${ico('arrow-right', 10)} Sale Δ</div>
     </div>`;
 
   const isDark = document.documentElement.classList.contains("dark");
@@ -1196,7 +1198,7 @@ function renderOutcomes(data) {
     data: {
       datasets: [
         {
-          label: "Sold (list → sale price)",
+          label: "Sold (list › sale price)",
           data: soldPoints,
           backgroundColor: soldPoints.map((p) =>
             p.y < -0.5 ? "#22c55e99" : p.y > 0.5 ? "#f8717199" : "#4f8ef799",
@@ -1205,7 +1207,7 @@ function renderOutcomes(data) {
           pointHoverRadius: 9,
         },
         {
-          label: "Pending (list → asking price)",
+          label: "Pending (list › asking price)",
           data: pendingPoints,
           backgroundColor: "#eab30899",
           pointRadius: 5,
@@ -1378,7 +1380,7 @@ function cardHtml(l) {
       </div>
       <div style="display:flex-col;justify-content: center;gap:6px;">
         ${scoreBadge(l)}
-        ${(() => { const td = computeTrueDom(l); return td != null ? `<div class="card-price-sub"><span title="True time on market: ${l.prior_days_on_market}d prior + ${l.days_on_market}d current">${domLabel(td)} ↺</span></div>` : l.days_on_market != null ? `<div class="card-price-sub">${domLabel(l.days_on_market)}</div>` : ''; })()}
+        ${(() => { const td = computeTrueDom(l); return td != null ? `<div class="card-price-sub"><span title="True time on market: ${l.prior_days_on_market}d prior + ${l.days_on_market}d current">${domLabel(td)} ${ico('rotate-ccw', 11)}</span></div>` : l.days_on_market != null ? `<div class="card-price-sub">${domLabel(l.days_on_market)}</div>` : ''; })()}
       </div>
     </div>
     ${metaLine ? `<div class="card-meta">${metaLine}</div>` : ""}
@@ -1498,7 +1500,7 @@ function renderHistorySection(data) {
       ? new Date(a.last_seen_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
       : 'present';
     const dom  = a.days_on_market != null ? `${a.days_on_market}d` : 'active';
-    const priceTrail = a.prices.map(p => `$${fmt(p.price)}`).join(' → ');
+    const priceTrail = a.prices.map(p => `$${fmt(p.price)}`).join(` ${ico('arrow-right', 10)} `);
     const label = i === 0 ? 'Current' : `Prior`;
     return `<div class="history-row">
       <span class="history-label">${label}</span>
@@ -1823,7 +1825,7 @@ async function renderMap(listings) {
         <div style="margin-top:8px">
           <a href="${l.url}" target="_blank" rel="noopener"
              style="background:#2563eb;color:#fff;text-decoration:none;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:500">
-            View on Redfin →
+            View on Redfin ${icoAttr('external-link', 11)}
           </a>
         </div>
       </div>`;
