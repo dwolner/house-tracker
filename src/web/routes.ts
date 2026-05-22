@@ -20,7 +20,8 @@ export function registerRoutes(app: FastifyInstance) {
              sqft, lot_sqft, year_built, walk_score, school_district, property_type, days_on_market,
              score, score_breakdown, url, first_seen_at, last_seen_at, status, status_label, starred,
              next_open_house_start, next_open_house_end, lat, lng, locale_id,
-             brief_short, brief_full
+             brief_short, brief_full,
+             prior_listing_id, prior_list_price
       FROM listings
       WHERE score >= ?
         AND beds >= ?
@@ -44,12 +45,48 @@ export function registerRoutes(app: FastifyInstance) {
     return getDb().prepare(sql).all(...params);
   });
 
-  // Price history for a single listing
+  // Price history for a single listing — walks prior_listing_id chain
   app.get('/api/listings/:id/history', (req) => {
     const { id } = req.params as { id: string };
-    return getDb()
-      .prepare(`SELECT price, recorded_at FROM price_history WHERE listing_id = ? ORDER BY recorded_at ASC`)
-      .all(id);
+    const db = getDb();
+
+    // Walk the prior_listing_id chain to collect all linked listing IDs
+    const ids: string[] = [id];
+    let cursor = id;
+    for (let i = 0; i < 5; i++) { // max 5 hops — safeguard against loops
+      const row = db
+        .prepare(`SELECT prior_listing_id FROM listings WHERE id = ?`)
+        .get(cursor) as { prior_listing_id: string | null } | undefined;
+      if (!row?.prior_listing_id) break;
+      ids.push(row.prior_listing_id);
+      cursor = row.prior_listing_id;
+    }
+
+    // Fetch listing metadata + price history for each ID in the chain
+    const appearances = ids.flatMap(listingId => {
+      const meta = db
+        .prepare(`SELECT id, first_seen_at, last_seen_at, days_on_market, price_at_first_seen, price FROM listings WHERE id = ?`)
+        .get(listingId) as { id: string; first_seen_at: string; last_seen_at: string; days_on_market: number | null; price_at_first_seen: number; price: number } | undefined;
+      if (!meta) return [];
+      const prices = db
+        .prepare(`SELECT price, recorded_at FROM price_history WHERE listing_id = ? ORDER BY recorded_at ASC`)
+        .all(listingId) as { price: number; recorded_at: string }[];
+      return [{ ...meta, prices }];
+    });
+
+    // Compute true cumulative DOM
+    let trueDom = 0;
+    for (let i = 0; i < appearances.length; i++) {
+      const a = appearances[i];
+      trueDom += a.days_on_market ?? 0;
+      // Add gap days between prior listing going inactive and current listing appearing
+      if (i < appearances.length - 1) {
+        const gapMs = new Date(appearances[i].first_seen_at).getTime() - new Date(appearances[i + 1].last_seen_at).getTime();
+        trueDom += Math.max(0, Math.round(gapMs / (1000 * 60 * 60 * 24)));
+      }
+    }
+
+    return { appearances, trueDom };
   });
 
   // Generate AI brief on demand for a single listing
