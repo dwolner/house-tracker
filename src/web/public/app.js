@@ -1239,7 +1239,7 @@ function getNeighborhood(l) {
 // Warning badge patterns
 const DEV_KEYWORDS = /developer|zoning variance|rezoning|land value|teardown|redevelopment|upside potential|fixer|handyman|needs work|gut rehab|original condition|unimproved|lot value|demo|tlc/i;
 const DEV_SUPPRESSOR = /renovated|remodeled|updated|turnkey|fully.updated|new kitchen|new bath|new roof|new floors|freshly/i;
-const FLIP_KEYWORDS = /\bflip\b|flipped|markup|relisted.{0,20}\$|purchased.{0,30}relisted/i;
+const FLIP_KEYWORDS = /\bflip\b|flipped|markup/i;
 const FLIP_SUPPRESSOR = /since \d{4}|over \d+ years?|\d+.year.{0,10}(hold|appreciation|ownership)|not a flip|no flip|move.up sale|original.{0,20}(developer|builder)/i;
 const MULTI_UNIT_KW = /duplex|dual.unit|multi.unit|income property|upper.{0,10}lower|lower.{0,10}upper|\b2 units\b|two units|both units|student rental|stabilized rental/i;
 
@@ -1265,6 +1265,8 @@ function getBadges(l) {
     badges.push({ label: '⚠ DEV PLAY',    bg: '#78350f', fg: '#fde68a' });
   if (full && FLIP_KEYWORDS.test(full) && !FLIP_SUPPRESSOR.test(full))
     badges.push({ label: '↑ FLIP',         bg: '#713f12', fg: '#fef08a' });
+  if (l.prior_listing_id)
+    badges.push({ label: '↺ RELISTING',  bg: '#713f12', fg: '#fef08a' });
   if (full && MULTI_UNIT_KW.test(full))
     badges.push({ label: '⊞ MULTI-UNIT',  bg: '#1e3a5f', fg: '#93c5fd' });
   // data-driven badges
@@ -1330,11 +1332,11 @@ function cardHtml(l) {
       </div>
       <div style="display:flex-col;justify-content: center;gap:6px;">
         ${scoreBadge(l)}
-        ${l.days_on_market != null ? `<div class="card-price-sub">${domLabel(l.days_on_market)}</div>` : ""}
+        ${l.days_on_market != null ? `<div class="card-price-sub">${l.prior_listing_id ? `<span title="True time on market across all listings">${domLabel(l.days_on_market)} ↺</span>` : domLabel(l.days_on_market)}</div>` : ""}
       </div>
     </div>
     ${metaLine ? `<div class="card-meta">${metaLine}</div>` : ""}
-      <div class="brief-wrap">${renderBrief(l)}</div>
+      <div class="brief-wrap">${renderExpandable(l)}</div>
     <div class="card-stats">
       <div class="stat"><div class="stat-val">${l.beds} | ${l.baths}</div><div class="stat-lbl">Beds | Baths</div></div>
       <div class="stat"><div class="stat-val">${l.sqft ? fmt(l.sqft) : "—"}</div><div class="stat-lbl">Sq Ft</div></div>
@@ -1350,20 +1352,47 @@ function cardHtml(l) {
   </div>`;
 }
 
-function renderBrief(l) {
-  if (l.brief_short) {
+function renderExpandable(l) {
+  const hasBrief = !!l.brief_short;
+  const hasHistory = !!l.prior_listing_id;
+
+  if (!hasBrief && !hasHistory) {
+    return `<button class="brief-btn" onclick="requestBrief('${l.id}', this)">Brief</button>`;
+  }
+
+  const id = `expand-${l.id}`;
+
+  // Collapsed header: brief_short if present, plus history indicator if relisting
+  let header = '';
+  if (hasBrief) {
+    header += `<span class="brief-short-text">${l.brief_short}</span>`;
+  } else {
+    header += `<button class="brief-btn" onclick="event.stopPropagation();requestBrief('${l.id}', this)">Brief</button>`;
+  }
+  if (hasHistory) {
+    const priorFmt = l.prior_list_price ? `was $${fmt(l.prior_list_price)}` : 'prior listing';
+    header += ` <span class="relist-indicator">↺ ${priorFmt}</span>`;
+  }
+
+  // Expanded content: brief bullets + history section (independently)
+  let expanded = '';
+  if (hasBrief) {
     const fullBullets = (() => {
       try { return JSON.parse(l.brief_full || '[]'); } catch { return []; }
     })();
-    const id = `brief-${l.id}`;
-    const bullets = fullBullets.map(b => `<li>${b}</li>`).join('');
-    return `
-      <div class="brief-short" onclick="document.getElementById('${id}').classList.toggle('open')">
-        ${l.brief_short}
-      </div>
-      <ul id="${id}" class="brief-full">${bullets}</ul>`;
+    expanded += `<ul class="brief-full">${fullBullets.map(b => `<li>${b}</li>`).join('')}</ul>`;
   }
-  return `<button class="brief-btn" onclick="requestBrief('${l.id}', this)">Brief</button>`;
+  if (hasHistory) {
+    expanded += `<div class="history-section" id="history-${l.id}" data-loaded="false">
+      <div class="history-loading">Loading history…</div>
+    </div>`;
+  }
+
+  return `
+    <div class="brief-short" onclick="toggleExpandable('${id}', '${hasHistory ? l.id : ''}')">
+      ${header}
+    </div>
+    <div id="${id}" class="expand-container brief-full">${expanded}</div>`;
 }
 
 async function requestBrief(id, btn) {
@@ -1379,19 +1408,59 @@ async function requestBrief(id, btn) {
       listing.brief_full = data.brief_full;
     }
     const wrap = btn.closest('.card').querySelector('.brief-wrap');
-    if (wrap) {
-      const fullBullets = Array.isArray(data.brief_full) ? data.brief_full : JSON.parse(data.brief_full || '[]');
-      const listId = `brief-${id}`;
-      wrap.innerHTML = `
-        <div class="brief-short" onclick="document.getElementById('${listId}').classList.toggle('open')">
-          ${data.brief_short}
-        </div>
-        <ul id="${listId}" class="brief-full open">${fullBullets.map(b => `<li>${b}</li>`).join('')}</ul>`;
+    if (wrap && listing) {
+      wrap.innerHTML = renderExpandable(listing);
     }
   } catch {
     btn.textContent = 'Brief';
     btn.disabled = false;
   }
+}
+
+async function toggleExpandable(expandId, listingId) {
+  const el = document.getElementById(expandId);
+  if (!el) return;
+  const isOpen = el.classList.toggle('open');
+
+  // Lazy-load history on first open
+  if (isOpen && listingId) {
+    const historyEl = document.getElementById(`history-${listingId}`);
+    if (historyEl && historyEl.dataset.loaded === 'false') {
+      historyEl.dataset.loaded = 'true';
+      try {
+        const res = await fetch(`/api/listings/${listingId}/history`);
+        const data = await res.json();
+        historyEl.innerHTML = renderHistorySection(data);
+      } catch {
+        historyEl.innerHTML = '<div class="history-error">Could not load history.</div>';
+      }
+    }
+  }
+}
+
+function renderHistorySection(data) {
+  const { appearances, trueDom } = data;
+  if (!appearances || appearances.length < 2) return '';
+
+  const rows = appearances.map((a, i) => {
+    const from = new Date(a.first_seen_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const to   = a.days_on_market != null
+      ? new Date(a.last_seen_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      : 'present';
+    const dom  = a.days_on_market != null ? `${a.days_on_market}d` : 'active';
+    const priceTrail = a.prices.map(p => `$${fmt(p.price)}`).join(' → ');
+    const label = i === 0 ? 'Current' : `Prior`;
+    return `<div class="history-row">
+      <span class="history-label">${label}</span>
+      <span class="history-dates">${from} – ${to} (${dom})</span>
+      <span class="history-prices">${priceTrail}</span>
+    </div>`;
+  });
+
+  return `<div class="history-content">
+    <div class="history-header">↺ Property history · True time on market: <strong>${trueDom} days</strong></div>
+    ${rows.join('')}
+  </div>`;
 }
 
 function renderCards(listings, openHouseOnly = false) {
