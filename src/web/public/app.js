@@ -32,6 +32,11 @@ function ico(name, size = 14) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;flex-shrink:0">${inner}</svg>`;
 }
 
+// ico() for use inside HTML attribute values — encodes " as &quot; so the attribute doesn't break.
+function icoAttr(name, size = 14) {
+  return ico(name, size).replace(/"/g, '&quot;');
+}
+
 // === STATE ===
 let allListings = [];
 let activeLocale = localStorage.getItem("locale") ?? "main-line";
@@ -1356,7 +1361,7 @@ function cardHtml(l) {
     <div class="card-photo-wrap">
       ${
         imgUrl
-          ? `<img class="card-photo" src="${imgUrl}" alt="${l.address}" onerror="this.outerHTML='<div class=\\'card-photo card-photo-placeholder\\'>${ico('home', 32)}</div>'">`
+          ? `<img class="card-photo" src="${imgUrl}" alt="${l.address}" onerror="this.outerHTML='<div class=\\'card-photo card-photo-placeholder\\'>${icoAttr('home', 32)}</div>'">`
           : `<div class="card-photo card-photo-placeholder">${ico('home', 32)}</div>`
       }
       <label class="card-select-cb${isSelected ? " is-checked" : ""}" onclick="event.stopPropagation()">
