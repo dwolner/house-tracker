@@ -97,6 +97,7 @@ export const sanDiegoLocale: LocaleConfig = {
     zipPenalty: { weight: 15, zips: ['92115'] },
     multiUnitPenalty: { weight: 25 },
     flipPenalty: { weight: 15 },
+    relistingPenalty: { weight: 8, reducedWeight: 4 },
     bathBedRatioPenalty: { weight: 8, minBeds: 4, minBaths: 2.5 },
     sqftFloorPenalty: { weight: 10, minSqft: 1500 },
     yearBuiltBonus: { weight: 5, minYear: 2000, excellent: 2015 },

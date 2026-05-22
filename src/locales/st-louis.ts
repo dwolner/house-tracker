@@ -134,6 +134,7 @@ export const stLouisLocale: LocaleConfig = {
       cocGood:            0.05,  // 5% CoC → half pts
       cocExcellent:       0.08,  // 8% CoC → full pts
     },
+    relistingPenalty: { weight: 8, reducedWeight: 4 },
   },
   investmentConfig: {
     // Calibrated Apr 2026 from RentCast AVM data across 5 ZIPs.

@@ -108,5 +108,6 @@ export const mainLineLocale: LocaleConfig = {
       outerKm: 1.2,
     },
     domPenalty: { weight: 6 },
+    relistingPenalty: { weight: 8, reducedWeight: 4 },
   },
 };
