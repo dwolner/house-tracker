@@ -716,6 +716,13 @@ function domLabel(dom) {
   return `<span class="dom-ok">${dom}d</span>`;
 }
 
+function computeTrueDom(l) {
+  if (!l.prior_listing_id || l.prior_days_on_market == null) return null;
+  const gapMs = new Date(l.first_seen_at).getTime() - new Date(l.prior_last_seen_at).getTime();
+  const gap = Math.max(0, Math.round(gapMs / (1000 * 60 * 60 * 24)));
+  return (l.prior_days_on_market ?? 0) + gap + (l.days_on_market ?? 0);
+}
+
 function priceChange(l) {
   if (!l.price_at_first_seen || l.price_at_first_seen === l.price) return "";
   const diff = l.price - l.price_at_first_seen;
@@ -1332,7 +1339,7 @@ function cardHtml(l) {
       </div>
       <div style="display:flex-col;justify-content: center;gap:6px;">
         ${scoreBadge(l)}
-        ${l.days_on_market != null ? `<div class="card-price-sub">${l.prior_listing_id ? `<span title="True time on market across all listings">${domLabel(l.days_on_market)} ↺</span>` : domLabel(l.days_on_market)}</div>` : ""}
+        ${(() => { const td = computeTrueDom(l); return td != null ? `<div class="card-price-sub"><span title="True time on market: ${l.prior_days_on_market}d prior + ${l.days_on_market}d current">${domLabel(td)} ↺</span></div>` : l.days_on_market != null ? `<div class="card-price-sub">${domLabel(l.days_on_market)}</div>` : ''; })()}
       </div>
     </div>
     ${metaLine ? `<div class="card-meta">${metaLine}</div>` : ""}
@@ -1380,7 +1387,7 @@ function renderExpandable(l) {
     const fullBullets = (() => {
       try { return JSON.parse(l.brief_full || '[]'); } catch { return []; }
     })();
-    expanded += `<ul class="brief-full">${fullBullets.map(b => `<li>${b}</li>`).join('')}</ul>`;
+    expanded += `<ul class="brief-list">${fullBullets.map(b => `<li>${b}</li>`).join('')}</ul>`;
   }
   if (hasHistory) {
     expanded += `<div class="history-section" id="history-${l.id}" data-loaded="false">
@@ -1392,7 +1399,7 @@ function renderExpandable(l) {
     <div class="brief-short" onclick="toggleExpandable('${id}', '${hasHistory ? l.id : ''}')">
       ${header}
     </div>
-    <div id="${id}" class="expand-container brief-full">${expanded}</div>`;
+    <div id="${id}" class="expand-container">${expanded}</div>`;
 }
 
 async function requestBrief(id, btn) {

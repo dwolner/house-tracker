@@ -16,32 +16,35 @@ export function registerRoutes(app: FastifyInstance) {
     const includeInactive = q.include_inactive === 'true';
 
     let sql = `
-      SELECT id, address, city, state, zip, price, price_at_first_seen, beds, baths,
-             sqft, lot_sqft, year_built, walk_score, school_district, property_type, days_on_market,
-             score, score_breakdown, url, first_seen_at, last_seen_at, status, status_label, starred,
-             next_open_house_start, next_open_house_end, lat, lng, locale_id,
-             brief_short, brief_full,
-             prior_listing_id, prior_list_price
-      FROM listings
-      WHERE score >= ?
-        AND beds >= ?
-        AND price >= ?
-        AND price <= ?
-        AND superseded_by IS NULL
-        ${includeInactive ? '' : `AND status NOT IN ('inactive', '130')`}
+      SELECT l.id, l.address, l.city, l.state, l.zip, l.price, l.price_at_first_seen, l.beds, l.baths,
+             l.sqft, l.lot_sqft, l.year_built, l.walk_score, l.school_district, l.property_type, l.days_on_market,
+             l.score, l.score_breakdown, l.url, l.first_seen_at, l.last_seen_at, l.status, l.status_label, l.starred,
+             l.next_open_house_start, l.next_open_house_end, l.lat, l.lng, l.locale_id,
+             l.brief_short, l.brief_full,
+             l.prior_listing_id, l.prior_list_price,
+             p.days_on_market AS prior_days_on_market,
+             p.last_seen_at   AS prior_last_seen_at
+      FROM listings l
+      LEFT JOIN listings p ON p.id = l.prior_listing_id
+      WHERE l.score >= ?
+        AND l.beds >= ?
+        AND l.price >= ?
+        AND l.price <= ?
+        AND l.superseded_by IS NULL
+        ${includeInactive ? '' : `AND l.status NOT IN ('inactive', '130')`}
     `;
     const params: (string | number)[] = [minScore, minBeds, minPrice, maxPrice];
 
     if (city) {
-      sql += ` AND LOWER(city) = LOWER(?)`;
+      sql += ` AND LOWER(l.city) = LOWER(?)`;
       params.push(city);
     }
     if (propType) {
-      sql += ` AND LOWER(property_type) = LOWER(?)`;
+      sql += ` AND LOWER(l.property_type) = LOWER(?)`;
       params.push(propType);
     }
 
-    sql += ` ORDER BY score DESC`;
+    sql += ` ORDER BY l.score DESC`;
     return getDb().prepare(sql).all(...params);
   });
 
