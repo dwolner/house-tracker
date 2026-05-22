@@ -33,6 +33,7 @@ export interface NotifyListing {
   lng: number | null;
   year_built: number | null;
   prior_listing_id?: string | null;
+  prior_list_price?: number | null;
 }
 
 type Palette = {
@@ -338,7 +339,7 @@ function buildCard(l: NotifyListing, P: Palette, badge = '', suppressBadges: Set
             </td>
             <td style="text-align:right;vertical-align:top;padding-left:16px;white-space:nowrap">
               <div style="display:inline-block;background:${scoreBg};border:1px solid ${scoreColor};color:${scoreColor};border-radius:50%;width:52px;height:52px;line-height:50px;text-align:center;font-size:18px;font-weight:700;font-family:'JetBrains Mono','Courier New',monospace">${Math.round(l.score)}</div>
-              ${l.days_on_market != null ? `<div style="font-size:11px;color:${P.muted};margin-top:5px;text-align:right">${domLabel(l.days_on_market, P)}</div>` : ''}
+              ${l.days_on_market != null ? `<div style="font-size:11px;color:${P.muted};margin-top:5px;text-align:right">${domLabel(l.days_on_market, P)}${l.prior_listing_id ? ` <span style="color:${P.yellow}" title="Relisted — this DOM is for the current listing only">↺</span>` : ''}</div>` : ''}
             </td>
           </tr>
         </table>
@@ -414,6 +415,20 @@ function changeBadgeHtml(c: ChangeWithListing, P: Palette): string {
     return `<div style="margin-bottom:8px">
       <span style="background:rgba(196,145,58,0.12);color:${P.accent};border:1px solid rgba(196,145,58,0.3);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">⚡ Now Active</span>
       <span style="font-size:12px;color:${P.muted};margin-left:8px">Previously coming soon</span>
+    </div>`;
+  }
+  if (c.change_type === 'relisted') {
+    const priorPrice = parseInt(c.old_value ?? '0');
+    const newPrice = c.price;
+    const diff = priorPrice - newPrice;
+    const diffHtml = diff > 0
+      ? `<span style="color:${P.green}"> −$${diff.toLocaleString()}</span>`
+      : diff < 0
+        ? `<span style="color:${P.red}"> +$${Math.abs(diff).toLocaleString()}</span>`
+        : '';
+    return `<div style="margin-bottom:8px">
+      <span style="background:rgba(113,63,18,0.15);color:#fef08a;border:1px solid rgba(113,63,18,0.4);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">↺ Relisted</span>
+      <span style="font-size:12px;color:${P.muted};margin-left:8px">Was $${priorPrice.toLocaleString()} &rarr; <strong style="color:${P.text}">$${newPrice.toLocaleString()}</strong>${diffHtml}</span>
     </div>`;
   }
   return '';
