@@ -26,6 +26,8 @@ export interface RedfinListing {
   sold_date: string | null;        // ISO date from "SOLD DATE" column, only in sold feed
   brief_short?: string | null;     // AI-generated summary — populated from DB during rescore
   brief_full?: string | null;      // AI-generated bullet JSON — populated from DB during rescore
+  prior_listing_id?: string | null;  // set by upsertListing, used for relistingPenalty scoring
+  prior_list_price?: number | null;
 }
 
 const REDFIN_BASE = 'https://www.redfin.com';

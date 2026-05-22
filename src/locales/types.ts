@@ -109,6 +109,11 @@ export interface FlipPenaltyConfig {
   weight: number; // flat penalty applied when brief_short/brief_full matches flip keywords (without suppressor)
 }
 
+export interface RelistingPenaltyConfig {
+  weight: number;        // penalty when relisted at same or higher price
+  reducedWeight: number; // penalty when relisted at a lower price
+}
+
 export interface BathsConfig {
   weight: number;
   steps: { minBaths: number; points: number }[]; // sorted descending; first match wins
@@ -159,6 +164,7 @@ export interface ScoringConfig {
   investmentScore?: InvestmentScoreConfig;
   multiUnitPenalty?: MultiUnitPenaltyConfig;
   flipPenalty?: FlipPenaltyConfig;
+  relistingPenalty?: RelistingPenaltyConfig;
   baths?: BathsConfig;
   bathBedRatioPenalty?: BathBedRatioPenaltyConfig;
   sqftFloorPenalty?: SqftFloorPenaltyConfig;
