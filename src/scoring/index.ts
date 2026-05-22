@@ -5,6 +5,20 @@ import type { LocaleConfig } from '../locales/types.js';
 let baseRate30yr = 0.069;
 export function setBaseRate(rate: number): void { baseRate30yr = rate; }
 
+// RedfinListing extended with enrichment fields that the scoring function reads.
+export interface ScoringInput extends RedfinListing {
+  walk_score: number | null;
+  school_district: string | null;
+  brief_short: string | null;
+  brief_full: string | null;
+}
+
+// Internal tracking context — not part of any listing type, passed separately.
+export interface RelistingContext {
+  prior_listing_id: string | null;
+  prior_list_price: number | null;
+}
+
 export interface ScoreBreakdown {
   total: number;
   // Each value: { pts = raw points earned, max = weight for this factor }
@@ -53,9 +67,10 @@ function scoreThreePt(value: number, excellent: number, good: number, max: numbe
 }
 
 export function scoreWithBreakdown(
-  listing: RedfinListing,
+  listing: ScoringInput,
   locale: LocaleConfig,
   rentResolution?: { rent: number; source: 'rentcast' | 'derived' },
+  context?: RelistingContext,
 ): ScoreBreakdown {
   const { scoring } = locale;
   const city = listing.city.toLowerCase().trim();
@@ -331,9 +346,9 @@ export function scoreWithBreakdown(
     factors['domPenalty'] = { pts, max: weight };
   }
 
-  if (scoring.relistingPenalty && listing.prior_listing_id) {
+  if (scoring.relistingPenalty && context?.prior_listing_id) {
     const { weight, reducedWeight } = scoring.relistingPenalty;
-    const priceDropped = listing.prior_list_price != null && listing.price < listing.prior_list_price;
+    const priceDropped = context.prior_list_price != null && listing.price < context.prior_list_price;
     const pts = priceDropped ? reducedWeight : weight;
     rawPenalty += pts;
     factors['relistingPenalty'] = { pts, max: weight };
@@ -354,6 +369,6 @@ export function scoreWithBreakdown(
   return { total, factors, rentUsed, rentSource };
 }
 
-export function scoreListing(listing: RedfinListing, locale: LocaleConfig): number {
+export function scoreListing(listing: ScoringInput, locale: LocaleConfig): number {
   return scoreWithBreakdown(listing, locale).total;
 }

@@ -1,5 +1,6 @@
 import fetch from 'node-fetch';
 
+// Fields that come directly from the Redfin CSV / JSON API — nothing else.
 export interface RedfinListing {
   id: string;
   address: string;
@@ -12,22 +13,16 @@ export interface RedfinListing {
   sqft: number | null;
   lot_sqft: number | null;
   year_built: number | null;
-  walk_score: number | null;       // not in CSV — populated by enrichment
-  school_district: string | null;  // not in CSV — populated by enrichment
   property_type: string | null;
   lat: number;
   lng: number;
   url: string | null;
-  status: string;                  // normalised to '9' | '1' | '130' | '131'
-  status_label: string;            // raw label from Redfin CSV ("Contingent", "Pending", etc.)
+  status: string;       // normalised to '9' | '1' | '130' | '131'
+  status_label: string; // raw label from Redfin CSV ("Contingent", "Pending", etc.)
   days_on_market: number | null;
   next_open_house_start: string | null;
   next_open_house_end: string | null;
-  sold_date: string | null;        // ISO date from "SOLD DATE" column, only in sold feed
-  brief_short?: string | null;     // AI-generated summary — populated from DB during rescore
-  brief_full?: string | null;      // AI-generated bullet JSON — populated from DB during rescore
-  prior_listing_id?: string | null;  // set by upsertListing, used for relistingPenalty scoring
-  prior_list_price?: number | null;
+  sold_date: string | null; // ISO date from "SOLD DATE" column, only in sold feed
 }
 
 const REDFIN_BASE = 'https://www.redfin.com';
@@ -137,8 +132,6 @@ async function fetchListingsByStatus(
         sqft: parseNum(get(col('SQUARE FEET'))),
         lot_sqft: parseNum(get(col('LOT SIZE'))),
         year_built: parseNum(get(col('YEAR BUILT'))),
-        walk_score: null,
-        school_district: null,
         property_type: get(col('PROPERTY TYPE')) || null,
         lat,
         lng,
@@ -332,8 +325,6 @@ async function fetchListingsByStatusJson(
         sqft:  val<number>(h['sqFt']),
         lot_sqft:   val<number>(h['lotSize']),
         year_built:  val<number>(h['yearBuilt']),
-        walk_score:  null,
-        school_district: null,
         property_type: UI_PROPERTY_TYPE[uiPropType] ?? null,
         lat,
         lng,

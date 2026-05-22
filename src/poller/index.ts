@@ -51,9 +51,15 @@ export async function runPoll(): Promise<{ newHighScoreIds: string[] }> {
             ? resolveRentOverride(listing, rentalEstimates, locale)
             : undefined;
           const existing = briefMap.get(listing.id);
-          const listingWithBrief = existing ? { ...listing, ...existing } : listing;
+          const listingWithBrief = {
+            ...listing,
+            walk_score: null,
+            school_district: null,
+            brief_short: existing?.brief_short ?? null,
+            brief_full: existing?.brief_full ?? null,
+          };
           const breakdown = scoreWithBreakdown(listingWithBrief, locale, rentResolution);
-          const { isNew } = upsertListing({ ...listing, locale_id: locale.id, score: breakdown.total, breakdown });
+          const { isNew } = upsertListing({ ...listingWithBrief, locale_id: locale.id, score: breakdown.total, breakdown });
 
           if (isNew) {
             newCount++;

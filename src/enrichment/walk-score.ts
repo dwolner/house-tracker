@@ -6,8 +6,8 @@ import {
   updateListingSchoolDistrict,
 } from '../db/index.js';
 import { scoreWithBreakdown } from '../scoring/index.js';
+import type { ScoringInput } from '../scoring/index.js';
 import { getLocale, LOCALES } from '../locales/index.js';
-import type { RedfinListing } from '../poller/redfin.js';
 import { runBriefEnrichment } from './brief.js';
 
 const REDFIN_BASE = 'https://www.redfin.com';
@@ -105,18 +105,24 @@ async function runEnrichment(): Promise<void> {
       const walkScore = await fetchWalkScoreFromRedfin(propertyId);
 
       if (walkScore != null) {
-        const asRedfinListing: RedfinListing = {
+        const scoringInput: ScoringInput = {
           ...listing,
           baths: 0,
           year_built: null,
           walk_score: walkScore,
+          school_district: listing.school_district,
+          brief_short: null,
+          brief_full: null,
           url: listing.url,
           status: '', status_label: '',
           next_open_house_start: null,
           next_open_house_end: null,
           sold_date: null,
         };
-        const breakdown = scoreWithBreakdown(asRedfinListing, getLocale(listing.locale_id));
+        const breakdown = scoreWithBreakdown(scoringInput, getLocale(listing.locale_id), undefined, {
+          prior_listing_id: listing.prior_listing_id,
+          prior_list_price: listing.prior_list_price,
+        });
         updateListingWalkScore(listing.id, walkScore, breakdown.total, breakdown);
         console.log(
           `[enrich] ${listing.address}, ${listing.city} — walk: ${walkScore} — score: ${breakdown.total.toFixed(1)}`,
@@ -146,19 +152,24 @@ async function runEnrichment(): Promise<void> {
     try {
       const district = await fetchSchoolDistrict(listing.lat, listing.lng);
       const effectiveDistrict = district ?? '(unknown)';
-      const asRedfinListing: RedfinListing = {
+      const scoringInput: ScoringInput = {
         ...listing,
         baths: 0,
         year_built: null,
         walk_score: listing.walk_score,
         school_district: effectiveDistrict,
+        brief_short: null,
+        brief_full: null,
         url: listing.url ?? '',
         status: '', status_label: '',
         next_open_house_start: null,
         next_open_house_end: null,
         sold_date: null,
       };
-      const breakdown = scoreWithBreakdown(asRedfinListing, getLocale(listing.locale_id));
+      const breakdown = scoreWithBreakdown(scoringInput, getLocale(listing.locale_id), undefined, {
+        prior_listing_id: listing.prior_listing_id,
+        prior_list_price: listing.prior_list_price,
+      });
       updateListingSchoolDistrict(listing.id, effectiveDistrict, breakdown.total, breakdown);
       if (district) {
         console.log(`[enrich] ${listing.address}, ${listing.city} — district: ${district} — score: ${breakdown.total.toFixed(1)}`);
@@ -171,9 +182,11 @@ async function runEnrichment(): Promise<void> {
       console.error(`[enrich] school district error for ${listing.address}:`, err);
       // Mark as attempted so it doesn't re-queue on every poll
       const breakdown = scoreWithBreakdown(
-        { ...listing, baths: 0, year_built: null, school_district: '(unknown)', url: listing.url ?? '',
-          status: '', status_label: '', next_open_house_start: null, next_open_house_end: null, sold_date: null },
+        { ...listing, baths: 0, year_built: null, school_district: '(unknown)', brief_short: null, brief_full: null,
+          url: listing.url ?? '', status: '', status_label: '', next_open_house_start: null, next_open_house_end: null, sold_date: null },
         getLocale(listing.locale_id),
+        undefined,
+        { prior_listing_id: listing.prior_listing_id, prior_list_price: listing.prior_list_price },
       );
       updateListingSchoolDistrict(listing.id, '(unknown)', breakdown.total, breakdown);
       sdFailed++;

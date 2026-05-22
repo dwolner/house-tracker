@@ -288,17 +288,26 @@ export function registerRoutes(app: FastifyInstance) {
   const doRescore = async (localeId: string | undefined) => {
     const { scoreWithBreakdown } = await import('../scoring/index.js');
     const db = getDb();
-    const sql = localeId
-      ? `SELECT id, address, city, state, zip, price, beds, baths, sqft, lot_sqft, year_built, walk_score, school_district, property_type, days_on_market, lat, lng, locale_id, brief_short, brief_full FROM listings WHERE locale_id = ? AND superseded_by IS NULL`
-      : `SELECT id, address, city, state, zip, price, beds, baths, sqft, lot_sqft, year_built, walk_score, school_district, property_type, days_on_market, lat, lng, locale_id, brief_short FROM listings WHERE superseded_by IS NULL`;
-    const rows = localeId ? db.prepare(sql).all(localeId) : db.prepare(sql).all();
+    const baseSql = `SELECT id, address, city, state, zip, price, beds, baths, sqft, lot_sqft,
+        year_built, walk_score, school_district, property_type, days_on_market, lat, lng,
+        url, status, status_label, next_open_house_start, next_open_house_end, sold_date,
+        locale_id, brief_short, brief_full, prior_listing_id, prior_list_price
+      FROM listings WHERE superseded_by IS NULL`;
+    const sql = localeId ? `${baseSql} AND locale_id = ?` : baseSql;
+    type RescoreRow = Parameters<typeof scoreWithBreakdown>[0] & {
+      locale_id: string; prior_listing_id: string | null; prior_list_price: number | null;
+    };
+    const rows = (localeId ? db.prepare(sql).all(localeId) : db.prepare(sql).all()) as RescoreRow[];
     const update = db.prepare(`UPDATE listings SET score = ?, score_breakdown = ? WHERE id = ?`);
     let updated = 0;
-    for (const row of rows as Array<Record<string, unknown>>) {
-      const locale = LOCALES[row.locale_id as string];
+    for (const row of rows) {
+      const locale = LOCALES[row.locale_id];
       if (!locale) continue;
-      const breakdown = scoreWithBreakdown(row as unknown as Parameters<typeof scoreWithBreakdown>[0], locale);
-      update.run(breakdown.total, JSON.stringify(breakdown), row.id as string);
+      const breakdown = scoreWithBreakdown(row, locale, undefined, {
+        prior_listing_id: row.prior_listing_id,
+        prior_list_price: row.prior_list_price,
+      });
+      update.run(breakdown.total, JSON.stringify(breakdown), row.id);
       updated++;
     }
     return { ok: true, updated };

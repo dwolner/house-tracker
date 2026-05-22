@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import type { ScoreBreakdown } from '../scoring/index.js';
+import type { ScoreBreakdown, ScoringInput } from '../scoring/index.js';
 import { scoreWithBreakdown } from '../scoring/index.js';
 import { getLocale } from '../locales/index.js';
 
@@ -181,8 +181,8 @@ export function upsertListing(
   const score_breakdown = JSON.stringify(listing.breakdown);
 
   const existing = db
-    .prepare('SELECT id, price, status, walk_score, school_district, pending_at, locale_id, brief_short, brief_full FROM listings WHERE id = ?')
-    .get(listing.id) as { id: string; price: number; status: string; walk_score: number | null; school_district: string | null; pending_at: string | null; locale_id: string; brief_short: string | null; brief_full: string | null } | undefined;
+    .prepare('SELECT id, price, status, walk_score, school_district, pending_at, locale_id, brief_short, brief_full, prior_listing_id, prior_list_price FROM listings WHERE id = ?')
+    .get(listing.id) as { id: string; price: number; status: string; walk_score: number | null; school_district: string | null; pending_at: string | null; locale_id: string; brief_short: string | null; brief_full: string | null; prior_listing_id: string | null; prior_list_price: number | null } | undefined;
 
   if (!existing) {
     // Check for a prior inactive listing at the same address (relisting detection)
@@ -209,10 +209,7 @@ export function upsertListing(
     let insertBreakdown = score_breakdown;
     if (prior) {
       const locale = getLocale(listing.locale_id);
-      // prior_listing_id / prior_list_price are excluded from the upsertListing parameter type
-      // (they're computed internally here), so we cast to carry them into scoreWithBreakdown.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rescoreInput: any = {
+      const rescoreInput: ScoringInput = {
         id: listing.id, address: listing.address, city: listing.city, state: listing.state,
         zip: listing.zip, price: listing.price, beds: listing.beds, baths: listing.baths,
         sqft: listing.sqft, lot_sqft: listing.lot_sqft, year_built: listing.year_built,
@@ -226,10 +223,11 @@ export function upsertListing(
         school_district: listing.school_district,
         brief_short: null,
         brief_full: null,
+      };
+      const rescored = scoreWithBreakdown(rescoreInput, locale, undefined, {
         prior_listing_id: prior.id,
         prior_list_price: prior.price_at_first_seen,
-      };
-      const rescored = scoreWithBreakdown(rescoreInput, locale);
+      });
       insertScore = rescored.total;
       insertBreakdown = JSON.stringify(rescored);
     }
@@ -286,7 +284,7 @@ export function upsertListing(
   const effectiveDistrict = listing.school_district ?? existing.school_district ?? null;
   if (effectiveWalkScore !== listing.walk_score || effectiveDistrict !== listing.school_district) {
     const locale = getLocale(listing.locale_id);
-    const rescored = scoreWithBreakdown({
+    const rescoreInput: ScoringInput = {
       id: listing.id, address: listing.address, city: listing.city, state: listing.state,
       zip: listing.zip, price: listing.price, beds: listing.beds, baths: listing.baths,
       sqft: listing.sqft, lot_sqft: listing.lot_sqft, year_built: listing.year_built,
@@ -300,7 +298,11 @@ export function upsertListing(
       school_district: effectiveDistrict,
       brief_short: existing.brief_short ?? null,
       brief_full: existing.brief_full ?? null,
-    }, locale);
+    };
+    const rescored = scoreWithBreakdown(rescoreInput, locale, undefined, {
+      prior_listing_id: existing.prior_listing_id ?? null,
+      prior_list_price: existing.prior_list_price ?? null,
+    });
     finalScore = rescored.total;
     finalBreakdown = JSON.stringify(rescored);
   }
@@ -379,12 +381,15 @@ export interface ListingForEnrichment {
   school_district: string | null;
   url: string | null;
   locale_id: string;
+  prior_listing_id: string | null;
+  prior_list_price: number | null;
 }
 
 export function getListingsMissingWalkScore(): ListingForEnrichment[] {
   return getDb()
     .prepare(`SELECT id, address, city, state, zip, lat, lng, beds, price, sqft, lot_sqft,
-                     days_on_market, property_type, walk_score, school_district, url, locale_id
+                     days_on_market, property_type, walk_score, school_district, url, locale_id,
+                     prior_listing_id, prior_list_price
               FROM listings WHERE walk_score IS NULL`)
     .all() as ListingForEnrichment[];
 }
@@ -392,7 +397,8 @@ export function getListingsMissingWalkScore(): ListingForEnrichment[] {
 export function getListingsMissingSchoolDistrict(): ListingForEnrichment[] {
   return getDb()
     .prepare(`SELECT id, address, city, state, zip, lat, lng, beds, price, sqft, lot_sqft,
-                     days_on_market, property_type, walk_score, school_district, url, locale_id
+                     days_on_market, property_type, walk_score, school_district, url, locale_id,
+                     prior_listing_id, prior_list_price
               FROM listings WHERE school_district IS NULL`)
     .all() as ListingForEnrichment[];
 }

@@ -2,10 +2,10 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { scoreWithBreakdown, setBaseRate } from './scoring/index.js';
+import type { ScoringInput } from './scoring/index.js';
 import { getLocale, LOCALES } from './locales/index.js';
 import { getCurrentMortgageRate } from './enrichment/mortgage-rate.js';
 import { resolveRentOverride } from './enrichment/rent-estimate.js';
-import type { RedfinListing } from './poller/redfin.js';
 import type { RentalEstimateWithSqft } from './db/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -24,11 +24,12 @@ const rows = db.prepare(`
   SELECT id, address, city, state, zip, price, beds, baths, sqft, lot_sqft,
          year_built, walk_score, school_district, property_type, lat, lng,
          url, status, status_label, days_on_market, next_open_house_start,
-         next_open_house_end, locale_id, brief_short, brief_full
+         next_open_house_end, locale_id, brief_short, brief_full,
+         prior_listing_id, prior_list_price
   FROM listings
   WHERE score IS NOT NULL
     ${localeFilter ? 'AND locale_id = ?' : ''}
-`).all(...(localeFilter ? [localeFilter] : [])) as (RedfinListing & { locale_id: string })[];
+`).all(...(localeFilter ? [localeFilter] : [])) as (ScoringInput & { locale_id: string; prior_listing_id: string | null; prior_list_price: number | null })[];
 
 // Pre-fetch rental estimates with city/zip for premium-ratio derived rent
 const estimatesWithSqft = db.prepare(`
@@ -53,7 +54,10 @@ const rescoreAll = db.transaction(() => {
     const rentResolution = locale.investmentConfig
       ? resolveRentOverride(row, estimatesWithSqft, locale)
       : undefined;
-    const breakdown = scoreWithBreakdown(row, locale, rentResolution);
+    const breakdown = scoreWithBreakdown(row, locale, rentResolution, {
+      prior_listing_id: row.prior_listing_id,
+      prior_list_price: row.prior_list_price,
+    });
     update.run({ id: row.id, score: breakdown.total, score_breakdown: JSON.stringify(breakdown) });
     count++;
   }
