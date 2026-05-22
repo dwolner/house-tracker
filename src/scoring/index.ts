@@ -293,7 +293,8 @@ export function scoreWithBreakdown(
   }
 
   if (scoring.flipPenalty) {
-    const FLIP_KW  = /\bflip\b|flipped|markup|relisted.{0,20}\$|purchased.{0,30}relisted/i;
+    // Narrowed to explicit flip language only; relisting detection is handled by the structural relistingPenalty factor
+    const FLIP_KW  = /\bflip\b|flipped|markup/i;
     const FLIP_SUP = /since \d{4}|over \d+ years?|\d+.year.{0,10}(hold|appreciation|ownership)|not a flip|no flip|move.up sale|original.{0,20}(developer|builder)/i;
     const briefText = (listing.brief_short ?? '') + ' ' + (listing.brief_full ?? '');
     if (briefText && FLIP_KW.test(briefText) && !FLIP_SUP.test(briefText)) {
@@ -328,6 +329,14 @@ export function scoreWithBreakdown(
     else if (dom > 30)  pts = clamp(((dom - 30) / 30) * (weight * 0.3), 0, weight * 0.3);
     rawPenalty += pts;
     factors['domPenalty'] = { pts, max: weight };
+  }
+
+  if (scoring.relistingPenalty && listing.prior_listing_id) {
+    const { weight, reducedWeight } = scoring.relistingPenalty;
+    const priceDropped = listing.prior_list_price != null && listing.price < listing.prior_list_price;
+    const pts = priceDropped ? reducedWeight : weight;
+    rawPenalty += pts;
+    factors['relistingPenalty'] = { pts, max: weight };
   }
 
   let total = maxPositive === 0
