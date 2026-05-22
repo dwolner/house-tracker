@@ -521,17 +521,14 @@ html.dark .card:hover {
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
 }
-.brief-short::before {
-  content: '▸';
-  font-style: normal;
+.expand-chevron {
   display: inline-block;
-  margin-right: 5px;
+  margin-right: 4px;
   color: var(--text-faint);
   transition: transform 0.15s ease;
-  font-size: 10px;
   vertical-align: middle;
 }
-.brief-short.open::before {
+.brief-short.open .expand-chevron {
   transform: rotate(90deg);
 }
 .brief-short:hover {
@@ -1389,6 +1386,13 @@ html.dark .pending-badge {
 
 .investment-brrrr.brrrr-open .brrrr-detail {
   display: flex;
+}
+.brrrr-arrow {
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+.investment-brrrr.brrrr-open .brrrr-arrow {
+  transform: rotate(90deg);
 }
 
 .brrrr-row {

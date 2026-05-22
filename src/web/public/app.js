@@ -1,3 +1,37 @@
+// === ICONS ===
+// Lucide SVG paths (MIT). All icons render at the given size with currentColor stroke.
+const ICONS = {
+  chevron:        `<polyline points="9 18 15 12 9 6"/>`,
+  star:           `<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>`,
+  'star-filled':  `<polygon fill="currentColor" points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>`,
+  'trending-up':  `<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>`,
+  'trending-down':`<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>`,
+  'rotate-ccw':   `<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.65"/>`,
+  'alert-triangle':`<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>`,
+  building:       `<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>`,
+  'hard-hat':     `<path d="M2 18a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v2z"/><path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5"/><path d="M4 15v-3a6 6 0 0 1 6-6h0"/><path d="M14 6a6 6 0 0 1 6 6v3"/>`,
+  sun:            `<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>`,
+  moon:           `<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>`,
+  zap:            `<polygon fill="currentColor" points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>`,
+  waves:          `<path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>`,
+  utensils:       `<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3v7"/>`,
+  home:           `<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>`,
+  leaf:           `<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>`,
+  eye:            `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>`,
+  car:            `<rect width="20" height="9" x="2" y="11" rx="1"/><path d="M18 11V5a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v6"/><circle cx="7" cy="20" r="1"/><circle cx="17" cy="20" r="1"/>`,
+  briefcase:      `<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>`,
+  check:          `<polyline points="20 6 9 17 4 12"/>`,
+  'external-link':`<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>`,
+  'arrow-up':     `<line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>`,
+  'arrow-down':   `<line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/>`,
+  x:              `<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>`,
+};
+
+function ico(name, size = 14) {
+  const inner = ICONS[name] ?? '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;flex-shrink:0">${inner}</svg>`;
+}
+
 // === STATE ===
 let allListings = [];
 let activeLocale = localStorage.getItem("locale") ?? "main-line";
@@ -654,7 +688,7 @@ function renderInvestmentRows(l) {
     brrrrHtml = `
       <div class="investment-brrrr" onclick="toggleBrrrr(this)">
         <div class="brrrr-summary">
-          <span class="brrrr-arrow" style="font-size: 1rem;">▸</span> <span class="tip ${b.isFullBrrrr ? "brrrr-full-badge" : ""}" data-tip="Buy, Rehab, Rent, Refinance, Repeat — a strategy to recover your down payment via a cash-out refi after adding value through renovation.">BRRRR ${b.isFullBrrrr ? "👍" : "👎"}</span> &nbsp; <span class="tip" data-tip="After-Repair Value: estimated market value after renovation, based on recent sold comps in this area.">ARV</span> ${fmtK(b.arv)} · Reno ~${fmtK(b.reno)} · <span class="tip" data-tip="Value created by buying below market and renovating: ARV minus purchase price minus reno cost.">Equity</span> ${fmtK(b.forcedEquity)} · <span class="tip" data-tip="Cash you'd receive from the refi after paying off the original loan. Positive means capital recovered.">Refi pull</span> ${fmtK(b.cashBack)}
+          <span class="brrrr-arrow">${ico('chevron', 14)}</span> <span class="tip ${b.isFullBrrrr ? "brrrr-full-badge" : ""}" data-tip="Buy, Rehab, Rent, Refinance, Repeat — a strategy to recover your down payment via a cash-out refi after adding value through renovation.">BRRRR ${b.isFullBrrrr ? "✓" : "✗"}</span> &nbsp; <span class="tip" data-tip="After-Repair Value: estimated market value after renovation, based on recent sold comps in this area.">ARV</span> ${fmtK(b.arv)} · Reno ~${fmtK(b.reno)} · <span class="tip" data-tip="Value created by buying below market and renovating: ARV minus purchase price minus reno cost.">Equity</span> ${fmtK(b.forcedEquity)} · <span class="tip" data-tip="Cash you'd receive from the refi after paying off the original loan. Positive means capital recovered.">Refi pull</span> ${fmtK(b.cashBack)}
         </div>
         <div class="brrrr-detail">
           <div class="brrrr-row"><span><span class="tip" data-tip="Estimated market value after renovation, based on median sold $/sqft from recent comps in this city.">After-repair value</span></span><span>$${fmt(b.arv)}</span></div>
@@ -696,7 +730,7 @@ function toggleBrrrr(el) {
   const isOpen = el.classList.contains("brrrr-open");
   el.classList.toggle("brrrr-open", !isOpen);
   detail.style.display = isOpen ? "none" : "";
-  if (arrowSpan) arrowSpan.textContent = isOpen ? "▸" : "▾";
+  if (arrowSpan) arrowSpan.innerHTML = ico('chevron', 14);
 }
 
 function scoreClass(s) {
@@ -708,11 +742,11 @@ function scoreClass(s) {
 function domLabel(dom) {
   if (dom == null) return "";
   if (investmentConfig) {
-    if (dom > 30) return `<span class="dom-ok">${dom}d ↑</span>`;
+    if (dom > 30) return `<span class="dom-ok">${dom}d ${ico('arrow-up', 10)}</span>`;
     return `<span class="dom-ok">${dom}d</span>`;
   }
-  if (dom <= 7) return `<span class="dom-ok">${dom}d ↑</span>`;
-  if (dom > 30) return `<span class="dom-ok">${dom}d ↓</span>`;
+  if (dom <= 7) return `<span class="dom-ok">${dom}d ${ico('arrow-up', 10)}</span>`;
+  if (dom > 30) return `<span class="dom-ok">${dom}d ${ico('arrow-down', 10)}</span>`;
   return `<span class="dom-ok">${dom}d</span>`;
 }
 
@@ -1269,31 +1303,31 @@ function getBadges(l) {
   const badges = [];
   // warning badges — check brief_short + brief_full combined
   if (full && DEV_KEYWORDS.test(full) && !DEV_SUPPRESSOR.test(full))
-    badges.push({ label: '⚠ DEV PLAY',    bg: '#78350f', fg: '#fde68a' });
+    badges.push({ label: ico('alert-triangle', 11) + ' DEV PLAY', bg: '#78350f', fg: '#fde68a' });
   if (full && FLIP_KEYWORDS.test(full) && !FLIP_SUPPRESSOR.test(full))
-    badges.push({ label: '↑ FLIP',         bg: '#713f12', fg: '#fef08a' });
+    badges.push({ label: ico('trending-up', 11)    + ' FLIP',     bg: '#713f12', fg: '#fef08a' });
   if (l.prior_listing_id)
-    badges.push({ label: '↺ RELISTING',  bg: '#713f12', fg: '#fef08a' });
+    badges.push({ label: ico('rotate-ccw', 11)     + ' RELISTING',bg: '#713f12', fg: '#fef08a' });
   if (full && MULTI_UNIT_KW.test(full))
-    badges.push({ label: '⊞ MULTI-UNIT',  bg: '#1e3a5f', fg: '#93c5fd' });
+    badges.push({ label: ico('building', 11)        + ' MULTI-UNIT',bg: '#1e3a5f', fg: '#93c5fd' });
   // data-driven badges
   if (l.price_at_first_seen && l.price < l.price_at_first_seen)
-    badges.push({ label: '↓ PRICE DROP',  bg: '#14532d', fg: '#86efac' });
+    badges.push({ label: ico('trending-down', 11)  + ' PRICE DROP',bg: '#14532d', fg: '#86efac' });
   if (l.year_built && l.year_built >= 2018)
-    badges.push({ label: '🏗 NEW BUILD',   bg: '#1e3a5f', fg: '#93c5fd' });
+    badges.push({ label: ico('hard-hat', 11)        + ' NEW BUILD', bg: '#1e3a5f', fg: '#93c5fd' });
   // feature badges
   const isNewBuild = l.year_built && l.year_built >= 2018;
   const isTurnkey = bs && TURNKEY_KW.test(bs);
-  if (bs && SOLAR_KW.test(bs))                    badges.push({ label: '☀ SOLAR',    bg: '#713f12', fg: '#fde68a' });
-  if (bs && EV_KW.test(bs))                        badges.push({ label: '⚡ EV',       bg: '#1e3a5f', fg: '#93c5fd' });
-  if (bs && POOL_KW.test(bs))                      badges.push({ label: '🏊 POOL',     bg: '#164e63', fg: '#67e8f9' });
-  if (bs && KITCHEN_KW.test(bs) && !isTurnkey)     badges.push({ label: '🍳 KITCHEN',  bg: '#365314', fg: '#bef264' });
-  if (bs && ADU_KW.test(bs))                       badges.push({ label: '🏠 ADU',      bg: '#3b0764', fg: '#d8b4fe' });
-  if (bs && GRASS_KW.test(bs))                     badges.push({ label: '🌿 GRASS',    bg: '#14532d', fg: '#86efac' });
-  if (bs && VIEW_KW.test(bs))                      badges.push({ label: '🌊 VIEW',     bg: '#0c4a6e', fg: '#7dd3fc' });
-  if (bs && GARAGE_KW.test(bs))                    badges.push({ label: '🚗 GARAGE',   bg: '#374151', fg: '#e5e7eb' });
-  if (bs && OFFICE_KW.test(bs))                    badges.push({ label: '💼 OFFICE',   bg: '#374151', fg: '#e5e7eb' });
-  if (isTurnkey && !isNewBuild)                    badges.push({ label: '✓ TURNKEY',  bg: '#14532d', fg: '#86efac' });
+  if (bs && SOLAR_KW.test(bs))                    badges.push({ label: ico('sun', 11)        + ' SOLAR',   bg: '#713f12', fg: '#fde68a' });
+  if (bs && EV_KW.test(bs))                        badges.push({ label: ico('zap', 11)        + ' EV',      bg: '#1e3a5f', fg: '#93c5fd' });
+  if (bs && POOL_KW.test(bs))                      badges.push({ label: ico('waves', 11)      + ' POOL',    bg: '#164e63', fg: '#67e8f9' });
+  if (bs && KITCHEN_KW.test(bs) && !isTurnkey)     badges.push({ label: ico('utensils', 11)   + ' KITCHEN', bg: '#365314', fg: '#bef264' });
+  if (bs && ADU_KW.test(bs))                       badges.push({ label: ico('home', 11)        + ' ADU',     bg: '#3b0764', fg: '#d8b4fe' });
+  if (bs && GRASS_KW.test(bs))                     badges.push({ label: ico('leaf', 11)        + ' GRASS',   bg: '#14532d', fg: '#86efac' });
+  if (bs && VIEW_KW.test(bs))                      badges.push({ label: ico('eye', 11)         + ' VIEW',    bg: '#0c4a6e', fg: '#7dd3fc' });
+  if (bs && GARAGE_KW.test(bs))                    badges.push({ label: ico('car', 11)         + ' GARAGE',  bg: '#374151', fg: '#e5e7eb' });
+  if (bs && OFFICE_KW.test(bs))                    badges.push({ label: ico('briefcase', 11)   + ' OFFICE',  bg: '#374151', fg: '#e5e7eb' });
+  if (isTurnkey && !isNewBuild)                    badges.push({ label: ico('check', 11)        + ' TURNKEY', bg: '#14532d', fg: '#86efac' });
   return badges;
 }
 
@@ -1322,8 +1356,8 @@ function cardHtml(l) {
     <div class="card-photo-wrap">
       ${
         imgUrl
-          ? `<img class="card-photo" src="${imgUrl}" alt="${l.address}" onerror="this.outerHTML='<div class=\\'card-photo card-photo-placeholder\\'><span>🏠</span></div>'">`
-          : `<div class="card-photo card-photo-placeholder"><span>🏠</span></div>`
+          ? `<img class="card-photo" src="${imgUrl}" alt="${l.address}" onerror="this.outerHTML='<div class=\\'card-photo card-photo-placeholder\\'>${ico('home', 32)}</div>'">`
+          : `<div class="card-photo card-photo-placeholder">${ico('home', 32)}</div>`
       }
       <label class="card-select-cb${isSelected ? " is-checked" : ""}" onclick="event.stopPropagation()">
         <input type="checkbox" onchange="toggleCompare('${l.id}', this)" ${isSelected ? "checked" : ""} />
@@ -1352,9 +1386,9 @@ function cardHtml(l) {
     </div>
     ${renderInvestmentRows(l)}
     <div class="card-footer">
-      <a class="redfin-link" href="${l.url}" target="_blank" rel="noopener">View on Redfin →</a>
-      ${ohTip ? `<span class="oh-action${isThisWeekend(l.next_open_house_start) ? " oh-soon" : ""}" data-tip="${ohTip}">🏠</span>` : ""}
-      <button class="star-btn${l.starred ? " starred" : ""}" onclick="toggleStar('${l.id}', this)" title="Star this listing">${l.starred ? "★" : "☆"}</button>
+      <a class="redfin-link" href="${l.url}" target="_blank" rel="noopener">View on Redfin ${ico('external-link', 11)}</a>
+      ${ohTip ? `<span class="oh-action${isThisWeekend(l.next_open_house_start) ? " oh-soon" : ""}" data-tip="${ohTip}">${ico('home', 14)}</span>` : ""}
+      <button class="star-btn${l.starred ? " starred" : ""}" onclick="toggleStar('${l.id}', this)" title="Star this listing">${l.starred ? ico('star-filled', 16) : ico('star', 16)}</button>
     </div>
   </div>`;
 }
@@ -1378,7 +1412,7 @@ function renderExpandable(l) {
   }
   if (hasHistory) {
     const priorFmt = l.prior_list_price ? `was $${fmt(l.prior_list_price)}` : 'prior listing';
-    header += ` <span class="relist-indicator">↺ ${priorFmt}</span>`;
+    header += ` <span class="relist-indicator">${ico('rotate-ccw', 11)} ${priorFmt}</span>`;
   }
 
   // Expanded content: brief bullets + history section (independently)
@@ -1397,7 +1431,7 @@ function renderExpandable(l) {
 
   return `
     <div class="brief-short" onclick="toggleExpandable('${id}', '${hasHistory ? l.id : ''}')">
-      ${header}
+      <span class="expand-chevron">${ico('chevron', 16)}</span>${header}
     </div>
     <div id="${id}" class="expand-container">${expanded}</div>`;
 }
@@ -1469,7 +1503,7 @@ function renderHistorySection(data) {
   });
 
   return `<div class="history-content">
-    <div class="history-header">↺ Property history · True time on market: <strong>${trueDom} days</strong></div>
+    <div class="history-header">${ico('rotate-ccw', 12)} Property history · True time on market: <strong>${trueDom} days</strong></div>
     ${rows.join('')}
   </div>`;
 }
@@ -2054,7 +2088,7 @@ function renderInventoryChart(data) {
 async function toggleStar(id, btn) {
   const res = await fetch(`/api/listings/${id}/star`, { method: "POST" });
   const { starred } = await res.json();
-  btn.textContent = starred ? "★" : "☆";
+  btn.innerHTML = starred ? ico('star-filled', 16) : ico('star', 16);
   btn.classList.toggle("starred", starred);
   const listing = allListings.find((l) => l.id === id);
   if (listing) listing.starred = starred ? 1 : 0;
@@ -2116,7 +2150,7 @@ function switchView(view) {
 function toggleTheme() {
   const isDark = document.documentElement.classList.toggle("dark");
   localStorage.setItem("theme", isDark ? "dark" : "light");
-  document.getElementById("theme-btn").textContent = isDark ? "☀️" : "🌙";
+  document.getElementById("theme-btn").innerHTML = isDark ? ico('sun', 16) : ico('moon', 16);
   updateMapTiles();
   if (inventoryChart) {
     const gridColor = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
@@ -2128,7 +2162,7 @@ function toggleTheme() {
 
 document.addEventListener("DOMContentLoaded", () => {
   const isDark = document.documentElement.classList.contains("dark");
-  document.getElementById("theme-btn").textContent = isDark ? "☀️" : "🌙";
+  document.getElementById("theme-btn").innerHTML = isDark ? ico('sun', 16) : ico('moon', 16);
   const savedView = localStorage.getItem("view") ?? "listings";
   if (savedView !== "listings") {
     switchView(savedView);
