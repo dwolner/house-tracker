@@ -39,6 +39,8 @@ export interface Listing {
   first_seen_at: string;
   last_seen_at: string;
   price_at_first_seen: number;
+  prior_listing_id: string | null;
+  prior_list_price: number | null;
 }
 
 let _db: Database.Database | null = null;
@@ -161,12 +163,14 @@ export function getDb(): Database.Database {
   if (!cols.includes('superseded_by')) _db.exec(`ALTER TABLE listings ADD COLUMN superseded_by TEXT REFERENCES listings(id)`);
   if (!cols.includes('brief_short')) _db.exec(`ALTER TABLE listings ADD COLUMN brief_short TEXT`);
   if (!cols.includes('brief_full')) _db.exec(`ALTER TABLE listings ADD COLUMN brief_full TEXT`);
+  if (!cols.includes('prior_listing_id')) _db.exec(`ALTER TABLE listings ADD COLUMN prior_listing_id TEXT REFERENCES listings(id)`);
+  if (!cols.includes('prior_list_price'))  _db.exec(`ALTER TABLE listings ADD COLUMN prior_list_price INTEGER`);
 
   return _db;
 }
 
 export function upsertListing(
-  listing: Omit<Listing, 'first_seen_at' | 'last_seen_at' | 'price_at_first_seen' | 'score_breakdown' | 'starred'> & {
+  listing: Omit<Listing, 'first_seen_at' | 'last_seen_at' | 'price_at_first_seen' | 'score_breakdown' | 'starred' | 'prior_listing_id' | 'prior_list_price'> & {
     score: number;
     breakdown: ScoreBreakdown;
     locale_id: string;
@@ -181,6 +185,55 @@ export function upsertListing(
     .get(listing.id) as { id: string; price: number; status: string; walk_score: number | null; school_district: string | null; pending_at: string | null; locale_id: string; brief_short: string | null; brief_full: string | null } | undefined;
 
   if (!existing) {
+    // Check for a prior inactive listing at the same address (relisting detection)
+    const prior = db
+      .prepare(`SELECT id, price_at_first_seen, days_on_market, first_seen_at, last_seen_at
+                FROM listings
+                WHERE LOWER(TRIM(address)) = LOWER(TRIM(?))
+                  AND status = 'inactive'
+                  AND id != ?
+                  AND superseded_by IS NULL
+                  AND locale_id = ?
+                ORDER BY last_seen_at DESC
+                LIMIT 1`)
+      .get(listing.address, listing.id, listing.locale_id) as {
+        id: string; price_at_first_seen: number; days_on_market: number | null;
+        first_seen_at: string; last_seen_at: string;
+      } | undefined;
+
+    const priorListingId = prior?.id ?? null;
+    const priorListPrice = prior?.price_at_first_seen ?? null;
+
+    // If relisting detected, rescore to apply relistingPenalty
+    let insertScore = listing.score;
+    let insertBreakdown = score_breakdown;
+    if (prior) {
+      const locale = getLocale(listing.locale_id);
+      // Cast to RedfinListing — prior_listing_id / prior_list_price will be added in Task 2;
+      // for now we pass them as extra fields so the penalty logic (Task 3) can read them.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rescoreInput: any = {
+        id: listing.id, address: listing.address, city: listing.city, state: listing.state,
+        zip: listing.zip, price: listing.price, beds: listing.beds, baths: listing.baths,
+        sqft: listing.sqft, lot_sqft: listing.lot_sqft, year_built: listing.year_built,
+        property_type: listing.property_type, lat: listing.lat, lng: listing.lng,
+        url: listing.url, status: listing.status, status_label: listing.status_label ?? '',
+        days_on_market: listing.days_on_market,
+        next_open_house_start: listing.next_open_house_start ?? null,
+        next_open_house_end: listing.next_open_house_end ?? null,
+        sold_date: null,
+        walk_score: listing.walk_score,
+        school_district: listing.school_district,
+        brief_short: null,
+        brief_full: null,
+        prior_listing_id: prior.id,
+        prior_list_price: prior.price_at_first_seen,
+      };
+      const rescored = scoreWithBreakdown(rescoreInput, locale);
+      insertScore = rescored.total;
+      insertBreakdown = JSON.stringify(rescored);
+    }
+
     // If the listing is already pending when we first see it, record that immediately
     const insertPendingAt = listing.status === '130' ? now : null;
     const insertPendingPrice = listing.status === '130' ? listing.price : null;
@@ -189,14 +242,17 @@ export function upsertListing(
       INSERT INTO listings (id, address, city, state, zip, price, beds, baths, sqft, lot_sqft,
         year_built, walk_score, property_type, lat, lng, url, status, days_on_market,
         score, score_breakdown, next_open_house_start, next_open_house_end,
-        first_seen_at, last_seen_at, price_at_first_seen, pending_at, pending_price, status_label, locale_id)
+        first_seen_at, last_seen_at, price_at_first_seen, pending_at, pending_price, status_label, locale_id,
+        prior_listing_id, prior_list_price)
       VALUES (@id, @address, @city, @state, @zip, @price, @beds, @baths, @sqft, @lot_sqft,
         @year_built, @walk_score, @property_type, @lat, @lng, @url, @status, @days_on_market,
         @score, @score_breakdown, @next_open_house_start, @next_open_house_end,
-        @first_seen_at, @last_seen_at, @price_at_first_seen, @pending_at, @pending_price, @status_label, @locale_id)
+        @first_seen_at, @last_seen_at, @price_at_first_seen, @pending_at, @pending_price, @status_label, @locale_id,
+        @prior_listing_id, @prior_list_price)
     `).run({
       ...listing,
-      score_breakdown,
+      score: insertScore,
+      score_breakdown: insertBreakdown,
       first_seen_at: now,
       last_seen_at: now,
       price_at_first_seen: listing.price,
@@ -204,11 +260,20 @@ export function upsertListing(
       pending_price: insertPendingPrice,
       status_label: listing.status_label ?? null,
       locale_id: listing.locale_id,
+      prior_listing_id: priorListingId,
+      prior_list_price: priorListPrice,
     });
 
     db.prepare('INSERT INTO price_history (listing_id, price, recorded_at) VALUES (?, ?, ?)').run(
       listing.id, listing.price, now,
     );
+
+    if (prior) {
+      db.prepare(`INSERT INTO change_log (listing_id, change_type, old_value, new_value, changed_at)
+                  VALUES (?, 'relisted', ?, ?, ?)`)
+        .run(listing.id, String(prior.price_at_first_seen), String(listing.price), now);
+    }
+
     return { isNew: true };
   }
 
@@ -443,7 +508,7 @@ export function getUnnotifiedChanges(minScore = 0, enabledLocaleIds?: string[]):
     FROM change_log c
     JOIN listings l ON l.id = c.listing_id
     WHERE c.notified = 0
-      AND c.change_type IN ('price_drop', 'price_increase', 'now_active')
+      AND c.change_type IN ('price_drop', 'price_increase', 'now_active', 'relisted')
       AND l.score >= ?
       AND l.superseded_by IS NULL
       ${localeSql}
