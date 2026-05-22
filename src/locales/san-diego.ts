@@ -97,6 +97,7 @@ export const sanDiegoLocale: LocaleConfig = {
     zipPenalty: { weight: 15, zips: ['92115'] },
     multiUnitPenalty: { weight: 25 },
     flipPenalty: { weight: 15 },
+    // weight: relisted at same/higher price; reducedWeight: relisted lower (seller conceded)
     relistingPenalty: { weight: 8, reducedWeight: 4 },
     bathBedRatioPenalty: { weight: 8, minBeds: 4, minBaths: 2.5 },
     sqftFloorPenalty: { weight: 10, minSqft: 1500 },
@@ -104,3 +105,4 @@ export const sanDiegoLocale: LocaleConfig = {
   },
 };
 // Positive weight denominator: 20+12+14+18+12+10+6+10 = 102 (yearBuiltBonus is additive, not in denominator)
+// Penalties (not in denominator): zipPenalty=15, multiUnitPenalty=25, flipPenalty=15, bathBedRatioPenalty=8, sqftFloorPenalty=10, relistingPenalty=8

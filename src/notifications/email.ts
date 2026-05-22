@@ -32,6 +32,7 @@ export interface NotifyListing {
   lat: number | null;
   lng: number | null;
   year_built: number | null;
+  prior_listing_id?: string | null;
 }
 
 type Palette = {
@@ -254,7 +255,7 @@ function scoreChipsHtml(l: NotifyListing, P: Palette): string {
 // Warning badge patterns
 const DEV_KEYWORDS   = /developer|zoning variance|rezoning|land value|teardown|redevelopment|upside potential|fixer|handyman|needs work|gut rehab|original condition|unimproved|lot value|demo|tlc/i;
 const DEV_SUPPRESSOR = /renovated|remodeled|updated|turnkey|fully.updated|new kitchen|new bath|new roof|new floors|freshly/i;
-const FLIP_KEYWORDS   = /\bflip\b|flipped|markup|relisted.{0,20}\$|purchased.{0,30}relisted/i;
+const FLIP_KEYWORDS   = /\bflip\b|flipped|markup/i;
 const FLIP_SUPPRESSOR = /since \d{4}|over \d+ years?|\d+.year.{0,10}(hold|appreciation|ownership)|not a flip|no flip|move.up sale|original.{0,20}(developer|builder)/i;
 const MULTI_UNIT_KW   = /duplex|dual.unit|multi.unit|income property|upper.{0,10}lower|lower.{0,10}upper|\b2 units\b|two units|both units|student rental|stabilized rental/i;
 
@@ -278,6 +279,7 @@ function getEmailBadges(l: NotifyListing, suppress: Set<string> = new Set()): { 
   const badges: { label: string; bg: string; fg: string }[] = [];
   if (full && DEV_KEYWORDS.test(full) && !DEV_SUPPRESSOR.test(full)) badges.push({ label: '⚠ DEV PLAY',   bg: '#78350f', fg: '#fde68a' });
   if (full && FLIP_KEYWORDS.test(full) && !FLIP_SUPPRESSOR.test(full)) badges.push({ label: '↑ FLIP',      bg: '#713f12', fg: '#fef08a' });
+  if (l.prior_listing_id)                                            badges.push({ label: '↺ RELISTING', bg: '#713f12', fg: '#fef08a' });
   if (full && MULTI_UNIT_KW.test(full)) badges.push({ label: '⊞ MULTI-UNIT', bg: '#1e3a5f', fg: '#93c5fd' });
   if (!suppress.has('PRICE DROP') && l.price_at_first_seen && l.price < l.price_at_first_seen) badges.push({ label: '↓ PRICE DROP', bg: '#14532d', fg: '#86efac' });
   if (l.year_built && l.year_built >= 2018)                      badges.push({ label: '🏗 NEW BUILD',  bg: '#1e3a5f', fg: '#93c5fd' });

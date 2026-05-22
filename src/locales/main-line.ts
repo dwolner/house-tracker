@@ -108,6 +108,7 @@ export const mainLineLocale: LocaleConfig = {
       outerKm: 1.2,
     },
     domPenalty: { weight: 6 },
+    // weight: relisted at same/higher price; reducedWeight: relisted lower (seller conceded)
     relistingPenalty: { weight: 8, reducedWeight: 4 },
   },
 };

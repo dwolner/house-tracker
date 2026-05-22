@@ -134,6 +134,7 @@ export const stLouisLocale: LocaleConfig = {
       cocGood:            0.05,  // 5% CoC → half pts
       cocExcellent:       0.08,  // 8% CoC → full pts
     },
+    // weight: relisted at same/higher price; reducedWeight: relisted lower (seller conceded)
     relistingPenalty: { weight: 8, reducedWeight: 4 },
   },
   investmentConfig: {
