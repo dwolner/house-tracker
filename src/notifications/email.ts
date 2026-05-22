@@ -453,6 +453,7 @@ function buildDigestHtml(newListings: NotifyListing[], changes: ChangeWithListin
     { label: 'Price Drop', type: 'price_drop' },
     { label: 'Price Increase', type: 'price_increase' },
     { label: 'Now Active', type: 'now_active' },
+    { label: 'Relisted', type: 'relisted' },
   ];
 
   let body = '';

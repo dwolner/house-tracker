@@ -209,8 +209,8 @@ export function upsertListing(
     let insertBreakdown = score_breakdown;
     if (prior) {
       const locale = getLocale(listing.locale_id);
-      // Cast to RedfinListing — prior_listing_id / prior_list_price will be added in Task 2;
-      // for now we pass them as extra fields so the penalty logic (Task 3) can read them.
+      // prior_listing_id / prior_list_price are excluded from the upsertListing parameter type
+      // (they're computed internally here), so we cast to carry them into scoreWithBreakdown.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const rescoreInput: any = {
         id: listing.id, address: listing.address, city: listing.city, state: listing.state,
@@ -490,6 +490,7 @@ export interface ChangeWithListing {
   lat: number | null;
   lng: number | null;
   year_built: number | null;
+  prior_listing_id: string | null;
 }
 
 export function getUnnotifiedChanges(minScore = 0, enabledLocaleIds?: string[]): ChangeWithListing[] {
@@ -504,7 +505,7 @@ export function getUnnotifiedChanges(minScore = 0, enabledLocaleIds?: string[]):
            l.id, l.address, l.city, l.state, l.zip, l.price, l.price_at_first_seen,
            l.beds, l.baths, l.sqft, l.lot_sqft, l.days_on_market, l.first_seen_at,
            l.score, l.score_breakdown, l.school_district, l.property_type, l.walk_score, l.url,
-           l.brief_short, l.brief_full, l.lat, l.lng, l.year_built
+           l.brief_short, l.brief_full, l.lat, l.lng, l.year_built, l.prior_listing_id
     FROM change_log c
     JOIN listings l ON l.id = c.listing_id
     WHERE c.notified = 0
