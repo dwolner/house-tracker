@@ -33,7 +33,7 @@
 - **Price history sparkline** — small inline chart per card showing price over time
   - `price_history` table already populated; needs a Chart.js sparkline per listing card
 
-## Completed
+## Completed (May 2026)
 
 - [x] Redfin polling — active + coming soon, multiple Main Line regions
 - [x] Walk score enrichment — via Redfin internal neighborhood stats API
@@ -81,8 +81,13 @@
 - [x] Main Line `domPenalty` 10→6 (consistent across locales)
 - [x] FRED mortgage rate at startup — `getCurrentMortgageRate()` seeded non-blocking on server start so first web request has a live rate
 - [x] Email redesign — light theme palette (`LIGHT`) alongside dark; card layout: price+score in same header row, type pill above card, DOM inline with score badge; `buildPreviewHtml` export; `GET /email-preview?locale=&n=&theme=` route for browser preview
+- [x] Relisting detection — structural detection when a property is relisted under a new Redfin ID (same address + locale, prior listing inactive); `prior_listing_id` + `prior_list_price` columns; tiered `relistingPenalty` (−8 same/higher price, −4 lower price); `↺ RELISTING` badge separate from `↑ FLIP`; true cumulative DOM displayed on card with `↺` marker; full history chain via `/api/listings/:id/history`; `relisted` change type in email digest with prior→new price delta
+- [x] Type system refactor — `RedfinListing` is now pure Redfin CSV fields only; `ScoringInput extends RedfinListing` adds enrichment fields; `RelistingContext` is a separate optional arg to `scoreWithBreakdown` so prior listing data never pollutes any listing type
+- [x] Price Trends by neighborhood — SD and STL trend charts now group by ZIP (mapped to neighborhood label/color via `SD_POLLING_REGIONS` / `STL_POLLING_REGIONS`) rather than city name, since all SD listings share `city = "san diego"` and most STL listings share `city = "saint louis"`
+- [x] Icon system — all icons in `app.js` use inline Lucide SVG paths via `ico(name, size)` helper; `icoAttr()` variant for safe embedding in HTML attributes; no CDN dependency; email keeps Unicode characters (SVG unsupported in email clients)
+- [x] Expanded card UX — brief and history are independent sections in a single expandable; `▸` chevron rotates on open; history section lazy-fetches on first expand; "Generate Brief" button centered with dashed border
 
 ---
 
-**Last Updated:** April 29, 2026
+**Last Updated:** May 22, 2026
 **Author:** Daniel Wolner

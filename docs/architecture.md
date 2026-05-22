@@ -167,9 +167,36 @@ Card label reflects source: **"comp rent"** (direct), **"derived rent"** (premiu
 
 Sign up at [app.rentcast.io](https://app.rentcast.io/app) — free tier is 50 req/month. Keep `RENTCAST_API_KEY` only in fly.io secrets, not in local `.env`, to avoid double-counting against the monthly limit.
 
+## Type System
+
+Three distinct listing types, each with a clear scope:
+
+```ts
+// src/poller/redfin.ts — only fields that come from the Redfin CSV/JSON API
+interface RedfinListing { id, address, city, state, zip, price, beds, baths, sqft,
+  lot_sqft, year_built, property_type, lat, lng, url, status, status_label,
+  days_on_market, next_open_house_start, next_open_house_end, sold_date }
+
+// src/scoring/index.ts — RedfinListing + enrichment fields the scorer reads
+interface ScoringInput extends RedfinListing {
+  walk_score: number | null;
+  school_district: string | null;
+  brief_short: string | null;
+  brief_full: string | null;
+}
+
+// src/scoring/index.ts — passed as 4th arg to scoreWithBreakdown; never on any listing type
+interface RelistingContext {
+  prior_listing_id: string | null;
+  prior_list_price: number | null;
+}
+```
+
+`scoreWithBreakdown(listing: ScoringInput, locale, rentResolution?, context?: RelistingContext)` — the context carries relisting info so it never pollutes listing types. All enrichment paths (walk score, school district, rescore, poller) construct a `ScoringInput` explicitly and pass context separately when available.
+
 ## Scoring Engine
 
-`scoreWithBreakdown(listing, locale, rentResolution?)` in `src/scoring/index.ts`. Takes a `RedfinListing`, a `LocaleConfig`, and an optional `rentResolution` from `resolveRentOverride`; returns `ScoreBreakdown`:
+`scoreWithBreakdown` in `src/scoring/index.ts`. Returns `ScoreBreakdown`:
 
 ```ts
 interface ScoreBreakdown {
@@ -180,7 +207,7 @@ interface ScoreBreakdown {
 }
 ```
 
-The score is normalized: raw positive points are summed, divided by the sum of all positive weights, then multiplied by 100. DOM penalty is subtracted after normalization.
+The score is normalized: raw positive points are summed, divided by the sum of all positive weights, then multiplied by 100. Penalties are subtracted after normalization. `yearBuiltBonus` is added after the percentage so it doesn't inflate the denominator.
 
 **Unknown values (`null`) always score 0 — no arbitrary defaults.**
 
@@ -196,12 +223,21 @@ The score is normalized: raw positive points are summed, divided by the sum of a
 | `lot` | `LotConfig` | Linear interpolation across sorted breakpoints (acres) |
 | `transit` | `TransitConfig` | Haversine distance to nearest station |
 | `beds` | `BedsConfig` | Descending step function; first match wins |
+| `baths` | `BathsConfig` | Descending step function; first match wins |
 | `pricePerSqft` | `PricePerSqftConfig` | Piecewise linear on $/sqft |
 | `neighborhoodBonus` | `NeighborhoodBonusConfig` | Distance from center; city-gated |
 | `zipBonus` | `ZipBonusConfig` | Full bonus for listed ZIP codes |
 | `domBonus` | `DomBonusConfig` | Bonus for high-DOM listings (motivated seller signal) |
 | `investmentScore` | `InvestmentScoreConfig` | Composite: 40% cash flow + 35% cap rate + 25% CoC; 0 if rent unknown |
 | `domPenalty` | `DomPenaltyConfig` | Subtracted after normalization; full at 120+ DOM |
+| `yearBuiltPenalty` | `YearBuiltPenaltyConfig` | Graded penalty for pre-1980 construction |
+| `yearBuiltBonus` | `YearBuiltBonusConfig` | Additive bonus for newer construction; does not inflate denominator |
+| `zipPenalty` | `ZipPenaltyConfig` | Flat penalty for specific ZIPs (e.g. SDSU-adjacent rental market) |
+| `multiUnitPenalty` | `MultiUnitPenaltyConfig` | Flat penalty when brief text matches multi-unit keywords |
+| `flipPenalty` | `FlipPenaltyConfig` | Flat penalty when brief text matches flip language (`flip`, `flipped`, `markup`) |
+| `relistingPenalty` | `RelistingPenaltyConfig` | Tiered: `weight` pts when relisted at same/higher price; `reducedWeight` when price lowered |
+| `bathBedRatioPenalty` | `BathBedRatioPenaltyConfig` | Flat penalty when beds ≥ minBeds but baths < minBaths |
+| `sqftFloorPenalty` | `SqftFloorPenaltyConfig` | Flat penalty when sqft < minSqft |
 
 ### Scoring weights by locale
 
@@ -226,7 +262,7 @@ When `investmentConfig` is present on a locale, both the scoring engine and the 
 
 **Frontend (`computeUpside`):** reads `score_breakdown.rentUsed` + `score_breakdown.rentSource` (written at score time) as the primary rent source — UI and backend always agree. Renders an investment row per card showing cash flow, CoC, cap rate, break-even price, and BRRRR analysis.
 
-**BRRRR analysis** — ARV from median sold $/sqft (last 12 months, min 3 sales per city), forced equity, refi pull at `refinanceLtv`, full vs. partial BRRRR flag.
+**BRRRR analysis** — ARV from median sold $/sqft (last 12 months, min 1 sale per city, `sold_price > 10000` sanity guard), forced equity, refi pull at `refinanceLtv`, full vs. partial BRRRR flag.
 
 ### `investmentConfig` fields
 
@@ -274,14 +310,20 @@ listings (
   locale_id TEXT,                -- 'main-line', 'san-diego', 'st-louis'
   starred INTEGER DEFAULT 0,
   next_open_house_start TEXT,
-  next_open_house_end TEXT
+  next_open_house_end TEXT,
+  brief_short TEXT,              -- AI-generated one-liner (Claude Haiku)
+  brief_full TEXT,               -- JSON array of bullet strings
+  superseded_by TEXT,            -- FK → listings.id for dedup chains
+  prior_listing_id TEXT,         -- FK → listings.id — most-recent inactive listing at same address
+  prior_list_price INTEGER       -- price_at_first_seen of prior_listing_id (stored to avoid join at score time)
 )
 
 price_history     (listing_id, price, recorded_at)
 poll_log          (polled_at, area, listings_found, new_listings)
 change_log        (listing_id, change_type, old_value, new_value, changed_at, notified)
-                  sweepStaleChanges() marks unnotified rows older than 48h as seen on each poll cycle
-                  to prevent backlog bursts after downtime or rescores
+  -- change_type values: price_drop, price_increase, now_active, now_pending, relisted, sold
+  -- relisted: old_value=prior price_at_first_seen, new_value=new listing price
+  -- sweepStaleChanges() marks unnotified rows older than 48h as seen (prevents burst after downtime)
 
 rental_estimates (
   listing_id TEXT PRIMARY KEY,   -- FK → listings.id
@@ -304,12 +346,12 @@ rentcast_usage (
 
 | Route | Description |
 |---|---|
-| `GET /api/listings` | Active listings; supports `?locale_id=`, `?min_score=`, `?city=`, `?prop_type=` filters |
-| `GET /api/listings/:id/history` | Price history for a single listing |
+| `GET /api/listings` | Active listings with `prior_listing_id`, `prior_list_price`, `prior_days_on_market`, `prior_last_seen_at` (via LEFT JOIN); supports `?locale_id=`, `?min_score=`, `?city=`, `?prop_type=` filters |
+| `GET /api/listings/:id/history` | Walks `prior_listing_id` chain (up to 5 hops), returns `{ appearances: [...], trueDom }` where each appearance includes `prices[]` from `price_history` |
 | `GET /api/stats?locale_id=` | Summary stats (total, fresh, last poll, cities, property types) |
 | `GET /api/inventory` | Inventory trends over time from `poll_log` |
 | `GET /api/outcomes` | Pending/sold outcomes with DOM and price deltas |
-| `GET /api/trends` | Price and score trends by city/month |
+| `GET /api/trends` | Price and score trends by city+zip/month. SD and STL group by zip (neighborhoods share a city name); Main Line groups by city. Frontend maps zip → neighborhood label via `SD_POLLING_REGIONS` / `STL_POLLING_REGIONS`. |
 | `GET /api/locales/:id/investment` | Investment config for a locale |
 | `GET /api/locales/:id/comps` | Median sold $/sqft by city (last 12 months, min 3 sales) |
 | `GET /api/locales/:id/rent-estimates` | Cached RentCast rent estimates keyed by listing ID |
@@ -347,6 +389,37 @@ rentcast_usage (
 | `RENTCAST_API_KEY` | No | RentCast API key for STL rent estimates (free tier: 50 req/30-day period) |
 | `RENTCAST_DAILY_LIMIT` | No | Max RentCast calls per day (default: 1; raise temporarily for backfill) |
 
+## Relisting Detection
+
+Sellers relist properties under a new Redfin ID to reset the DOM clock. The system detects and links these structurally.
+
+**Detection** — inside `upsertListing()` on `isNew = true`: queries for the most-recent `inactive` listing with the same address (`LOWER(TRIM(address))`), same `locale_id`, and `superseded_by IS NULL`. If found:
+- Sets `prior_listing_id` and `prior_list_price` on the new listing's INSERT
+- Rescores immediately via `scoreWithBreakdown` with `RelistingContext` so the penalty is applied at insert time (before enrichment rescores would otherwise overwrite it)
+- Logs a `relisted` entry in `change_log` (`old_value = prior price_at_first_seen`, `new_value = new price`)
+
+**Penalty** — `relistingPenalty` in `ScoringConfig`:
+- Relisted at same or higher price → `weight` pts (full penalty — cynical DOM reset)
+- Relisted at lower price → `reducedWeight` pts (partial — seller conceded to market)
+- All three locales configured at `{ weight: 8, reducedWeight: 4 }`
+
+**FLIP vs RELISTING** — `FLIP_KEYWORDS` (`/\bflip\b|flipped|markup/i`) detects explicit flip language in the brief. Relisting is structural and separate. A listing that is both (e.g. a flipped property that was relisted) correctly shows both badges and both penalties.
+
+**True DOM** — `prior_days_on_market` and `prior_last_seen_at` are included in the `/api/listings` response via LEFT JOIN on the prior listing. The frontend computes: `prior DOM + gap days + current DOM`. Shown on the card with a `↺` marker and tooltip breakdown. Full chain history (for 3+ listing appearances) is available via `/api/listings/:id/history`.
+
+**Email** — `relisted` change type handled in `changeBadgeHtml`: shows prior price, new price, and delta. DOM indicator annotated with `↺` when `prior_listing_id` is set.
+
+## Icon System
+
+All icons in `app.js` use inline Lucide SVG paths (MIT licensed). No CDN dependency — icons are embedded as a `ICONS` object at the top of `app.js`.
+
+```js
+function ico(name, size = 14)      // returns SVG string — for innerHTML
+function icoAttr(name, size = 14)  // quotes encoded as &quot; — for HTML attribute values (e.g. onerror)
+```
+
+Email uses Unicode characters (not SVG) because most email clients don't support SVG.
+
 ## Related Docs
 
 - `src/scoring/index.ts` — full scoring implementation
@@ -356,5 +429,5 @@ rentcast_usage (
 
 ---
 
-**Last Updated:** April 29, 2026
+**Last Updated:** May 22, 2026
 **Author:** Daniel Wolner
