@@ -1429,6 +1429,10 @@ async function toggleExpandable(expandId, listingId) {
   if (!el) return;
   const isOpen = el.classList.toggle('open');
 
+  // Rotate chevron on the trigger
+  const trigger = el.previousElementSibling;
+  if (trigger) trigger.classList.toggle('open', isOpen);
+
   // Lazy-load history on first open
   if (isOpen && listingId) {
     const historyEl = document.getElementById(`history-${listingId}`);
