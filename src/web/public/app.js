@@ -1405,7 +1405,7 @@ function renderExpandable(l) {
   const hasHistory = !!l.prior_listing_id;
 
   if (!hasBrief && !hasHistory) {
-    return `<button class="brief-btn" onclick="requestBrief('${l.id}', this)">Brief</button>`;
+    return `<button class="brief-btn brief-btn-generate" onclick="requestBrief('${l.id}', this)">${ico('zap', 12)} Generate Brief</button>`;
   }
 
   const id = `expand-${l.id}`;
@@ -1415,7 +1415,7 @@ function renderExpandable(l) {
   if (hasBrief) {
     header += `<span class="brief-short-text">${l.brief_short}</span>`;
   } else {
-    header += `<button class="brief-btn" onclick="event.stopPropagation();requestBrief('${l.id}', this)">Brief</button>`;
+    header += `<button class="brief-btn brief-btn-generate" onclick="event.stopPropagation();requestBrief('${l.id}', this)">${ico('zap', 12)} Generate Brief</button>`;
   }
   if (hasHistory) {
     const priorFmt = l.prior_list_price ? `was $${fmt(l.prior_list_price)}` : 'prior listing';
@@ -1444,7 +1444,7 @@ function renderExpandable(l) {
 }
 
 async function requestBrief(id, btn) {
-  btn.textContent = '…';
+  btn.innerHTML = `${ico('zap', 12)} Generating…`;
   btn.disabled = true;
   try {
     const res = await fetch(`/api/listings/${id}/brief`, { method: 'POST' });
@@ -1460,7 +1460,7 @@ async function requestBrief(id, btn) {
       wrap.innerHTML = renderExpandable(listing);
     }
   } catch {
-    btn.textContent = 'Brief';
+    btn.innerHTML = `${ico('zap', 12)} Generate Brief`;
     btn.disabled = false;
   }
 }
@@ -1893,13 +1893,32 @@ function renderTrendCharts(data) {
     ]),
   ].sort();
 
+  // For SD and STL, group by zip (neighborhoods share a city name).
+  // For Main Line, group by city (each city is a distinct area).
+  const useZip = activeLocale === "san-diego" || activeLocale === "st-louis";
+  const regionMap = activeLocale === "san-diego" ? SD_POLLING_REGIONS : STL_POLLING_REGIONS;
+
+  function trendsKey(r)   { return useZip ? r.zip : r.city; }
+  function trendsLabel(k) {
+    if (!useZip) return k.charAt(0).toUpperCase() + k.slice(1);
+    const reg = regionMap[k];
+    return reg ? reg.label : k;
+  }
+  function trendsColor(k) {
+    if (!useZip) return cityColor(k);
+    const reg = regionMap[k];
+    return reg ? reg.color : "#6b7280";
+  }
+
   const listByCityMonth = {};
-  localeData.listPrice.forEach(({ city, month, avg }) => {
-    (listByCityMonth[city] ??= {})[month] = avg;
+  localeData.listPrice.forEach((r) => {
+    const k = trendsKey(r);
+    (listByCityMonth[k] ??= {})[r.month] = r.avg;
   });
   const soldByCityMonth = {};
-  localeData.soldPrice.forEach(({ city, month, avg }) => {
-    (soldByCityMonth[city] ??= {})[month] = avg;
+  localeData.soldPrice.forEach((r) => {
+    const k = trendsKey(r);
+    (soldByCityMonth[k] ??= {})[r.month] = r.avg;
   });
 
   const priceCities = [
@@ -1910,10 +1929,11 @@ function renderTrendCharts(data) {
   ].sort();
   const priceDatasets = [];
   priceCities.forEach((city) => {
-    const color = cityColor(city);
+    const color = trendsColor(city);
+    const label = trendsLabel(city);
     if (listByCityMonth[city]) {
       priceDatasets.push({
-        label: city.charAt(0).toUpperCase() + city.slice(1) + " (list)",
+        label: label + " (list)",
         data: allMonths.map((m) => listByCityMonth[city]?.[m] ?? null),
         borderColor: color,
         backgroundColor: color + "20",
@@ -1926,7 +1946,7 @@ function renderTrendCharts(data) {
     }
     if (soldByCityMonth[city]) {
       priceDatasets.push({
-        label: city.charAt(0).toUpperCase() + city.slice(1) + " (sold)",
+        label: label + " (sold)",
         data: allMonths.map((m) => soldByCityMonth[city]?.[m] ?? null),
         borderColor: color,
         backgroundColor: "transparent",
@@ -1977,16 +1997,17 @@ function renderTrendCharts(data) {
 
   const scoreMonths = [...new Set(localeData.score.map((r) => r.month))].sort();
   const scoreByCityMonth = {};
-  localeData.score.forEach(({ city, month, avg }) => {
-    (scoreByCityMonth[city] ??= {})[month] = avg;
+  localeData.score.forEach((r) => {
+    const k = trendsKey(r);
+    (scoreByCityMonth[k] ??= {})[r.month] = r.avg;
   });
   const scoreCities = Object.keys(scoreByCityMonth).sort();
 
   const scoreDatasets = scoreCities.map((city) => ({
-    label: city.charAt(0).toUpperCase() + city.slice(1),
+    label: trendsLabel(city),
     data: scoreMonths.map((m) => scoreByCityMonth[city]?.[m] ?? null),
-    borderColor: cityColor(city),
-    backgroundColor: cityColor(city) + "20",
+    borderColor: trendsColor(city),
+    backgroundColor: trendsColor(city) + "20",
     borderWidth: 2,
     tension: 0.3,
     spanGaps: true,

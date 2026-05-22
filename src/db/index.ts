@@ -705,7 +705,7 @@ export function getSoldComps(localeId: string): Record<string, { medianPpsf: num
       FROM listings
       WHERE locale_id = ?
         AND status = '131'
-        AND sold_price > 0
+        AND sold_price > 10000
         AND sqft > 0
         AND sold_at >= ?
       ORDER BY city, ppsf
@@ -721,7 +721,7 @@ export function getSoldComps(localeId: string): Record<string, { medianPpsf: num
 
   const result: Record<string, { medianPpsf: number; sampleSize: number }> = {};
   for (const [city, values] of byCityPpsf) {
-    if (values.length < 3) continue; // need at least 3 sales to be meaningful
+    if (values.length < 1) continue;
     const sorted = [...values].sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
     const median = sorted.length % 2 === 0

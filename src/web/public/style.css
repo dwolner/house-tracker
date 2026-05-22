@@ -579,6 +579,22 @@ html.dark .card:hover {
 .brief-btn:hover {
   color: var(--text-dim);
 }
+.brief-btn-generate {
+  display: block;
+  width: 100%;
+  text-align: center;
+  text-decoration: none;
+  padding: 6px 0;
+  color: var(--text-dim);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  margin: 4px 0;
+  gap: 4px;
+}
+.brief-btn-generate:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
 
 .relist-indicator {
   color: var(--yellow);

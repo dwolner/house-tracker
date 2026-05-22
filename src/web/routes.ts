@@ -267,22 +267,22 @@ export function registerRoutes(app: FastifyInstance) {
   app.get('/api/trends', () => {
     const db = getDb();
     const listPrice = db.prepare(`
-      SELECT LOWER(city) as city, locale_id, strftime('%Y-%m', first_seen_at) as month,
+      SELECT LOWER(city) as city, zip, locale_id, strftime('%Y-%m', first_seen_at) as month,
              ROUND(AVG(price_at_first_seen)) as avg, COUNT(*) as count
       FROM listings WHERE price_at_first_seen > 0 AND first_seen_at IS NOT NULL
-      GROUP BY city, locale_id, month ORDER BY month, city
+      GROUP BY city, zip, locale_id, month ORDER BY month, city
     `).all();
     const soldPrice = db.prepare(`
-      SELECT LOWER(city) as city, locale_id, strftime('%Y-%m', sold_at) as month,
+      SELECT LOWER(city) as city, zip, locale_id, strftime('%Y-%m', sold_at) as month,
              ROUND(AVG(sold_price)) as avg, COUNT(*) as count
       FROM listings WHERE sold_price IS NOT NULL AND sold_at IS NOT NULL
-      GROUP BY city, locale_id, month ORDER BY month, city
+      GROUP BY city, zip, locale_id, month ORDER BY month, city
     `).all();
     const score = db.prepare(`
-      SELECT LOWER(city) as city, locale_id, strftime('%Y-%m', first_seen_at) as month,
+      SELECT LOWER(city) as city, zip, locale_id, strftime('%Y-%m', first_seen_at) as month,
              ROUND(AVG(score), 1) as avg, COUNT(*) as count
       FROM listings WHERE score IS NOT NULL AND first_seen_at IS NOT NULL
-      GROUP BY city, locale_id, month ORDER BY month, city
+      GROUP BY city, zip, locale_id, month ORDER BY month, city
     `).all();
     return { listPrice, soldPrice, score };
   });
