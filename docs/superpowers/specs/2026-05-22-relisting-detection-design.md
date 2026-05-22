@@ -128,9 +128,22 @@ Example history section:
    True time on market: 32 days total
 ```
 
-#### Data sourcing
+#### Data sourcing — hybrid approach
 
-Prior listing data (`prior_listing_id`, `prior_list_price`, prior DOM, prior dates) is included in the main `/api/listings` response — no separate history endpoint. The web layer renders from what's already in the payload. Price history entries for the prior listing are included in the response via a join on `price_history` at query time.
+**Main `/api/listings` payload** includes the scalar prior-listing fields: `prior_listing_id`, `prior_list_price`, prior `days_on_market`, prior `first_seen_at`, prior `last_seen_at`. These are enough to render the collapsed indicator and true DOM figure on every card without extra fetches. `brief_full` stays in the main payload — it's a single column read already happening in the query; lazy-loading it would save payload bytes but not DB work, and the size (~500 bytes/listing) is not a concern.
+
+**Separate `GET /api/listings/:id/history`** fires only when the user expands a card that has `prior_listing_id` set. It walks the `prior_listing_id` chain and joins `price_history` for each linked listing, returning the full price trajectory. This avoids a multi-table JOIN across all listings on every load — the join cost is only paid when a user actually expands a relisted listing.
+
+#### Expandable trigger
+
+The expand toggle currently fires when `brief_full` is present. It is extended to fire when either `brief_full` OR `prior_listing_id` is set:
+
+| `brief_full` | `prior_listing_id` | Collapsed shows | Expanded shows |
+|---|---|---|---|
+| ✗ | ✗ | `brief_short` (if any), badges | — (no expandable) |
+| ✓ | ✗ | `brief_short`, badges | brief bullets |
+| ✗ | ✓ | history indicator, badges | history section |
+| ✓ | ✓ | `brief_short`, history indicator, badges | brief bullets + history section |
 
 ---
 
@@ -153,9 +166,9 @@ Prior listing data (`prior_listing_id`, `prior_list_price`, prior DOM, prior dat
 
 | File | Change |
 |------|--------|
-| `src/db/index.ts` | Migration for `prior_listing_id` + `prior_list_price`; relisting detection in `upsertListing()`; `relisted` in `getUnnotifiedChanges()`; prior price history join in listing query |
-| `src/scoring/index.ts` | `relistingPenalty` factor; narrow `FLIP_KEYWORDS` regex |
+| `src/db/index.ts` | Migration for `prior_listing_id` + `prior_list_price`; relisting detection in `upsertListing()`; `relisted` in `getUnnotifiedChanges()` |
+| `src/scoring/index.ts` | `relistingPenalty` factor (tiered); narrow `FLIP_KEYWORDS` regex |
 | `src/notifications/email.ts` | `↺ RELISTING` badge; narrow `FLIP_KEYWORDS` regex |
-| `src/web/routes.ts` | Add `prior_listing_id`, `prior_list_price`, prior DOM/dates to listing response |
-| `src/web/public/app.js` | `↺ RELISTING` badge; history strip in expandable; true DOM display |
+| `src/web/routes.ts` | Add prior-listing scalars to listing response; add `GET /api/listings/:id/history` endpoint |
+| `src/web/public/app.js` | `↺ RELISTING` badge; history strip in expandable; true DOM display; lazy history fetch on expand |
 | `src/locales/*.ts` | `relistingPenalty` weight in all three locale configs |
