@@ -571,7 +571,7 @@ html.dark .card:hover {
 }
 
 .relist-indicator {
-  color: #fef08a;
+  color: var(--yellow);
   font-size: 0.8em;
   opacity: 0.85;
 }
@@ -594,7 +594,7 @@ html.dark .card:hover {
 .history-header {
   font-weight: 600;
   margin-bottom: 6px;
-  color: #fef08a;
+  color: var(--yellow);
 }
 
 .history-row {
