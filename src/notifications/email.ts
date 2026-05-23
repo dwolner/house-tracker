@@ -396,19 +396,13 @@ type ChangeWithListing = import('../db/index.js').ChangeWithListing;
 
 function changeBadgeHtml(c: ChangeWithListing, P: Palette): string {
   if (c.change_type === 'price_drop') {
-    const old = parseInt(c.old_value ?? '0');
-    const diff = old - c.price;
     return `<div style="margin-bottom:8px">
       <span style="background:rgba(74,158,114,0.12);color:${P.green};border:1px solid rgba(74,158,114,0.3);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">▼ Price Drop</span>
-      <span style="font-size:12px;color:${P.muted};margin-left:8px">$${old.toLocaleString()} → <strong style="color:${P.text}">$${c.price.toLocaleString()}</strong> <span style="color:${P.green}">−$${diff.toLocaleString()}</span></span>
     </div>`;
   }
   if (c.change_type === 'price_increase') {
-    const old = parseInt(c.old_value ?? '0');
-    const diff = c.price - old;
     return `<div style="margin-bottom:8px">
       <span style="background:rgba(192,90,71,0.12);color:${P.red};border:1px solid rgba(192,90,71,0.3);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">▲ Price Increase</span>
-      <span style="font-size:12px;color:${P.muted};margin-left:8px">$${old.toLocaleString()} → <strong style="color:${P.text}">$${c.price.toLocaleString()}</strong> <span style="color:${P.red}">+$${diff.toLocaleString()}</span></span>
     </div>`;
   }
   if (c.change_type === 'now_active') {

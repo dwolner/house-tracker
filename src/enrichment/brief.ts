@@ -96,7 +96,8 @@ Rules:
 - short: lead with the most important signal (flip risk, stale listing, negotiation leverage, standout value)
 - full: 3-5 bullets covering flip/relist detection, negotiation position, inspection flags from description, price trajectory. Omit bullets with nothing notable to say.
 - Terse, analytical, no filler. Write for a buyer doing pre-showing prep.
-- full bullets must be plain strings, no markdown formatting`;
+- full bullets must be plain strings, no markdown formatting
+- Price trajectory context: US home values rose ~40-60% from 2019-2024 due to market conditions alone. Do NOT cite appreciation in that range as evidence of renovations or unusual quality. Only flag price history if it shows flip patterns (bought and relisted within 1-2 years at a steep markup) or appreciation dramatically above 80%+ in a short window that suggests major improvement. General long-run appreciation is baseline, not signal.`;
 
   const message = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
