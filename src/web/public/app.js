@@ -1302,6 +1302,9 @@ const VIEW_KW    = /ocean view|bay view|city view|canyon view|mountain view|pano
 const GARAGE_KW  = /\b(2|two|3|three|tandem|attached|detached).car garage|\bgarage\b.{0,20}(park|storage|adu)|oversized garage/i;
 const OFFICE_KW  = /home office|office space|\boffice\b.{0,20}room|dedicated office|work from home/i;
 const TURNKEY_KW = /turnkey|move.in ready|fully.updated|fully renovated|totally renovated|\blike new\b|pristine condition/i;
+// Suppresses TURNKEY when the brief uses negation ("not move-in ready") or
+// describes work-required condition. Mirrors the DEV_KEYWORDS / DEV_SUPPRESSOR pattern.
+const TURNKEY_SUPPRESSOR = /\bnot\b[^.,]{0,40}(move.in ready|turnkey|updated|renovated)|diamond in the rough|deferred maintenance|heavy renovation|gut rehab|\bfixer\b|original condition|needs (work|renovat)/i;
 
 function getBadges(l) {
   const bs = l.brief_short || '';
@@ -1324,7 +1327,7 @@ function getBadges(l) {
     badges.push({ label: ico('hard-hat', 11)        + ' NEW BUILD', bg: '#1e3a5f', fg: '#93c5fd' });
   // feature badges
   const isNewBuild = l.year_built && l.year_built >= 2018;
-  const isTurnkey = bs && TURNKEY_KW.test(bs);
+  const isTurnkey = bs && TURNKEY_KW.test(bs) && !TURNKEY_SUPPRESSOR.test(bs);
   if (bs && SOLAR_KW.test(bs))                    badges.push({ label: ico('sun', 11)        + ' SOLAR',   bg: '#713f12', fg: '#fde68a' });
   if (bs && EV_KW.test(bs))                        badges.push({ label: ico('zap', 11)        + ' EV',      bg: '#1e3a5f', fg: '#93c5fd' });
   if (bs && POOL_KW.test(bs))                      badges.push({ label: ico('waves', 11)      + ' POOL',    bg: '#164e63', fg: '#67e8f9' });

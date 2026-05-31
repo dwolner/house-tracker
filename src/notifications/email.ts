@@ -271,6 +271,13 @@ const VIEW_KW    = /ocean view|bay view|city view|canyon view|mountain view|pano
 const GARAGE_KW  = /\b(2|two|3|three|tandem|attached|detached).car garage|\bgarage\b.{0,20}(park|storage|adu)|oversized garage/i;
 const OFFICE_KW  = /home office|office space|\boffice\b.{0,20}room|dedicated office|work from home/i;
 const TURNKEY_KW = /turnkey|move.in ready|fully.updated|fully renovated|totally renovated|\blike new\b|pristine condition/i;
+// Suppresses TURNKEY when the brief uses negation ("not move-in ready") or
+// describes work-required condition. Mirrors the DEV_KEYWORDS / DEV_SUPPRESSOR pattern.
+const TURNKEY_SUPPRESSOR = /\bnot\b[^.,]{0,40}(move.in ready|turnkey|updated|renovated)|diamond in the rough|deferred maintenance|heavy renovation|gut rehab|\bfixer\b|original condition|needs (work|renovat)/i;
+
+function chipHtml(label: string, bg: string, fg: string): string {
+  return `<span style="background:${bg};color:${fg};border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:.04em;margin-right:4px;margin-bottom:3px;display:inline-block">${label}</span>`;
+}
 
 function getEmailBadges(l: NotifyListing, suppress: Set<string> = new Set()): { label: string; bg: string; fg: string }[] {
   const bs = l.brief_short ?? '';
@@ -285,7 +292,7 @@ function getEmailBadges(l: NotifyListing, suppress: Set<string> = new Set()): { 
   if (!suppress.has('PRICE DROP') && l.price_at_first_seen && l.price < l.price_at_first_seen) badges.push({ label: '↓ PRICE DROP', bg: '#14532d', fg: '#86efac' });
   if (l.year_built && l.year_built >= 2018)                      badges.push({ label: '🏗 NEW BUILD',  bg: '#1e3a5f', fg: '#93c5fd' });
   const isNewBuild = l.year_built && l.year_built >= 2018;
-  const isTurnkey = bs && TURNKEY_KW.test(bs);
+  const isTurnkey = bs && TURNKEY_KW.test(bs) && !TURNKEY_SUPPRESSOR.test(bs);
   if (bs && SOLAR_KW.test(bs))                    badges.push({ label: '☀ SOLAR',    bg: '#713f12', fg: '#fde68a' });
   if (bs && EV_KW.test(bs))                        badges.push({ label: '⚡ EV',       bg: '#1e3a5f', fg: '#93c5fd' });
   if (bs && POOL_KW.test(bs))                      badges.push({ label: '🏊 POOL',     bg: '#164e63', fg: '#67e8f9' });
@@ -312,7 +319,7 @@ function buildCard(l: NotifyListing, P: Palette, badge = '', suppressBadges: Set
   const neighborhood = getNeighborhood(zip, l.lat, l.lng);
   const metaLine = [neighborhood, l.school_district].filter(Boolean).join(' · ');
   const badgesHtml = getEmailBadges(l, suppressBadges)
-    .map(b => `<span style="background:${b.bg};color:${b.fg};border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:.04em;margin-right:4px;margin-bottom:3px;display:inline-block">${b.label}</span>`)
+    .map(b => chipHtml(b.label, b.bg, b.fg))
     .join('') + badge;
 
   return `
@@ -322,7 +329,7 @@ function buildCard(l: NotifyListing, P: Palette, badge = '', suppressBadges: Set
     <tr><td style="padding:8px 12px 0">
       <table style="width:100%;border-collapse:collapse"><tr>
         <td>${badgesHtml}</td>
-        <td style="text-align:right;white-space:nowrap"><span style="font-size:10px;background:${P.statBg};border:1px solid ${P.border};border-radius:20px;padding:3px 10px;color:${P.muted};font-weight:500;letter-spacing:.03em">${typeLabel}</span></td>
+        <td style="text-align:right;white-space:nowrap">${chipHtml(typeLabel, '#1f2937', '#cbd5e1')}</td>
       </tr></table>
     </td></tr>
     <tr>
@@ -396,20 +403,13 @@ type ChangeWithListing = import('../db/index.js').ChangeWithListing;
 
 function changeBadgeHtml(c: ChangeWithListing, P: Palette): string {
   if (c.change_type === 'price_drop') {
-    return `<div style="margin-bottom:8px">
-      <span style="background:rgba(74,158,114,0.12);color:${P.green};border:1px solid rgba(74,158,114,0.3);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">▼ Price Drop</span>
-    </div>`;
+    return `<div style="margin-bottom:8px">${chipHtml('▼ PRICE DROP', '#14532d', '#86efac')}</div>`;
   }
   if (c.change_type === 'price_increase') {
-    return `<div style="margin-bottom:8px">
-      <span style="background:rgba(192,90,71,0.12);color:${P.red};border:1px solid rgba(192,90,71,0.3);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">▲ Price Increase</span>
-    </div>`;
+    return `<div style="margin-bottom:8px">${chipHtml('▲ PRICE INCREASE', '#7f1d1d', '#fca5a5')}</div>`;
   }
   if (c.change_type === 'now_active') {
-    return `<div style="margin-bottom:8px">
-      <span style="background:rgba(196,145,58,0.12);color:${P.accent};border:1px solid rgba(196,145,58,0.3);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">⚡ Now Active</span>
-      <span style="font-size:12px;color:${P.muted};margin-left:8px">Previously coming soon</span>
-    </div>`;
+    return `<div style="margin-bottom:8px">${chipHtml('⚡ NOW ACTIVE', '#713f12', '#fef08a')}<span style="font-size:12px;color:${P.muted};margin-left:8px">Previously coming soon</span></div>`;
   }
   if (c.change_type === 'relisted') {
     const priorPrice = parseInt(c.old_value ?? '0');
@@ -420,10 +420,7 @@ function changeBadgeHtml(c: ChangeWithListing, P: Palette): string {
       : diff < 0
         ? `<span style="color:${P.red}"> +$${Math.abs(diff).toLocaleString()}</span>`
         : '';
-    return `<div style="margin-bottom:8px">
-      <span style="background:rgba(113,63,18,0.15);color:#fef08a;border:1px solid rgba(113,63,18,0.4);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">↺ Relisted</span>
-      <span style="font-size:12px;color:${P.muted};margin-left:8px">Was $${priorPrice.toLocaleString()} &rarr; <strong style="color:${P.text}">$${newPrice.toLocaleString()}</strong>${diffHtml}</span>
-    </div>`;
+    return `<div style="margin-bottom:8px">${chipHtml('↺ RELISTED', '#713f12', '#fef08a')}<span style="font-size:12px;color:${P.muted};margin-left:8px">Was $${priorPrice.toLocaleString()} &rarr; <strong style="color:${P.text}">$${newPrice.toLocaleString()}</strong>${diffHtml}</span></div>`;
   }
   return '';
 }
@@ -448,7 +445,7 @@ function buildDigestHtml(newListings: NotifyListing[], changes: ChangeWithListin
   const date = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   const total = newListings.length + changes.length;
 
-  const newBadge = `<span style="background:rgba(74,158,114,0.12);color:${P.green};border:1px solid rgba(74,158,114,0.3);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">★ New Listing</span>`;
+  const newBadge = chipHtml('★ NEW LISTING', '#14532d', '#86efac');
 
   const byScore = <T extends { score: number }>(items: T[]) =>
     [...items].sort((a, b) => b.score - a.score);

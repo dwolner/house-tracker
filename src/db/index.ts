@@ -185,18 +185,22 @@ export function upsertListing(
     .get(listing.id) as { id: string; price: number; status: string; walk_score: number | null; school_district: string | null; pending_at: string | null; locale_id: string; brief_short: string | null; brief_full: string | null; prior_listing_id: string | null; prior_list_price: number | null } | undefined;
 
   if (!existing) {
-    // Check for a prior inactive listing at the same address (relisting detection)
+    // Check for a prior listing at the same address (relisting detection).
+    // Matches if the prior is already inactive OR hasn't been seen for >= 36h —
+    // the latter covers the race where a new MLS ID lands before markStaleListingsInactive
+    // has had a chance to flip the old one (same 36h threshold as that sweep).
+    const staleCutoff = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
     const prior = db
       .prepare(`SELECT id, price_at_first_seen, days_on_market, first_seen_at, last_seen_at
                 FROM listings
                 WHERE LOWER(TRIM(address)) = LOWER(TRIM(?))
-                  AND status = 'inactive'
+                  AND (status = 'inactive' OR last_seen_at < ?)
                   AND id != ?
                   AND superseded_by IS NULL
                   AND locale_id = ?
                 ORDER BY last_seen_at DESC
                 LIMIT 1`)
-      .get(listing.address, listing.id, listing.locale_id) as {
+      .get(listing.address, staleCutoff, listing.id, listing.locale_id) as {
         id: string; price_at_first_seen: number; days_on_market: number | null;
         first_seen_at: string; last_seen_at: string;
       } | undefined;
