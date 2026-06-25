@@ -287,7 +287,7 @@ function getEmailBadges(l: NotifyListing, suppress: Set<string> = new Set()): { 
   const badges: { label: string; bg: string; fg: string }[] = [];
   if (full && DEV_KEYWORDS.test(full) && !DEV_SUPPRESSOR.test(full)) badges.push({ label: '⚠ DEV PLAY',   bg: '#78350f', fg: '#fde68a' });
   if (full && FLIP_KEYWORDS.test(full) && !FLIP_SUPPRESSOR.test(full)) badges.push({ label: '↑ FLIP',      bg: '#713f12', fg: '#fef08a' });
-  if (l.prior_listing_id)                                            badges.push({ label: '↺ RELISTING', bg: '#713f12', fg: '#fef08a' });
+  if (l.prior_listing_id && !suppress.has('RELISTING'))              badges.push({ label: '↺ RELISTING', bg: '#713f12', fg: '#fef08a' });
   if (full && MULTI_UNIT_KW.test(full)) badges.push({ label: '⊞ MULTI-UNIT', bg: '#1e3a5f', fg: '#93c5fd' });
   if (!suppress.has('PRICE DROP') && l.price_at_first_seen && l.price < l.price_at_first_seen) badges.push({ label: '↓ PRICE DROP', bg: '#14532d', fg: '#86efac' });
   if (l.year_built && l.year_built >= 2018)                      badges.push({ label: '🏗 NEW BUILD',  bg: '#1e3a5f', fg: '#93c5fd' });
@@ -443,7 +443,6 @@ function sectionHeader(label: string, P: Palette): string {
 
 function buildDigestHtml(newListings: NotifyListing[], changes: ChangeWithListing[], P: Palette): string {
   const date = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-  const total = newListings.length + changes.length;
 
   const newBadge = chipHtml('★ NEW LISTING', '#14532d', '#86efac');
 
@@ -455,28 +454,40 @@ function buildDigestHtml(newListings: NotifyListing[], changes: ChangeWithListin
     ...changes.map(c => c.state),
   ])].sort();
 
-  const changeCategories: Array<{ label: string; type: string }> = [
-    { label: 'Price Drop', type: 'price_drop' },
-    { label: 'Price Increase', type: 'price_increase' },
-    { label: 'Now Active', type: 'now_active' },
-    { label: 'Relisted', type: 'relisted' },
+  // A relisting is a change event, not a new listing — drop it from the New
+  // section so the same property doesn't appear twice in the digest.
+  const relistedIds = new Set(changes.filter(c => c.change_type === 'relisted').map(c => c.id));
+  const freshListings = newListings.filter(l => !relistedIds.has(l.id));
+  const total = freshListings.length + changes.length;
+
+  // Relistings fold into the Price Drop section rather than getting their own heading.
+  const changeCategories: Array<{ label: string; types: string[] }> = [
+    { label: 'Price Drop', types: ['price_drop', 'relisted'] },
+    { label: 'Price Increase', types: ['price_increase'] },
+    { label: 'Now Active', types: ['now_active'] },
   ];
 
   let body = '';
 
   // Locale → category → score desc
   for (const state of allStates) {
-    const stateNew = newListings.filter(l => l.state === state);
+    const stateNew = freshListings.filter(l => l.state === state);
     if (stateNew.length > 0) {
       body += sectionHeader(`${localeLabel(state)} · New`, P);
       body += byScore(stateNew).map(l => buildCard(l, P, newBadge)).join('');
     }
-    for (const { label, type } of changeCategories) {
-      const group = changes.filter(c => c.state === state && c.change_type === type);
+    for (const { label, types } of changeCategories) {
+      const group = changes.filter(c => c.state === state && types.includes(c.change_type));
       if (group.length === 0) continue;
       body += sectionHeader(`${localeLabel(state)} · ${label}`, P);
-      const suppress = type === 'price_drop' ? new Set(['PRICE DROP']) : new Set<string>();
-      body += byScore(group).map(c => buildCard(c, P, changeBadgeHtml(c, P), suppress)).join('');
+      body += byScore(group).map(c => {
+        // Suppress the generic PRICE DROP chip (the change badge already states it),
+        // and the RELISTING chip on relisted cards (the RELISTED badge says it once).
+        const suppress = new Set<string>();
+        if (c.change_type === 'price_drop' || c.change_type === 'relisted') suppress.add('PRICE DROP');
+        if (c.change_type === 'relisted') suppress.add('RELISTING');
+        return buildCard(c, P, changeBadgeHtml(c, P), suppress);
+      }).join('');
     }
   }
 
@@ -524,8 +535,11 @@ export async function sendDigest(newListings: NotifyListing[], changes: ChangeWi
     auth: { user: SMTP_USER, pass: SMTP_PASS },
   });
 
-  const newCount = newListings.length;
-  const priceDrop = changes.filter(c => c.change_type === 'price_drop').length;
+  // Relistings are change events, not new listings — exclude them from the new
+  // count and fold them into price drops, mirroring the digest body sections.
+  const relistedIds = new Set(changes.filter(c => c.change_type === 'relisted').map(c => c.id));
+  const newCount = newListings.filter(l => !relistedIds.has(l.id)).length;
+  const priceDrop = changes.filter(c => c.change_type === 'price_drop' || c.change_type === 'relisted').length;
   const priceUp   = changes.filter(c => c.change_type === 'price_increase').length;
   const nowActive = changes.filter(c => c.change_type === 'now_active').length;
   const parts = [
