@@ -2,8 +2,9 @@ import type { LocaleConfig } from './types.js';
 
 // region_type 2 = zip — IDs are Redfin internal zip region IDs (38XXX pattern for SD)
 // Kensington+Talmadge share 92116; Bay Park+Loma Portal share 92110
-// South Park+Golden Hill+Burlingame+Grant Hill share 92102 (zip also reaches less-family-oriented
-// pockets further east/south like Mount Hope/Chollas — no way to split finer than zip via Redfin)
+// South Park+Golden Hill+Burlingame+Grant Hill share 92102 with less-family-oriented pockets
+// further east (Chollas View/Mount Hope) — can't split the Redfin *polling* region finer than
+// zip, but the `neighborhoods` split below at least labels listings correctly by lng
 export const sanDiegoLocale: LocaleConfig = {
   id: 'san-diego',
   name: 'San Diego',
@@ -51,7 +52,13 @@ export const sanDiegoLocale: LocaleConfig = {
       splits: [{ when: [{ field: 'lng', op: '>', value: -117.073 }], name: 'Del Cerro', showInFilter: false }],
     },
     { zip: '92115', name: 'Rolando / College Area', color: '#84cc16' },
-    { zip: '92102', name: 'South Park / Golden Hill', color: '#f43f5e' },
+    {
+      zip: '92102', name: 'South Park / Golden Hill', color: '#f43f5e',
+      // I-805 cuts through this ZIP — listing lng clusters cleanly on either side (gap from
+      // -117.122 to -117.107, the freeway corridor itself). East of it is Chollas View/Mount
+      // Hope/Broadway Heights, a different market than South Park/Golden Hill/Grant Hill/Burlingame.
+      splits: [{ when: [{ field: 'lng', op: '>', value: -117.115 }], name: 'Chollas View / Mount Hope' }],
+    },
   ],
   scoring: {
     propertyType: {
