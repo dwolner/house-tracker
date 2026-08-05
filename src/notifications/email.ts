@@ -85,6 +85,7 @@ const NEIGHBORHOOD_BY_ZIP: Record<string, string> = {
   '92104': 'North Park',
   // 92120 is split by lng — see getNeighborhood
   '92115': 'Rolando / College Area',
+  '92102': 'South Park / Golden Hill',
   // Main Line PA
   '19072': 'Narberth/Penn Valley',
   '19003': 'Ardmore',

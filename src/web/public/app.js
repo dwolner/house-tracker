@@ -69,6 +69,7 @@ const SD_NEIGHBORHOODS = [
   { zip: "92103", name: "Hillcrest", color: "#eab308" },
   { zip: "92120", name: "Allied Gardens", color: "#ec4899" },
   { zip: "92115", name: "Rolando / College Area", color: "#84cc16" },
+  { zip: "92102", name: "South Park / Golden Hill", color: "#f43f5e" },
 ];
 
 const SD_POLLING_REGIONS = {
