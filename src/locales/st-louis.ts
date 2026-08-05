@@ -41,7 +41,16 @@ export const stLouisLocale: LocaleConfig = {
   maxPrice: 500_000,
   uipt: '1,3,4',
   neighborhoods: [
-    { zip: '63122', name: 'Kirkwood / Glendale', color: '#4f8ef7' },
+    {
+      zip: '63122', name: 'Kirkwood', color: '#4f8ef7',
+      // Verified against actual Census place boundaries (TIGERweb Incorporated Places):
+      // every Kirkwood listing sits west of -90.390, every Glendale listing east of it —
+      // a clean split, unlike Webster Groves/Rock Hill below.
+      splits: [{ when: [{ field: 'lng', op: '>', value: -90.390 }], name: 'Glendale' }],
+    },
+    // Rock Hill is a small enclave interleaved with Webster Groves rather than sitting on
+    // one side of a line — no simple lat/lng threshold splits them cleanly (best case is
+    // ~11% misclassified), so they stay merged here.
     { zip: '63119', name: 'Webster Groves / Rock Hill', color: '#22c55e' },
     { zip: '63143', name: 'Maplewood', color: '#a855f7' },
     { zip: '63117', name: 'Richmond Heights', color: '#f97316' },
