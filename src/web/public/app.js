@@ -240,9 +240,10 @@ function renderAreaFilter(cities) {
 
   if (localeNeighborhoods.filterByNeighborhood) {
     label.textContent = "Neighborhood";
-    localeNeighborhoods.neighborhoods.forEach(({ zip, name }) => {
+    localeNeighborhoods.neighborhoods.forEach(({ name }) => {
       const lbl = document.createElement("label");
-      lbl.innerHTML = `<input type="checkbox" value="${zip}" onchange="toggleArea('${zip}')" /> ${name}`;
+      const checked = selectedAreas.has(name) ? "checked" : "";
+      lbl.innerHTML = `<input type="checkbox" value="${name}" ${checked} onchange="toggleArea('${name}')" /> ${name}`;
       wrap.appendChild(lbl);
     });
   } else {
@@ -333,7 +334,7 @@ function applyFilters() {
     if (selectedAreas.size > 0) {
       const key =
         localeNeighborhoods.filterByNeighborhood
-          ? l.zip
+          ? l.neighborhood
           : l.city?.toLowerCase();
       if (!selectedAreas.has(key)) return false;
     }
@@ -912,7 +913,7 @@ function getFilteredOutcomes() {
     if (selectedAreas.size > 0) {
       const key =
         localeNeighborhoods.filterByNeighborhood
-          ? l.zip
+          ? l.neighborhood
           : l.city?.toLowerCase();
       if (!selectedAreas.has(key)) return false;
     }

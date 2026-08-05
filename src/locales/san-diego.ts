@@ -47,9 +47,8 @@ export const sanDiegoLocale: LocaleConfig = {
     },
     {
       zip: '92120', name: 'Allied Gardens', color: '#ec4899',
-      // Del Cerro rides along with Allied Gardens' filter checkbox/map boundary (same ZIP) —
-      // it only shows as its own name on card/email labels.
-      splits: [{ when: [{ field: 'lng', op: '>', value: -117.073 }], name: 'Del Cerro', showInFilter: false }],
+      // lng > -117.073: eastern elevation = Del Cerro; western flats = Allied Gardens
+      splits: [{ when: [{ field: 'lng', op: '>', value: -117.073 }], name: 'Del Cerro' }],
     },
     { zip: '92115', name: 'Rolando / College Area', color: '#84cc16' },
     {

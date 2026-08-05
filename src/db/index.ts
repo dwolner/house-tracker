@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import type { ScoreBreakdown, ScoringInput } from '../scoring/index.js';
 import { scoreWithBreakdown } from '../scoring/index.js';
 import { getLocale } from '../locales/index.js';
+import { resolveNeighborhood } from '../locales/neighborhoods.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DB_PATH = process.env.DB_PATH ?? path.join(__dirname, '../../data/listings.db');
@@ -604,6 +605,8 @@ export interface Outcome {
   address: string;
   city: string;
   zip: string;
+  lat: number | null;
+  lng: number | null;
   price_at_first_seen: number;
   pending_price: number | null;
   pending_at: string | null;
@@ -618,6 +621,7 @@ export interface Outcome {
   baths: number;
   sqft: number | null;
   url: string | null;
+  neighborhood?: string | null;
 }
 
 export interface OutcomesStats {
@@ -633,7 +637,7 @@ export function getOutcomesData(): { listings: Outcome[]; stats: OutcomesStats }
   const db = getDb();
 
   const listings = db.prepare(`
-    SELECT id, address, city, zip, price_at_first_seen, pending_price, pending_at,
+    SELECT id, address, city, zip, lat, lng, price_at_first_seen, pending_price, pending_at,
            sold_price, sold_at, first_seen_at, days_on_market, score, school_district,
            property_type, beds, baths, sqft, url
     FROM listings
@@ -643,6 +647,8 @@ export function getOutcomesData(): { listings: Outcome[]; stats: OutcomesStats }
     ORDER BY COALESCE(sold_at, pending_at) DESC
     LIMIT 200
   `).all() as Outcome[];
+
+  for (const l of listings) l.neighborhood = resolveNeighborhood(l.zip, l.lat, l.lng);
 
   if (listings.length === 0) {
     return {
