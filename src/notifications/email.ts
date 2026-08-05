@@ -193,13 +193,52 @@ const FACTOR_LABELS: Record<string, string> = {
   yearBuiltBonus:      'Age+',
   multiUnitPenalty:    'Multi−',
   flipPenalty:         'Flip−',
-  bathBedRatioPenalty: 'Bath−',
-  sqftFloorPenalty:    'Sqft−',
+  relistingPenalty:    'Relist−',
   investmentScore:     'Invest',
   // legacy keys from old flat breakdown format
   amtrak:            'Transit',
   narberthBonus:     'Local+',
 };
+
+// Some raw scoring factors are two sides of one user-facing concept — a base score plus
+// a penalty/bonus that adjusts it (e.g. baths count + bath:bed ratio penalty). Merge them
+// into a single chip so a listing never shows two chips for one idea; the sign is carried
+// by the displayed value/color, not by a "+"/"−" suffix on the label.
+const FACTOR_GROUPS: Record<string, string> = {
+  baths:               'baths',
+  bathBedRatioPenalty: 'baths',
+  yearBuiltPenalty:    'age',
+  yearBuiltBonus:      'age',
+  zipPenalty:          'zip',
+  zipBonus:            'zip',
+  domPenalty:          'dom',
+  domBonus:            'dom',
+  sqft:                'sqft',
+  sqftFloorPenalty:    'sqft',
+};
+const GROUP_LABELS: Record<string, string> = {
+  baths: 'Baths',
+  age:   'Age',
+  zip:   'Zip',
+  dom:   'DOM',
+  sqft:  'Sqft',
+};
+
+interface GroupedFactor { pts: number; max: number; grouped: boolean }
+
+function groupFactors(factors: Record<string, { pts: number; max: number }>): Record<string, GroupedFactor> {
+  const out: Record<string, GroupedFactor> = {};
+  for (const [key, val] of Object.entries(factors)) {
+    const group = FACTOR_GROUPS[key];
+    if (!group) { out[key] = { ...val, grouped: false }; continue; }
+    const sign = key.endsWith('Penalty') ? -1 : 1;
+    const cur = out[group] ?? { pts: 0, max: 0, grouped: true };
+    cur.pts += sign * val.pts;
+    cur.max = Math.max(cur.max, val.max);
+    out[group] = cur;
+  }
+  return out;
+}
 
 // Convert old flat { total, amtrak: 6, ... } format to new { total, factors: { transit: { pts, max } } }
 const OLD_MAXES: Record<string, number> = {
@@ -221,7 +260,12 @@ function parseBreakdown(json: string | null): { total: number; factors: Record<s
   } catch { return null; }
 }
 
-function chipColor(key: string, pct: number, P: Palette): { bg: string; color: string } {
+function chipColor(key: string, pts: number, pct: number, grouped: boolean, P: Palette): { bg: string; color: string } {
+  if (grouped) {
+    if (pts > 0) return { bg: P.green, color: '#fff' };
+    if (pts < 0) return { bg: P.red,   color: '#fff' };
+    return { bg: P.statBg, color: P.muted };
+  }
   if (pct === 0) return { bg: P.statBg, color: P.muted };
   if (key === 'domPenalty')        return { bg: P.red,   color: '#fff' };
   if (key === 'neighborhoodBonus') return { bg: P.green, color: '#fff' };
@@ -234,17 +278,21 @@ function scoreChipsHtml(l: NotifyListing, P: Palette): string {
   const bd = parseBreakdown(l.score_breakdown);
   if (!bd) return '';
 
-  const chips = Object.entries(bd.factors).filter(([key, { pts }]) => !(key === 'domPenalty' && pts === 0)).map(([key, { pts, max }]) => {
-    const pct = max > 0 ? pts / max : 0;
-    const { bg, color } = chipColor(key, pct, P);
-    const label = FACTOR_LABELS[key] ?? key;
-    const display = String(Math.round(pct * 100));
+  const chips = Object.entries(groupFactors(bd.factors))
+    .filter(([key, { pts }]) => !(key === 'dom' && pts === 0))
+    .map(([key, { pts, max, grouped }]) => {
+      const pct = max > 0 ? pts / max : 0;
+      const { bg, color } = chipColor(key, pts, pct, grouped, P);
+      const label = GROUP_LABELS[key] ?? FACTOR_LABELS[key] ?? key;
+      const display = grouped
+        ? (pts > 0 ? `+${Math.round(pts)}` : String(Math.round(pts)))
+        : String(Math.round(pct * 100));
 
-    return `<td style="padding:0 2px;text-align:center;vertical-align:top">
+      return `<td style="padding:0 2px;text-align:center;vertical-align:top">
       <div style="background:${bg};color:${color};border-radius:3px;height:20px;line-height:20px;font-size:9px;font-weight:700;text-align:center;white-space:nowrap;padding:0 2px">${display}</div>
       <div style="font-size:8px;color:${P.muted};margin-top:3px;white-space:nowrap;text-align:center">${label}</div>
     </td>`;
-  }).join('');
+    }).join('');
 
   return `
     <div style="margin-top:12px">
@@ -328,8 +376,8 @@ function buildCard(l: NotifyListing, P: Palette, badge = '', suppressBadges: Set
     <!-- Badge + type pill row below image -->
     <tr><td style="padding:8px 12px 0">
       <table style="width:100%;border-collapse:collapse"><tr>
-        <td>${badgesHtml}</td>
-        <td style="text-align:right;white-space:nowrap">${chipHtml(typeLabel, '#1f2937', '#cbd5e1')}</td>
+        <td style="width:100%">${badgesHtml}</td>
+        <td style="width:1%;text-align:right;white-space:nowrap;padding-left:6px">${chipHtml(typeLabel, '#1f2937', '#cbd5e1')}</td>
       </tr></table>
     </td></tr>
     <tr>

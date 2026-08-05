@@ -2,6 +2,8 @@ import type { LocaleConfig } from './types.js';
 
 // region_type 2 = zip — IDs are Redfin internal zip region IDs (38XXX pattern for SD)
 // Kensington+Talmadge share 92116; Bay Park+Loma Portal share 92110
+// South Park+Golden Hill+Burlingame+Grant Hill share 92102 (zip also reaches less-family-oriented
+// pockets further east/south like Mount Hope/Chollas — no way to split finer than zip via Redfin)
 export const sanDiegoLocale: LocaleConfig = {
   id: 'san-diego',
   name: 'San Diego',
@@ -15,10 +17,11 @@ export const sanDiegoLocale: LocaleConfig = {
     { name: 'Mission Hills',             region_id: '38103', region_type: 2 },
     { name: 'Allied Gardens',            region_id: '38120', region_type: 2 },
     { name: 'Talmadge / Rolando',         region_id: '38115', region_type: 2 },
+    { name: 'South Park / Golden Hill',  region_id: '38102', region_type: 2 },
   ],
   minBeds: 3,
   maxPrice: 2_500_000,
-  allowedZips: ['92110', '92107', '92116', '92117', '92104', '92103', '92120', '92115'],
+  allowedZips: ['92110', '92107', '92116', '92117', '92104', '92103', '92120', '92115', '92102'],
   scoring: {
     propertyType: {
       weight: 20,
@@ -42,11 +45,12 @@ export const sanDiegoLocale: LocaleConfig = {
     },
     sqft: {
       weight: 18,
-      // Family home needs ≥1,600sf; 1,800+ is the target; no reward below 1,500
+      // Baseline = current home (1,250sf) — no reward for failing to beat that.
+      // 1,800+ is the target; full credit by 2,200.
       breakpoints: [
         { sqft: 0,       points: 0  },
-        { sqft: 1_500,   points: 0  },
-        { sqft: 1_600,   points: 4  },
+        { sqft: 1_250,   points: 0  },
+        { sqft: 1_500,   points: 6  },
         { sqft: 1_800,   points: 12 },
         { sqft: 2_200,   points: 18 },
         { sqft: 3_000,   points: 18 },
@@ -100,7 +104,8 @@ export const sanDiegoLocale: LocaleConfig = {
     // weight: relisted at same/higher price; reducedWeight: relisted lower (seller conceded)
     relistingPenalty: { weight: 8, reducedWeight: 4 },
     bathBedRatioPenalty: { weight: 8, minBeds: 4, minBaths: 2.5 },
-    sqftFloorPenalty: { weight: 10, minSqft: 1500 },
+    // Only penalize homes that aren't even bigger than our current 1,250sf house
+    sqftFloorPenalty: { weight: 10, minSqft: 1250 },
     yearBuiltBonus: { weight: 5, minYear: 2000, excellent: 2015 },
   },
 };

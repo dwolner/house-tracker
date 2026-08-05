@@ -794,12 +794,46 @@ const FACTOR_LABELS = {
   yearBuiltBonus: "Age+",
   multiUnitPenalty: "Multi−",
   flipPenalty: "Flip−",
-  bathBedRatioPenalty: "Bath−",
-  sqftFloorPenalty: "Sqft−",
+  relistingPenalty: "Relist−",
   investmentScore: "Invest",
   amtrak: "Transit",
   narberthBonus: "Local+",
 };
+
+// Some raw scoring factors are two sides of one user-facing concept — a base score plus
+// a penalty/bonus that adjusts it (e.g. baths count + bath:bed ratio penalty). Merge them
+// into a single chip so a listing never shows two chips for one idea; the sign is carried
+// by the displayed value/color, not by a "+"/"−" suffix on the label.
+const FACTOR_GROUPS = {
+  baths: "baths",
+  bathBedRatioPenalty: "baths",
+  yearBuiltPenalty: "age",
+  yearBuiltBonus: "age",
+  zipPenalty: "zip",
+  zipBonus: "zip",
+  domPenalty: "dom",
+  domBonus: "dom",
+  sqft: "sqft",
+  sqftFloorPenalty: "sqft",
+};
+const GROUP_LABELS = { baths: "Baths", age: "Age", zip: "Zip", dom: "DOM", sqft: "Sqft" };
+
+function groupFactors(factors) {
+  const out = {};
+  for (const [key, val] of Object.entries(factors)) {
+    const group = FACTOR_GROUPS[key];
+    if (!group) {
+      out[key] = { ...val, grouped: false };
+      continue;
+    }
+    const sign = key.endsWith("Penalty") ? -1 : 1;
+    const cur = out[group] ?? { pts: 0, max: 0, grouped: true };
+    cur.pts += sign * val.pts;
+    cur.max = Math.max(cur.max, val.max);
+    out[group] = cur;
+  }
+  return out;
+}
 
 const OLD_MAXES = {
   propertyType: 20,
@@ -835,26 +869,30 @@ function parseBreakdown(raw) {
 const scoreTipContent = {};
 
 function buildScoreTip(bd) {
-  const factors = Object.entries(bd.factors);
-  const rows = factors.filter(([key, { pts }]) => !(key === "domPenalty" && pts === 0)).map(([key, { pts, max }]) => {
-    const label = FACTOR_LABELS[key] ?? key;
-    const pct = max > 0 ? Math.max(0, pts) / max : 0;
+  const factors = Object.entries(groupFactors(bd.factors));
+  const rows = factors.filter(([key, { pts }]) => !(key === "dom" && pts === 0)).map(([key, { pts, max, grouped }]) => {
+    const label = GROUP_LABELS[key] ?? FACTOR_LABELS[key] ?? key;
+    const pct = max > 0 ? Math.abs(pts) / max : 0;
     const normalized = Math.round(pct * 100);
-    const barColor =
-      key === "domPenalty" && pts > 0
-        ? "var(--red)"
-        : pts === 0
-          ? "var(--border)"
-          : pct >= 0.7
-            ? "var(--green)"
-            : pct >= 0.4
-              ? "var(--yellow)"
-              : "var(--red)";
+    const display = grouped ? (pts > 0 ? `+${Math.round(pts)}` : String(Math.round(pts))) : normalized;
+    const barColor = grouped
+      ? pts > 0
+        ? "var(--green)"
+        : pts < 0
+          ? "var(--red)"
+          : "var(--border)"
+      : pts === 0
+        ? "var(--border)"
+        : pct >= 0.7
+          ? "var(--green)"
+          : pct >= 0.4
+            ? "var(--yellow)"
+            : "var(--red)";
     return `<div style="display:flex;align-items:center;gap:7px;margin:3px 0">
       <span style="width:52px;flex-shrink:0;font-size:9px;color:var(--text-dim);letter-spacing:0.03em;text-transform:uppercase">${label}</span>
       <div style="flex:1;height:14px;background:var(--surface-2);border-radius:3px;overflow:hidden">
         <div style="width:max(${normalized}%,18px);height:100%;background:${barColor};border-radius:3px;display:flex;align-items:center;justify-content:flex-end;padding-right:4px;box-sizing:border-box">
-          <span style="font-size:9px;font-weight:700;font-family:var(--font-data);color:#fff;text-shadow:0 0 3px rgba(0,0,0,0.5)">${normalized}</span>
+          <span style="font-size:9px;font-weight:700;font-family:var(--font-data);color:#fff;text-shadow:0 0 3px rgba(0,0,0,0.5)">${display}</span>
         </div>
       </div>
     </div>`;
