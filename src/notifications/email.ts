@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { resolveNeighborhood } from '../locales/neighborhoods.js';
 
 const SMTP_HOST = process.env.SMTP_HOST ?? 'smtp.gmail.com';
 const SMTP_PORT = parseInt(process.env.SMTP_PORT ?? '587', 10);
@@ -71,60 +72,6 @@ const LIGHT: Palette = {
 
 // Keep D as an alias for dark to avoid touching non-palette code paths
 const D = DARK;
-
-const NEIGHBORHOOD_BY_ZIP: Record<string, string> = {
-  // San Diego
-  '92110': 'Bay Park / Loma Portal',
-  '92107': 'Point Loma Heights',
-  // 92116 is split by lng — see getNeighborhood
-
-  // 92117 is split by lat/lng — see getNeighborhood
-
-  // 92103 is split by lat — see getNeighborhood
-
-  '92104': 'North Park',
-  // 92120 is split by lng — see getNeighborhood
-  '92115': 'Rolando / College Area',
-  '92102': 'South Park / Golden Hill',
-  // Main Line PA
-  '19072': 'Narberth/Penn Valley',
-  '19003': 'Ardmore',
-  '19010': 'Bryn Mawr',
-  '19004': 'Bala Cynwyd',
-  '19066': 'Merion Station',
-  '19041': 'Haverford',
-  '19096': 'Wynnewood',
-  '19087': 'Wayne',
-  '19312': 'Berwyn',
-  '19406': 'King of Prussia',
-  '19083': 'Havertown',
-  '19301': 'Paoli',
-  '19333': 'Devon',
-  '19355': 'Malvern',
-  '19428': 'Conshohocken',
-};
-
-function getNeighborhood(zip: string, lat?: number | null, lng?: number | null): string | null {
-  if (zip === '92117') {
-    if (lat != null && lng != null && lat < 32.815 && lng < -117.190) return 'Bay Ho';
-    return 'Clairemont Mesa';
-  }
-  if (zip === '92116') {
-    if (lng != null && lng < -117.130) return 'University Heights';
-    return 'Kensington / Talmadge';
-  }
-  if (zip === '92103') {
-    // Washington St runs ~lat 32.752; north = Mission Hills, south = Hillcrest
-    if (lat != null && lat >= 32.752) return 'Mission Hills';
-    return 'Hillcrest';
-  }
-  if (zip === '92120') {
-    // lng > -117.073: eastern elevation = Del Cerro; western flats = Allied Gardens
-    if (lng != null && lng > -117.073) return 'Del Cerro';
-    return 'Allied Gardens';
-  }
-  return NEIGHBORHOOD_BY_ZIP[zip] ?? null;
-}
 
 function isConfigured(): boolean {
   return Boolean(SMTP_USER && SMTP_PASS && NOTIFY_TO);
@@ -365,7 +312,7 @@ function buildCard(l: NotifyListing, P: Palette, badge = '', suppressBadges: Set
   const city = l.city ?? '';
   const state = l.state ?? '';
   const zip = l.zip ?? '';
-  const neighborhood = getNeighborhood(zip, l.lat, l.lng);
+  const neighborhood = resolveNeighborhood(zip, l.lat, l.lng);
   const metaLine = [neighborhood, l.school_district].filter(Boolean).join(' · ');
   const badgesHtml = getEmailBadges(l, suppressBadges)
     .map(b => chipHtml(b.label, b.bg, b.fg))

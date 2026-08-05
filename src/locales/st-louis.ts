@@ -21,6 +21,7 @@ export const stLouisLocale: LocaleConfig = {
   name: 'St. Louis Suburbs',
   state: 'MO',
   disableNotifications: true, // not wired into UI/users yet
+  filterByNeighborhood: true,
   regions: [
     { name: 'Kirkwood',          region_id: '9905',  region_type: 6, useJsonApi: true },
     { name: 'Glendale',          region_id: '6983',  region_type: 6, useJsonApi: true },
@@ -39,6 +40,17 @@ export const stLouisLocale: LocaleConfig = {
   minPrice: 50_000,
   maxPrice: 500_000,
   uipt: '1,3,4',
+  neighborhoods: [
+    { zip: '63122', name: 'Kirkwood / Glendale', color: '#4f8ef7' },
+    { zip: '63119', name: 'Webster Groves / Rock Hill', color: '#22c55e' },
+    { zip: '63143', name: 'Maplewood', color: '#a855f7' },
+    { zip: '63117', name: 'Richmond Heights', color: '#f97316' },
+    { zip: '63124', name: 'Ladue', color: '#06b6d4' },
+    { zip: '63105', name: 'Clayton', color: '#eab308' },
+    { zip: '63131', name: 'Des Peres', color: '#ec4899' },
+    { zip: '63127', name: 'Sunset Hills', color: '#14b8a6' },
+    { zip: '63126', name: 'Crestwood', color: '#f43f5e' },
+  ],
   scoring: {
     propertyType: {
       weight: 18,

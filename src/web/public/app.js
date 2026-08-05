@@ -56,123 +56,40 @@ let rentEstimates = {}; // keyed by listing_id — from RentCast via cache
 let liveMortgageRate = null; // fetched from FRED via /api/mortgage-rate on STL init
 
 // === LOCALE CONFIG ===
+// Neighborhood/zip data (filter list, map boundaries, chart colors, polling region
+// names) is fetched from /api/locales/:id/neighborhoods — single source of truth is
+// the locale's `neighborhoods` config on the server (src/locales/*.ts). See
+// fetchNeighborhoods() below. Only the color tables for locales' *cities* (a different,
+// more stable axis used by the price/score trend charts) stay hardcoded here.
 
-const SD_NEIGHBORHOODS = [
-  { zip: "92110", name: "Bay Park / Loma Portal", color: "#4f8ef7" },
-  { zip: "92107", name: "Point Loma Heights", color: "#22c55e" },
-  { zip: "92116", name: "Kensington / Talmadge", color: "#a855f7" },
-  { zip: "92117", name: "Bay Ho", color: "#f97316" },
-  { zip: "92117", name: "Clairemont Mesa", color: "#f97316" },
-  { zip: "92116", name: "University Heights", color: "#a855f7" },
-  { zip: "92104", name: "North Park", color: "#06b6d4" },
-  { zip: "92103", name: "Mission Hills", color: "#eab308" },
-  { zip: "92103", name: "Hillcrest", color: "#eab308" },
-  { zip: "92120", name: "Allied Gardens", color: "#ec4899" },
-  { zip: "92115", name: "Rolando / College Area", color: "#84cc16" },
-  { zip: "92102", name: "South Park / Golden Hill", color: "#f43f5e" },
-];
+let localeNeighborhoods = { neighborhoods: [], regionNames: [], filterByNeighborhood: false };
 
-const SD_POLLING_REGIONS = {
-  92110: { label: "Bay Park / Loma Portal", color: "#4f8ef7" },
-  92107: { label: "Point Loma Heights", color: "#22c55e" },
-  92116: { label: "Kensington / Talmadge", color: "#a855f7" },
-  92117: { label: "Bay Ho", color: "#f97316" },
-  92104: { label: "North Park", color: "#06b6d4" },
-  92103: { label: "Mission Hills", color: "#eab308" },
-  92120: { label: "Allied Gardens", color: "#ec4899" },
-};
+// zip -> {label, color}, one entry per zip (first/default name wins for split zips)
+function pollingRegionsFor(neighborhoods) {
+  const map = {};
+  for (const n of neighborhoods) {
+    if (!(n.zip in map)) map[n.zip] = { label: n.name, color: n.color };
+  }
+  return map;
+}
 
-const PA_NEIGHBORHOOD_COLORS = {
-  "Narberth/Penn Valley": "#4f8ef7",
-  Ardmore: "#22c55e",
-  "Bryn Mawr": "#a855f7",
-  "Bala Cynwyd": "#f97316",
-  "Merion Station": "#06b6d4",
-  Haverford: "#eab308",
-  Wynnewood: "#ec4899",
-  Wayne: "#14b8a6",
-  Berwyn: "#f43f5e",
-  "King of Prussia": "#8b5cf6",
-};
-
-const PA_POLLING_ZIPS = {
-  19072: {
-    label: "Narberth/Penn Valley",
-    color: PA_NEIGHBORHOOD_COLORS["Narberth/Penn Valley"],
-  },
-  19003: { label: "Ardmore", color: PA_NEIGHBORHOOD_COLORS["Ardmore"] },
-  19010: { label: "Bryn Mawr", color: PA_NEIGHBORHOOD_COLORS["Bryn Mawr"] },
-  19004: { label: "Bala Cynwyd", color: PA_NEIGHBORHOOD_COLORS["Bala Cynwyd"] },
-  19066: {
-    label: "Merion Station",
-    color: PA_NEIGHBORHOOD_COLORS["Merion Station"],
-  },
-  19041: { label: "Haverford", color: PA_NEIGHBORHOOD_COLORS["Haverford"] },
-  19096: { label: "Wynnewood", color: PA_NEIGHBORHOOD_COLORS["Wynnewood"] },
-  19087: { label: "Wayne", color: PA_NEIGHBORHOOD_COLORS["Wayne"] },
-  19312: { label: "Berwyn", color: PA_NEIGHBORHOOD_COLORS["Berwyn"] },
-  19406: {
-    label: "King of Prussia",
-    color: PA_NEIGHBORHOOD_COLORS["King of Prussia"],
-  },
-};
-
-const STL_NEIGHBORHOODS = [
-  { zip: "63122", name: "Kirkwood / Glendale", color: "#4f8ef7" },
-  { zip: "63119", name: "Webster Groves / Rock Hill", color: "#22c55e" },
-  { zip: "63143", name: "Maplewood", color: "#a855f7" },
-  { zip: "63117", name: "Richmond Heights", color: "#f97316" },
-  { zip: "63124", name: "Ladue", color: "#06b6d4" },
-  { zip: "63105", name: "Clayton", color: "#eab308" },
-  { zip: "63131", name: "Des Peres", color: "#ec4899" },
-  { zip: "63127", name: "Sunset Hills", color: "#14b8a6" },
-  { zip: "63126", name: "Crestwood", color: "#f43f5e" },
-];
-
-const STL_POLLING_REGIONS = Object.fromEntries(
-  STL_NEIGHBORHOODS.map(({ zip, name, color }) => [
-    zip,
-    { label: name, color },
-  ]),
-);
-
-const LOCALE_AREA_NAMES = {
-  "main-line": new Set([
-    "Narberth/Penn Valley",
-    "Ardmore",
-    "Bryn Mawr",
-    "Bala Cynwyd",
-    "Merion Station",
-    "Haverford",
-    "Wynnewood",
-    "Wayne",
-    "Berwyn",
-    "King of Prussia",
-  ]),
-  "san-diego": new Set([
-    "Bay Park / Loma Portal",
-    "Point Loma Heights",
-    "Kensington / Talmadge",
-    "Bay Ho",
-    "North Park",
-    "Mission Hills",
-    "Allied Gardens",
-  ]),
-  "st-louis": new Set([
-    "Kirkwood",
-    "Glendale",
-    "Webster Groves",
-    "Rock Hill",
-    "Maplewood",
-    "Richmond Heights",
-    "Ladue",
-    "Clayton",
-    "Shrewsbury",
-    "Des Peres",
-    "Sunset Hills",
-    "Crestwood",
-  ]),
-};
+async function fetchNeighborhoods(locale) {
+  try {
+    localeNeighborhoods = await fetch(`/api/locales/${locale}/neighborhoods`).then((r) => r.json());
+  } catch {
+    localeNeighborhoods = { neighborhoods: [], regionNames: [], filterByNeighborhood: false };
+  }
+  if (locale === "main-line") {
+    PA_CITY_COLORS = Object.fromEntries(
+      localeNeighborhoods.neighborhoods.map(({ name, color }) => [name.toLowerCase(), color]),
+    );
+    const narberth = localeNeighborhoods.neighborhoods.find((n) => n.name === "Narberth/Penn Valley");
+    if (narberth) {
+      PA_CITY_COLORS["narberth"] = narberth.color;
+      PA_CITY_COLORS["penn valley"] = narberth.color;
+    }
+  }
+}
 
 const LOCALE_LABELS = {
   "main-line": "— Main Line",
@@ -190,6 +107,7 @@ async function init() {
       fetch("/api/inventory").then((r) => r.json()),
       fetch("/api/outcomes").then((r) => r.json()),
       fetch("/api/trends").then((r) => r.json()),
+      fetchNeighborhoods(activeLocale),
     ]);
 
   allListings = listingsRes;
@@ -268,9 +186,10 @@ async function switchLocale(locale) {
   document.getElementById("f-open-house").checked = false;
   document.getElementById("f-sort").value = "score";
 
-  const statsRes = await fetch(`/api/stats?locale_id=${locale}`).then((r) =>
-    r.json(),
-  );
+  const [statsRes] = await Promise.all([
+    fetch(`/api/stats?locale_id=${locale}`).then((r) => r.json()),
+    fetchNeighborhoods(locale),
+  ]);
   renderStats(statsRes);
   renderTypeFilter(statsRes.propertyTypes ?? []);
   renderAreaFilter(statsRes.cities);
@@ -319,16 +238,9 @@ function renderAreaFilter(cities) {
   const wrap = document.getElementById("city-checks");
   wrap.innerHTML = "";
 
-  if (activeLocale === "san-diego") {
+  if (localeNeighborhoods.filterByNeighborhood) {
     label.textContent = "Neighborhood";
-    SD_NEIGHBORHOODS.forEach(({ zip, name }) => {
-      const lbl = document.createElement("label");
-      lbl.innerHTML = `<input type="checkbox" value="${zip}" onchange="toggleArea('${zip}')" /> ${name}`;
-      wrap.appendChild(lbl);
-    });
-  } else if (activeLocale === "st-louis") {
-    label.textContent = "Neighborhood";
-    STL_NEIGHBORHOODS.forEach(({ zip, name }) => {
+    localeNeighborhoods.neighborhoods.forEach(({ zip, name }) => {
       const lbl = document.createElement("label");
       lbl.innerHTML = `<input type="checkbox" value="${zip}" onchange="toggleArea('${zip}')" /> ${name}`;
       wrap.appendChild(lbl);
@@ -420,7 +332,7 @@ function applyFilters() {
     }
     if (selectedAreas.size > 0) {
       const key =
-        activeLocale === "san-diego" || activeLocale === "st-louis"
+        localeNeighborhoods.filterByNeighborhood
           ? l.zip
           : l.city?.toLowerCase();
       if (!selectedAreas.has(key)) return false;
@@ -999,7 +911,7 @@ function getFilteredOutcomes() {
 
     if (selectedAreas.size > 0) {
       const key =
-        activeLocale === "san-diego" || activeLocale === "st-louis"
+        localeNeighborhoods.filterByNeighborhood
           ? l.zip
           : l.city?.toLowerCase();
       if (!selectedAreas.has(key)) return false;
@@ -1293,36 +1205,6 @@ function renderOutcomes(data) {
 
 // === CARDS ===
 
-function getNeighborhood(l) {
-  if (activeLocale === "san-diego") {
-    if (l.zip === "92117") {
-      if (l.lat != null && l.lng != null && l.lat < 32.815 && l.lng < -117.190) return "Bay Ho";
-      return "Clairemont Mesa";
-    }
-    if (l.zip === "92116") {
-      if (l.lng != null && l.lng < -117.130) return "University Heights";
-      return "Kensington / Talmadge";
-    }
-    if (l.zip === "92103") {
-      // Washington St ~lat 32.752: north = Mission Hills, south = Hillcrest
-      if (l.lat != null && l.lat >= 32.752) return "Mission Hills";
-      return "Hillcrest";
-    }
-    if (l.zip === "92120") {
-      // lng > -117.073: eastern elevation = Del Cerro; western flats = Allied Gardens
-      if (l.lng != null && l.lng > -117.073) return "Del Cerro";
-      return "Allied Gardens";
-    }
-    const nb = SD_NEIGHBORHOODS.find((n) => n.zip === l.zip);
-    return nb?.name ?? null;
-  }
-  if (activeLocale === "st-louis") {
-    const nb = STL_NEIGHBORHOODS.find((n) => n.zip === l.zip);
-    return nb?.name ?? null;
-  }
-  return null;
-}
-
 // Warning badge patterns
 const DEV_KEYWORDS = /developer|zoning variance|rezoning|land value|teardown|redevelopment|upside potential|fixer|handyman|needs work|gut rehab|original condition|unimproved|lot value|demo|tlc/i;
 const DEV_SUPPRESSOR = /renovated|remodeled|updated|turnkey|fully.updated|new kitchen|new bath|new roof|new floors|freshly/i;
@@ -1392,7 +1274,7 @@ function cardHtml(l) {
     l.status === "Contingent";
   const imgUrl = photoUrl(l.id);
   const ohTip = openHouseTooltip(l);
-  const neighborhood = getNeighborhood(l);
+  const neighborhood = l.neighborhood;
   const metaLine = [neighborhood, l.school_district]
     .filter(Boolean)
     .join(" · ");
@@ -1737,12 +1619,7 @@ function scoreIcon(score) {
 
 async function fetchZipBoundaries(locale) {
   if (boundaryCache[locale]) return boundaryCache[locale];
-  const pollingRegions =
-    locale === "san-diego"
-      ? SD_POLLING_REGIONS
-      : locale === "st-louis"
-        ? STL_POLLING_REGIONS
-        : PA_POLLING_ZIPS;
+  const pollingRegions = pollingRegionsFor(localeNeighborhoods.neighborhoods);
   const zips = Object.keys(pollingRegions)
     .map((z) => `'${z}'`)
     .join(",");
@@ -1762,12 +1639,7 @@ async function renderMap(listings) {
   const locale = activeLocale;
   const localeMapCfg =
     locale === "san-diego" ? SD_MAP : locale === "st-louis" ? STL_MAP : PA_MAP;
-  const pollingRegions =
-    locale === "san-diego"
-      ? SD_POLLING_REGIONS
-      : locale === "st-louis"
-        ? STL_POLLING_REGIONS
-        : PA_POLLING_ZIPS;
+  const pollingRegions = pollingRegionsFor(localeNeighborhoods.neighborhoods);
   const isDark = document.documentElement.classList.contains("dark");
   const tileUrl = isDark ? TILE_DARK : TILE_LIGHT;
 
@@ -1885,14 +1757,8 @@ function updateMapTiles() {
 
 // === TREND CHARTS ===
 
-const PA_CITY_COLORS = Object.fromEntries(
-  Object.entries(PA_NEIGHBORHOOD_COLORS).map(([name, color]) => [
-    name.toLowerCase(),
-    color,
-  ]),
-);
-PA_CITY_COLORS["narberth"] = PA_NEIGHBORHOOD_COLORS["Narberth/Penn Valley"];
-PA_CITY_COLORS["penn valley"] = PA_NEIGHBORHOOD_COLORS["Narberth/Penn Valley"];
+// Populated by fetchNeighborhoods() once locale data loads (name -> color, lowercased).
+let PA_CITY_COLORS = {};
 
 const SD_CITY_COLORS = { "san diego": "#ef4444" };
 
@@ -1937,8 +1803,8 @@ function renderTrendCharts(data) {
 
   // For SD and STL, group by zip (neighborhoods share a city name).
   // For Main Line, group by city (each city is a distinct area).
-  const useZip = activeLocale === "san-diego" || activeLocale === "st-louis";
-  const regionMap = activeLocale === "san-diego" ? SD_POLLING_REGIONS : STL_POLLING_REGIONS;
+  const useZip = localeNeighborhoods.filterByNeighborhood;
+  const regionMap = pollingRegionsFor(localeNeighborhoods.neighborhoods);
 
   function trendsKey(r)   { return useZip ? r.zip : r.city; }
   function trendsLabel(k) {
@@ -2088,8 +1954,8 @@ function renderTrendCharts(data) {
 // === INVENTORY CHART ===
 
 function renderInventoryChart(data) {
-  const validAreas = LOCALE_AREA_NAMES[activeLocale];
-  const localeData = data.filter((d) => validAreas?.has(d.area));
+  const validAreas = new Set(localeNeighborhoods.regionNames);
+  const localeData = data.filter((d) => validAreas.has(d.area));
   if (!localeData.length) return;
 
   const areaData = {};
@@ -2107,13 +1973,10 @@ function renderInventoryChart(data) {
   const gridColor = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
 
   const areaColor = (area) => {
-    if (activeLocale === "san-diego") {
-      const nb = SD_NEIGHBORHOODS.find((n) => n.name === area);
-      return nb?.color ?? "#6b7280";
-    }
     if (activeLocale === "st-louis")
       return STL_CITY_COLORS[area.toLowerCase()] ?? "#6b7280";
-    return PA_NEIGHBORHOOD_COLORS[area] ?? "#6b7280";
+    const nb = localeNeighborhoods.neighborhoods.find((n) => n.name === area);
+    return nb?.color ?? "#6b7280";
   };
 
   const ctx = document.getElementById("inventory-chart").getContext("2d");

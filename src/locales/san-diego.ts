@@ -22,6 +22,37 @@ export const sanDiegoLocale: LocaleConfig = {
   minBeds: 3,
   maxPrice: 2_500_000,
   allowedZips: ['92110', '92107', '92116', '92117', '92104', '92103', '92120', '92115', '92102'],
+  filterByNeighborhood: true,
+  // Single source of truth for neighborhood display — sidebar filter, card/email labels,
+  // map boundaries, and chart colors are all derived from this (see locales/neighborhoods.ts).
+  neighborhoods: [
+    { zip: '92110', name: 'Bay Park / Loma Portal', color: '#4f8ef7' },
+    { zip: '92107', name: 'Point Loma Heights', color: '#22c55e' },
+    {
+      zip: '92116', name: 'Kensington / Talmadge', color: '#a855f7',
+      splits: [{ when: [{ field: 'lng', op: '<', value: -117.130 }], name: 'University Heights' }],
+    },
+    {
+      zip: '92117', name: 'Clairemont Mesa', color: '#f97316',
+      splits: [{
+        when: [{ field: 'lat', op: '<', value: 32.815 }, { field: 'lng', op: '<', value: -117.190 }],
+        name: 'Bay Ho',
+      }],
+    },
+    { zip: '92104', name: 'North Park', color: '#06b6d4' },
+    {
+      zip: '92103', name: 'Hillcrest', color: '#eab308',
+      splits: [{ when: [{ field: 'lat', op: '>=', value: 32.752 }], name: 'Mission Hills' }],
+    },
+    {
+      zip: '92120', name: 'Allied Gardens', color: '#ec4899',
+      // Del Cerro rides along with Allied Gardens' filter checkbox/map boundary (same ZIP) —
+      // it only shows as its own name on card/email labels.
+      splits: [{ when: [{ field: 'lng', op: '>', value: -117.073 }], name: 'Del Cerro', showInFilter: false }],
+    },
+    { zip: '92115', name: 'Rolando / College Area', color: '#84cc16' },
+    { zip: '92102', name: 'South Park / Golden Hill', color: '#f43f5e' },
+  ],
   scoring: {
     propertyType: {
       weight: 20,

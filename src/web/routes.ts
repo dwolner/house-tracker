@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { getDb, toggleStar, getOutcomesData, getSoldComps, getRentalEstimates, getRentcastUsage, supersedeListings, getDuplicateCandidates } from '../db/index.js';
 import { LOCALES } from '../locales/index.js';
+import { resolveNeighborhood, listNeighborhoods } from '../locales/neighborhoods.js';
 
 export function registerRoutes(app: FastifyInstance) {
   // All listings with optional filters
@@ -45,7 +46,21 @@ export function registerRoutes(app: FastifyInstance) {
     }
 
     sql += ` ORDER BY l.score DESC`;
-    return getDb().prepare(sql).all(...params);
+    const rows = getDb().prepare(sql).all(...params) as { zip: string | null; lat: number | null; lng: number | null }[];
+    return rows.map(row => ({ ...row, neighborhood: resolveNeighborhood(row.zip, row.lat, row.lng) }));
+  });
+
+  // Neighborhood list for a locale's sidebar filter / map boundaries / chart legend,
+  // plus polling region names for the inventory chart's area filter.
+  app.get('/api/locales/:id/neighborhoods', (req) => {
+    const { id } = req.params as { id: string };
+    const locale = LOCALES[id];
+    if (!locale) return { neighborhoods: [], regionNames: [], filterByNeighborhood: false };
+    return {
+      neighborhoods: listNeighborhoods(locale),
+      regionNames: locale.regions.map(r => r.name),
+      filterByNeighborhood: locale.filterByNeighborhood ?? false,
+    };
   });
 
   // Price history for a single listing — walks prior_listing_id chain

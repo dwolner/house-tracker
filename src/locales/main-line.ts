@@ -20,6 +20,25 @@ export const mainLineLocale: LocaleConfig = {
   ],
   minBeds: 3,
   maxPrice: 2_000_000,
+  // Zips beyond the polled regions (Havertown, Paoli, Devon, Malvern, Conshohocken) show up
+  // incidentally in results and still get a proper display name via this list.
+  neighborhoods: [
+    { zip: '19072', name: 'Narberth/Penn Valley', color: '#4f8ef7' },
+    { zip: '19003', name: 'Ardmore', color: '#22c55e' },
+    { zip: '19010', name: 'Bryn Mawr', color: '#a855f7' },
+    { zip: '19004', name: 'Bala Cynwyd', color: '#f97316' },
+    { zip: '19066', name: 'Merion Station', color: '#06b6d4' },
+    { zip: '19041', name: 'Haverford', color: '#eab308' },
+    { zip: '19096', name: 'Wynnewood', color: '#ec4899' },
+    { zip: '19087', name: 'Wayne', color: '#14b8a6' },
+    { zip: '19312', name: 'Berwyn', color: '#f43f5e' },
+    { zip: '19406', name: 'King of Prussia', color: '#8b5cf6' },
+    { zip: '19083', name: 'Havertown', color: '#0ea5e9' },
+    { zip: '19301', name: 'Paoli', color: '#d946ef' },
+    { zip: '19333', name: 'Devon', color: '#65a30d' },
+    { zip: '19355', name: 'Malvern', color: '#e11d48' },
+    { zip: '19428', name: 'Conshohocken', color: '#0891b2' },
+  ],
   scoring: {
     propertyType: {
       weight: 20,

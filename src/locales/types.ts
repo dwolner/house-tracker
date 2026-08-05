@@ -203,6 +203,34 @@ export interface InvestmentConfig {
   zipToCity?: Record<string, string>;
 }
 
+// A condition on a listing's lat/lng, used to split one ZIP into multiple display
+// neighborhoods (e.g. 92120 splits into Allied Gardens vs. Del Cerro by longitude).
+export interface NeighborhoodCondition {
+  field: 'lat' | 'lng';
+  op: '<' | '<=' | '>' | '>=';
+  value: number;
+}
+
+export interface NeighborhoodSplit {
+  when: NeighborhoodCondition[]; // all conditions must match (AND)
+  name: string;
+  // Set false to keep this split name display-only (card/email label) without giving
+  // it a separate row in the sidebar filter / map / chart legend — e.g. Del Cerro
+  // rides along with Allied Gardens' filter checkbox since they share a ZIP.
+  showInFilter?: boolean;
+}
+
+// One ZIP's display identity. This is the single source of truth for "neighborhood" —
+// the sidebar filter, card/email labels, map boundaries, and inventory/trend chart
+// colors are all derived from this list (see src/locales/neighborhoods.ts). Add a ZIP
+// once here and it shows up everywhere; no need to touch app.js or email.ts.
+export interface ZipNeighborhood {
+  zip: string;
+  name: string;   // default/fallback display name for this ZIP
+  color: string;  // hex — filter dot, map boundary, chart line
+  splits?: NeighborhoodSplit[]; // evaluated in order; first fully-matching split wins over `name`
+}
+
 export interface LocaleConfig {
   id: string;
   name: string;
@@ -213,6 +241,12 @@ export interface LocaleConfig {
   maxPrice: number;
   uipt?: string;    // Redfin property types to include (e.g. '1,2,3'); defaults to '1,2,3' if absent
   allowedZips?: string[]; // if set, listings outside these ZIPs are dropped even if Redfin returns them
+  neighborhoods?: ZipNeighborhood[]; // ZIP → display neighborhood(s); see resolveNeighborhood/listNeighborhoods
+  // Sidebar/card filter groups by ZIP (checkbox list of neighborhoods) instead of by the
+  // live `city` DB values. Independent of whether `neighborhoods` is set — a locale can
+  // have neighborhood display labels without wanting ZIP-based filtering (e.g. main-line,
+  // whose distinct city names are already a fine-grained, user-recognizable filter axis).
+  filterByNeighborhood?: boolean;
   scoring: ScoringConfig;
   disableNotifications?: boolean; // suppress email alerts for this locale (e.g. new locales not yet fully configured)
   investmentConfig?: InvestmentConfig;
