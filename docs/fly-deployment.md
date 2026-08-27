@@ -55,8 +55,11 @@ fly secrets set SMTP_PASS="new-app-password"
 1. Checkpoints WAL (`PRAGMA wal_checkpoint(TRUNCATE)`) on local DB
 2. `db.backup()` creates a clean copy at `/tmp/listings_push.db`
 3. Uploads to `/data/listings_restore.db` via `fly sftp shell`
-4. Kills PID 1 to restart the machine
-5. On startup, `src/index.ts` detects `listings_restore.db`, renames it to `listings.db`, and opens it
+4. Runs `fly machine restart` to restart the machine (an SSH-console `kill -TERM 1` looks
+   like it works but doesn't actually restart the machine — confirmed via `fly status`
+   showing no restart event afterward)
+5. On startup, `src/db/index.ts` (`getDb()`) detects `listings_restore.db`, renames it to
+   `listings.db`, and opens it
 
 This approach is safe under WAL mode — no corruption from in-flight writes.
 

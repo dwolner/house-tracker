@@ -33,14 +33,14 @@ EOF
 rm "$CLEAN_COPY"
 
 echo "→ Restarting app (restore will apply on startup)"
-# Kill PID 1 to force a restart; fly.io will restart the machine
-fly ssh console -a "$APP" -C 'sh -c "kill -TERM 1"' 2>/dev/null || true
-sleep 5
-# Trigger startup if machine auto-stopped
-curl -s --max-time 10 "https://$APP.fly.dev/" > /dev/null 2>&1 || true
+# `kill -TERM 1` via ssh console does NOT restart the machine (confirmed: no restart
+# event in `fly status` after running it) — use the actual machine restart API instead.
+# Non-interactive `fly machine restart -a` requires an explicit ID, so look it up first.
+MACHINE_ID=$(fly machine list -a "$APP" -q | tr -d '[:space:]')
+fly machine restart "$MACHINE_ID" -a "$APP"
 
 echo "→ Verifying (waiting for app to start)..."
-sleep 15
+sleep 10
 fly ssh console -a "$APP" -C 'sh -c "node -e \"
 const db = require(\\\"better-sqlite3\\\")(\\\"/data/listings.db\\\");
 const m = db.prepare(\\\"SELECT COUNT(*) as n FROM listings\\\").get().n;
