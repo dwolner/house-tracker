@@ -18,8 +18,12 @@ export interface SaleHistoryRow {
 
 export async function fetchListingPage(url: string): Promise<string> {
   const res = await fetch(url, { headers: HEADERS });
-  if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${url}`);
-  return res.text();
+  // Redfin's bot mitigation can return 202 with an empty body when rate-limiting a client —
+  // that's a 2xx (res.ok is true) so it wouldn't otherwise be caught here.
+  if (!res.ok || res.status !== 200) throw new Error(`HTTP ${res.status} fetching ${url}`);
+  const text = await res.text();
+  if (text.length < 10_000) throw new Error(`Suspiciously short response (${text.length} bytes) fetching ${url} — likely blocked`);
+  return text;
 }
 
 export function extractDescription(html: string): string | null {
@@ -131,6 +135,18 @@ export async function runBriefEnrichment(): Promise<void> {
       const html = await fetchListingPage(listing.url ?? '');
       const description = extractDescription(html);
       const history = extractSaleHistory(html);
+      if (description === null && history.length === 0) {
+        // Real Redfin listing pages virtually always have at least a description or sale
+        // history — both missing usually means Redfin served a stripped/bot-check page
+        // instead of the real one (seen under sustained sequential fetching), not that the
+        // listing genuinely has neither. Skip rather than let the LLM write confident
+        // analysis off blank input; it stays eligible (brief_short still NULL) for retry
+        // on the next enrichment pass.
+        console.log(`[brief] ${listing.address}, ${listing.city} — skipped (no description or history extracted, likely a blocked/stripped fetch)`);
+        failed++;
+        await sleep(1500);
+        continue;
+      }
       const brief = await generateBrief(
         `${listing.address}, ${listing.city}`,
         listing.price,
@@ -163,9 +179,21 @@ export async function generateBriefForListing(
   sqft: number | null,
   dom: number | null,
 ): Promise<{ brief_short: string; brief_full: string[] }> {
-  const html = await fetchListingPage(url);
-  const description = extractDescription(html);
-  const history = extractSaleHistory(html);
+  let html = await fetchListingPage(url);
+  let description = extractDescription(html);
+  let history = extractSaleHistory(html);
+  if (description === null && history.length === 0) {
+    // Likely a blocked/stripped fetch rather than a genuinely bare listing — one retry
+    // is usually enough to get past a transient block (see runBriefEnrichment for the
+    // same check in the bulk path).
+    await sleep(2000);
+    html = await fetchListingPage(url);
+    description = extractDescription(html);
+    history = extractSaleHistory(html);
+    if (description === null && history.length === 0) {
+      throw new Error('Could not extract description or sale history after retry — Redfin may be blocking this fetch');
+    }
+  }
   const brief = await generateBrief(`${address}, ${city}`, price, beds, sqft, dom, description, history);
   saveBrief(id, brief.short, brief.full);
   return { brief_short: brief.short, brief_full: brief.full };
