@@ -1,6 +1,6 @@
 import fetch from 'node-fetch';
 import Anthropic from '@anthropic-ai/sdk';
-import { getListingsMissingBrief, saveBrief } from '../db/index.js';
+import { getListingsMissingBrief, saveBrief, logRedfinFetch } from '../db/index.js';
 
 const HEADERS = {
   'User-Agent':
@@ -16,13 +16,20 @@ export interface SaleHistoryRow {
   price: string;
 }
 
-export async function fetchListingPage(url: string): Promise<string> {
+export async function fetchListingPage(url: string, listingId = 'unknown'): Promise<string> {
   const res = await fetch(url, { headers: HEADERS });
   // Redfin's bot mitigation can return 202 with an empty body when rate-limiting a client —
   // that's a 2xx (res.ok is true) so it wouldn't otherwise be caught here.
-  if (!res.ok || res.status !== 200) throw new Error(`HTTP ${res.status} fetching ${url}`);
+  if (!res.ok || res.status !== 200) {
+    logRedfinFetch(listingId, true, `HTTP ${res.status}`);
+    throw new Error(`HTTP ${res.status} fetching ${url}`);
+  }
   const text = await res.text();
-  if (text.length < 10_000) throw new Error(`Suspiciously short response (${text.length} bytes) fetching ${url} — likely blocked`);
+  if (text.length < 10_000) {
+    logRedfinFetch(listingId, true, `short response (${text.length}b)`);
+    throw new Error(`Suspiciously short response (${text.length} bytes) fetching ${url} — likely blocked`);
+  }
+  logRedfinFetch(listingId, false, `${text.length}b`);
   return text;
 }
 
@@ -132,7 +139,7 @@ export async function runBriefEnrichment(): Promise<void> {
 
   for (const listing of listings) {
     try {
-      const html = await fetchListingPage(listing.url ?? '');
+      const html = await fetchListingPage(listing.url ?? '', listing.id);
       const description = extractDescription(html);
       const history = extractSaleHistory(html);
       if (description === null && history.length === 0) {
@@ -179,7 +186,7 @@ export async function generateBriefForListing(
   sqft: number | null,
   dom: number | null,
 ): Promise<{ brief_short: string; brief_full: string[] }> {
-  let html = await fetchListingPage(url);
+  let html = await fetchListingPage(url, id);
   let description = extractDescription(html);
   let history = extractSaleHistory(html);
   if (description === null && history.length === 0) {
@@ -187,7 +194,7 @@ export async function generateBriefForListing(
     // is usually enough to get past a transient block (see runBriefEnrichment for the
     // same check in the bulk path).
     await sleep(2000);
-    html = await fetchListingPage(url);
+    html = await fetchListingPage(url, id);
     description = extractDescription(html);
     history = extractSaleHistory(html);
     if (description === null && history.length === 0) {

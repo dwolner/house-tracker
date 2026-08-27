@@ -140,6 +140,14 @@ export function getDb(): Database.Database {
       called_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS redfin_fetch_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      listing_id TEXT NOT NULL,
+      fetched_at TEXT NOT NULL,
+      blocked INTEGER NOT NULL DEFAULT 0,
+      detail TEXT
+    );
+
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
@@ -854,6 +862,48 @@ export function getRentcastUsage(): { thisMonth: number; today: number } {
   const thisMonth = (db.prepare(`SELECT COUNT(*) as n FROM rentcast_usage WHERE called_at >= ?`).get(periodStart) as { n: number }).n;
   const today     = (db.prepare(`SELECT COUNT(*) as n FROM rentcast_usage WHERE called_at >= ?`).get(todayStart + 'T00:00:00') as { n: number }).n;
   return { thisMonth, today };
+}
+
+export function logRedfinFetch(listingId: string, blocked: boolean, detail: string): void {
+  getDb().prepare(`INSERT INTO redfin_fetch_log (listing_id, fetched_at, blocked, detail) VALUES (?, ?, ?, ?)`)
+    .run(listingId, new Date().toISOString(), blocked ? 1 : 0, detail);
+}
+
+export interface RedfinFetchStats {
+  last1h: { total: number; blocked: number };
+  last24h: { total: number; blocked: number };
+  currentlyBlocked: boolean; // last 3 fetches all blocked
+  recentBlocked: { listing_id: string; fetched_at: string; detail: string }[];
+}
+
+export function getRedfinFetchStats(): RedfinFetchStats {
+  const db = getDb();
+  const now = Date.now();
+  const hourAgo = new Date(now - 60 * 60 * 1000).toISOString();
+  const dayAgo = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+
+  const count = (since: string) =>
+    db.prepare(`SELECT COUNT(*) as total, SUM(blocked) as blocked FROM redfin_fetch_log WHERE fetched_at >= ?`)
+      .get(since) as { total: number; blocked: number | null };
+
+  const last1h = count(hourAgo);
+  const last24h = count(dayAgo);
+
+  const recent = db.prepare(`SELECT blocked FROM redfin_fetch_log ORDER BY fetched_at DESC LIMIT 3`)
+    .all() as { blocked: number }[];
+  const currentlyBlocked = recent.length === 3 && recent.every(r => r.blocked === 1);
+
+  const recentBlocked = db.prepare(`
+    SELECT listing_id, fetched_at, detail FROM redfin_fetch_log
+    WHERE blocked = 1 ORDER BY fetched_at DESC LIMIT 10
+  `).all() as { listing_id: string; fetched_at: string; detail: string }[];
+
+  return {
+    last1h: { total: last1h.total, blocked: last1h.blocked ?? 0 },
+    last24h: { total: last24h.total, blocked: last24h.blocked ?? 0 },
+    currentlyBlocked,
+    recentBlocked,
+  };
 }
 
 export function getSetting(key: string): string | null {

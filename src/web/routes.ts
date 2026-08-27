@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { getDb, toggleStar, getOutcomesData, getSoldComps, getRentalEstimates, getRentcastUsage, supersedeListings, getDuplicateCandidates } from '../db/index.js';
+import { getDb, toggleStar, getOutcomesData, getSoldComps, getRentalEstimates, getRentcastUsage, getRedfinFetchStats, supersedeListings, getDuplicateCandidates } from '../db/index.js';
 import { LOCALES } from '../locales/index.js';
 import { resolveNeighborhood, listNeighborhoods } from '../locales/neighborhoods.js';
 
@@ -364,6 +364,11 @@ export function registerRoutes(app: FastifyInstance) {
   app.get('/api/rentcast/usage', () => {
     const usage = getRentcastUsage();
     return { ...usage, monthlyLimit: 50, dailyLimit: parseInt(process.env.RENTCAST_DAILY_LIMIT ?? '1', 10) };
+  });
+
+  // Redfin listing-page fetch tracking — surfaces bot-mitigation blocks (see brief.ts)
+  app.get('/api/redfin/usage', () => {
+    return getRedfinFetchStats();
   });
 
   // Live 30yr mortgage rate (from FRED, cached 7 days)
