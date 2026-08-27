@@ -19,10 +19,19 @@ export const sanDiegoLocale: LocaleConfig = {
     { name: 'Allied Gardens',            region_id: '38120', region_type: 2 },
     { name: 'Talmadge / Rolando',         region_id: '38115', region_type: 2 },
     { name: 'South Park / Golden Hill',  region_id: '38102', region_type: 2 },
+    { name: 'Mission Valley',            region_id: '38108', region_type: 2 },
+    { name: 'Point Loma',                region_id: '38106', region_type: 2 },
+    { name: 'Downtown',                  region_id: '38101', region_type: 2 },
+    { name: 'Pacific Beach',             region_id: '38109', region_type: 2 },
+    { name: 'La Jolla',                  region_id: '38061', region_type: 2 },
+    { name: 'UTC / University City',     region_id: '38122', region_type: 2 },
   ],
   minBeds: 3,
   maxPrice: 2_500_000,
-  allowedZips: ['92110', '92107', '92116', '92117', '92104', '92103', '92120', '92115', '92102'],
+  allowedZips: [
+    '92110', '92107', '92116', '92117', '92104', '92103', '92120', '92115', '92102', '92108',
+    '92106', '92101', '92109', '92037', '92122',
+  ],
   filterByNeighborhood: true,
   // Single source of truth for neighborhood display — sidebar filter, card/email labels,
   // map boundaries, and chart colors are all derived from this (see locales/neighborhoods.ts).
@@ -58,6 +67,12 @@ export const sanDiegoLocale: LocaleConfig = {
       // Hope/Broadway Heights, a different market than South Park/Golden Hill/Grant Hill/Burlingame.
       splits: [{ when: [{ field: 'lng', op: '>', value: -117.115 }], name: 'Chollas View / Mount Hope' }],
     },
+    { zip: '92108', name: 'Mission Valley', color: '#8b5cf6' },
+    { zip: '92106', name: 'Point Loma', color: '#0ea5e9' },
+    { zip: '92101', name: 'Downtown', color: '#d946ef' },
+    { zip: '92109', name: 'Pacific Beach', color: '#65a30d' },
+    { zip: '92037', name: 'La Jolla', color: '#0891b2' },
+    { zip: '92122', name: 'UTC / University City', color: '#2563eb' },
   ],
   scoring: {
     propertyType: {
