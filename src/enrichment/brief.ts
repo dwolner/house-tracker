@@ -1,6 +1,6 @@
 import fetch from 'node-fetch';
 import Anthropic from '@anthropic-ai/sdk';
-import { getListingsMissingBrief, saveBrief, logRedfinFetch } from '../db/index.js';
+import { getListingsMissingBrief, saveBrief, logRedfinFetch, getRedfinFetchStats } from '../db/index.js';
 
 const HEADERS = {
   'User-Agent':
@@ -129,13 +129,24 @@ function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+const BRIEF_FETCH_DELAY_MS = 4500; // spread requests out further to avoid tripping Redfin's WAF on large backlogs
+const MAX_CONSECUTIVE_BLOCKED = 3; // stop early once we're clearly blocked rather than burning through the whole queue
+
 export async function runBriefEnrichment(): Promise<void> {
   const listings = getListingsMissingBrief(BRIEF_SCORE_THRESHOLD);
   console.log(`[brief] ${listings.length} listings need briefs`);
   if (listings.length === 0) return;
 
+  if (getRedfinFetchStats().currentlyBlocked) {
+    // Don't skip outright — that would mean we never notice when the block clears. Just cap
+    // how many attempts we burn confirming we're still blocked (the circuit breaker below
+    // handles this every run already; this just avoids logging a misleadingly large queue size).
+    console.log('[brief] last 3 Redfin fetches were blocked — probing a few before giving up this run');
+  }
+
   let updated = 0;
   let failed = 0;
+  let consecutiveBlocked = 0;
 
   for (const listing of listings) {
     try {
@@ -151,7 +162,12 @@ export async function runBriefEnrichment(): Promise<void> {
         // on the next enrichment pass.
         console.log(`[brief] ${listing.address}, ${listing.city} — skipped (no description or history extracted, likely a blocked/stripped fetch)`);
         failed++;
-        await sleep(1500);
+        consecutiveBlocked++;
+        if (consecutiveBlocked >= MAX_CONSECUTIVE_BLOCKED) {
+          console.log(`[brief] ${consecutiveBlocked} consecutive blocked fetches — stopping early, remaining listings retry next pass`);
+          break;
+        }
+        await sleep(BRIEF_FETCH_DELAY_MS);
         continue;
       }
       const brief = await generateBrief(
@@ -166,11 +182,17 @@ export async function runBriefEnrichment(): Promise<void> {
       saveBrief(listing.id, brief.short, brief.full);
       console.log(`[brief] ${listing.address}, ${listing.city} — done`);
       updated++;
+      consecutiveBlocked = 0;
     } catch (err) {
       console.error(`[brief] error for ${listing.address}:`, err);
       failed++;
+      consecutiveBlocked++;
+      if (consecutiveBlocked >= MAX_CONSECUTIVE_BLOCKED) {
+        console.log(`[brief] ${consecutiveBlocked} consecutive failures — stopping early, remaining listings retry next pass`);
+        break;
+      }
     }
-    await sleep(1500);
+    await sleep(BRIEF_FETCH_DELAY_MS);
   }
 
   console.log(`[brief] done — ${updated} generated, ${failed} failed/skipped`);
