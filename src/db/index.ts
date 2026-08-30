@@ -430,7 +430,12 @@ export function getListingsMissingBrief(scoreThreshold: number): ListingForEnric
               WHERE brief_short IS NULL
                 AND score >= ?
                 AND status IN ('9', '1')
-                AND superseded_by IS NULL`)
+                AND superseded_by IS NULL
+              -- Remarks-backed listings first: they need no HTTP request and always succeed.
+              -- Listings without remarks fall through to scraping the WAF-blocked HTML page, and
+              -- three consecutive failures trip the circuit breaker — so if they ran first they
+              -- would abort the run before the generatable ones were reached.
+              ORDER BY (listing_remarks IS NULL), score DESC`)
     .all(scoreThreshold) as ListingForEnrichment[];
 }
 
