@@ -1,6 +1,6 @@
 import fetch from 'node-fetch';
 import Anthropic from '@anthropic-ai/sdk';
-import { getListingsMissingBrief, saveBrief, logRedfinFetch, getRedfinFetchStats } from '../db/index.js';
+import { getListingsMissingBrief, saveBrief, logRedfinFetch, getRedfinFetchStats, getListingRemarks } from '../db/index.js';
 
 const HEADERS = {
   'User-Agent':
@@ -256,6 +256,18 @@ export async function generateBriefForListing(
   sqft: number | null,
   dom: number | null,
 ): Promise<{ brief_short: string; brief_full: string[] }> {
+  // Same remarks-first path as runBriefEnrichment: the HTML page is WAF-blocked from most
+  // datacenter IPs, so scraping it makes this endpoint fail in production. Stored remarks are
+  // captured at poll time and need no outbound request at all.
+  const stored = getListingRemarks(id)?.trim();
+  if (stored) {
+    const brief = await generateBrief(
+      `${address}, ${city}`, price, beds, sqft, dom, trimToCompleteSentence(stored), [],
+    );
+    saveBrief(id, brief.short, brief.full);
+    return { brief_short: brief.short, brief_full: brief.full };
+  }
+
   let html = await fetchListingPage(url, id);
   let description = extractDescription(html);
   let history = extractSaleHistory(html);

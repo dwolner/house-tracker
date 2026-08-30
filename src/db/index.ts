@@ -434,6 +434,13 @@ export function getListingsMissingBrief(scoreThreshold: number): ListingForEnric
     .all(scoreThreshold) as ListingForEnrichment[];
 }
 
+export function getListingRemarks(id: string): string | null {
+  const row = getDb()
+    .prepare(`SELECT listing_remarks FROM listings WHERE id = ?`)
+    .get(id) as { listing_remarks: string | null } | undefined;
+  return row?.listing_remarks ?? null;
+}
+
 /**
  * Store the raw listing description harvested from the gis JSON feed at poll time.
  * Only writes when the text actually changed, so re-polls don't churn the row.
