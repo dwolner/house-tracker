@@ -129,7 +129,9 @@ function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-const BRIEF_FETCH_DELAY_MS = 4500; // spread requests out further to avoid tripping Redfin's WAF on large backlogs
+// Spread requests out to avoid tripping Redfin's WAF on large backlogs. Tunable via env so a
+// big backfill can be run slower without a code change (Redfin throttles after a short burst).
+const BRIEF_FETCH_DELAY_MS = parseInt(process.env.BRIEF_FETCH_DELAY_MS ?? '4500', 10);
 const MAX_CONSECUTIVE_BLOCKED = 3; // stop early once we're clearly blocked rather than burning through the whole queue
 
 export async function runBriefEnrichment(): Promise<void> {
