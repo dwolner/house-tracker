@@ -9,13 +9,17 @@ Free tier includes: 3 shared VMs, 3GB persistent storage, 160GB outbound transfe
 ## Current Deployment
 
 App: `house-tracker-kgg27w` · Live at `https://house-tracker-kgg27w.fly.dev`
-Region: `lax` · Machine: `d8d2162a233378` (shared-cpu-1x, 256MB)
+Region: `lax` · shared-cpu-1x, 256MB
+
+> **The machine ID changes.** A deploy that must replace the machine (rather than update it in
+> place) creates a new one — find the current ID with `fly machine list -a house-tracker-kgg27w -q`.
+> This matters more than it sounds: see "Machine recreation is not free" below.
 
 | Component | Status |
 |---|---|
 | Dockerfile | ✅ Multi-stage Node 20 build |
 | Persistent volume | ✅ `/data` — survives deploys and restarts |
-| Secrets | ✅ SMTP, NOTIFY_*, POLL_SCHEDULE, RENTCAST_API_KEY |
+| Secrets | ✅ SMTP, NOTIFY_*, POLL_SCHEDULE, RENTCAST_API_KEY, ANTHROPIC_API_KEY |
 | Daily cron | ✅ Runs at 7am UTC via `node-cron` inside the server process |
 | `auto_stop_machines = 'off'` | ✅ Always-on (no cold starts) |
 
@@ -42,6 +46,22 @@ fly ssh console -a house-tracker-kgg27w -C 'node -e "
   console.log(\"rentcast_usage:\", db.prepare(\"SELECT COUNT(*) as n FROM rentcast_usage\").get().n);
 "'
 ```
+
+### Machine recreation is not free
+
+Two things break when the machine is recreated, both learned the hard way (Aug 2026):
+
+1. **The volume can strand the app.** The volume is pinned to one host in `lax`. If that host has no
+   capacity when the replacement machine is created, the deploy fails with `insufficient resources
+   to create new machine with existing volume` — *after* the old machine is gone. That caused a
+   ~2-day outage. Recovery is to retry `fly deploy` until capacity frees up; the volume and its data
+   are safe throughout (`fly volumes list` will show it `created` and unattached).
+
+2. **The egress IP changes, which used to break AI briefs.** Redfin's WAF blocks HTML listing pages
+   from most Fly egress IPs — roughly 1 in 4 is clean. The app sat on a clean IP for months until a
+   recreate landed it on a flagged one. Briefs now read descriptions from Redfin's JSON API instead
+   of scraping HTML, so this no longer matters — don't reintroduce a dependency on it.
+   Check current state with `GET /api/redfin/usage`.
 
 ### Updating secrets
 
@@ -101,5 +121,5 @@ Free as long as you stay within [Fly's free allowances](https://fly.io/docs/abou
 - [architecture.md](architecture.md)
 - [roadmap.md](roadmap.md)
 
-**Last Updated:** April 29, 2026
+**Last Updated:** August 30, 2026
 **Author:** Daniel Wolner

@@ -22,7 +22,10 @@ src/locales/
 - `name` — display name
 - `state` — expected state abbreviation (listings from other states are dropped at poll time)
 - `regions` — array of `RedfinRegion` (`name`, `region_id`, `region_type`, `useJsonApi?`)
-- `minBeds`, `maxPrice` — hard filter applied before DB insert
+- `minBeds`, `maxPrice` — hard filter, enforced **client-side in the poller** as well as sent to
+  Redfin. The JSON endpoint ignores both (see Redfin APIs Used), so the local check is what actually
+  holds for JSON locales
+- `allowedZips?` — drop listings outside these ZIPs even if Redfin returns them
 - `uipt` — Redfin property type filter string (e.g. `'1,3,4'`)
 - `scoring` — `ScoringConfig` (all fields optional; omitted factors score 0)
 - `investmentConfig?` — optional investment analysis config (rent tables, financing assumptions)
@@ -35,7 +38,7 @@ To add a locale: create `src/locales/{name}.ts`, export a `LocaleConfig`, add it
 | Locale ID | Name | State | Regions |
 |---|---|---|---|
 | `main-line` | PA Main Line | PA | Narberth/Penn Valley, Ardmore, Bryn Mawr, Bala Cynwyd, Merion Station, Haverford, Wynnewood, Wayne, Berwyn, King of Prussia |
-| `san-diego` | San Diego | CA | Bay Park/Loma Portal, Point Loma Heights, Kensington/Talmadge, Bay Ho, North Park, Mission Hills, Allied Gardens, Talmadge/Rolando, South Park/Golden Hill |
+| `san-diego` | San Diego | CA | Bay Park/Loma Portal, Point Loma Heights, Kensington/Talmadge, Bay Ho, North Park, Mission Hills, Allied Gardens, Talmadge/Rolando, South Park/Golden Hill, Mission Valley, Point Loma, Downtown, Pacific Beach, La Jolla, UTC/University City |
 | `st-louis` | St. Louis Suburbs | MO | Kirkwood, Glendale, Webster Groves, Rock Hill, Maplewood, Richmond Heights, Ladue, Clayton, Shrewsbury, Des Peres, Sunset Hills, Crestwood |
 
 ## Components
@@ -50,6 +53,7 @@ src/
     walk-score.ts    — Walk score enrichment (pulls from Redfin's internal API)
     rent-estimate.ts — RentCast rent estimates + resolveRentOverride (3-tier rent priority)
     mortgage-rate.ts — FRED 30yr fixed rate (cached in memory, 6.9% fallback)
+    brief.ts         — AI brief generation (Claude Haiku 4.5) from stored listing_remarks
   scoring/
     index.ts         — Locale-aware weighted scoring engine (scoreWithBreakdown)
   db/
@@ -82,15 +86,16 @@ pnpm poll
        for each region in locale.regions:
          fetchRegionListings() / fetchRegionListingsJson()  — Redfin CSV or JSON API
          fetchRegionRemarks()  — listingRemarks from the gis JSON API, keyed by MLS# (never throws)
-         drop listings where state ≠ locale.state
+         drop listings outside locale criteria (state, allowedZips, minBeds, maxPrice, minPrice)
          rentResolution = resolveRentOverride(l, rentalEstimates, locale)  — 3-tier rent
          scoreWithBreakdown(l, locale, rentResolution)  — 0–100 + per-factor breakdown + rentUsed/rentSource
          upsertListing({ ...l, locale_id: locale.id, score, breakdown })
+         saveListingRemarks()  — store description for brief generation
          logPoll()
-       fetchRecentlySold() / fetchRecentlySoldJson()  — mark sold listings
+       fetchRecentlySold()  — mark sold listings (CSV only; the JSON variant returns [])
   └─ markStaleListingsInactive()  — 36h absence → inactive
   └─ pruneOldBreakdowns()         — remove score_breakdown after 6 months inactive
-  └─ runEnrichment()              — backfill walk scores
+  └─ runEnrichment()              — backfill walk scores, school districts, then AI briefs
   └─ for each locale with investmentConfig:
        refreshRentEstimates(locale.id)  — fetch RentCast estimates for new/stale listings (round-robin ZIP)
 
@@ -134,7 +139,27 @@ Returns CSV: `ADDRESS`, `CITY`, `PRICE`, `BEDS`, `BATHS`, `SQUARE FEET`, `LOT SI
 ```
 GET /stingray/api/gis?region_id=9905&region_type=6&uipt=1,3,4&status=9&num_beds=3&max_price=500000&num_homes=350&v=8
 ```
-Used when `region.useJsonApi: true`. Returns the same data as a JSON payload instead of CSV. Required for STL because MARIS MLS restricts Redfin's CSV download.
+Used when `region.useJsonApi: true`. Required for STL because MARIS MLS restricts Redfin's CSV
+download (re-verified Aug 2026 — `gis-csv` returns headers and zero rows for every status).
+
+⚠️ **This endpoint silently ignores query parameters the CSV endpoint honours.** It accepts them and
+returns 200, so the failure is invisible:
+
+| Param | CSV | JSON | Consequence when it was trusted |
+|---|---|---|---|
+| `num_beds` / `max_price` | honoured | **ignored** | 363 of 786 STL rows exceeded its $500k cap; 218 were under minBeds. Now enforced client-side in the poller. |
+| `status` | honoured | **ignored** | `status=9`, `130`, `131` all return the same Active + Coming Soon set. |
+| comma-separated `status` | n/a | rejected | `status=9,1,130` → `resultCode 101`, zero homes. Query one status at a time. |
+
+Because `status` is ignored:
+- `fetchRegionListingsJson` issues **one** request, not one per status — three were identical.
+- `fetchRecentlySoldJson` returns `[]`. Asking for `131` returned live listings and fed them to
+  `markListingSold()`; that was harmless only because the query refuses rows with status `'9'`/`'1'`.
+- **JSON-API locales cannot detect sold or pending listings.** Those listings drop out of the feed
+  and are marked inactive by `markStaleListingsInactive()` after 36h. This is a data-source limit,
+  not something to fix in code.
+
+The JSON payload does carry one thing CSV lacks: `listingRemarks` (see AI Briefs).
 
 ### Walk Score (internal, no auth required)
 ```
@@ -302,6 +327,7 @@ listings (
   lat REAL, lng REAL,
   url TEXT,
   status TEXT,                   -- '9'=active, '1'=coming soon, '130'=pending, '131'=sold, 'inactive'
+                                 -- normalizeStatus() maps Redfin labels; 'Pre On-Market' → '1'
   days_on_market INTEGER,
   score REAL,
   score_breakdown TEXT,          -- JSON: ScoreBreakdown
@@ -348,6 +374,16 @@ rentcast_usage (
   called_at TEXT                 -- ISO timestamp; used for 30-day billing period accounting
 )
 -- Period start = MIN(called_at); current period = floor((now - first) / 30d) * 30d
+
+redfin_fetch_log (
+  id INTEGER PRIMARY KEY,
+  listing_id TEXT,
+  fetched_at TEXT,               -- ISO timestamp
+  blocked INTEGER DEFAULT 0,     -- 1 when Redfin refused (WAF captcha, rate limit, short body)
+  detail TEXT                    -- status code or response size
+)
+-- Every HTML listing-page fetch, success or blocked. Surfaces WAF blocks that would
+-- otherwise only appear later as missing/garbage briefs. See GET /api/redfin/usage.
 ```
 
 ## API Routes
@@ -363,6 +399,8 @@ rentcast_usage (
 | `GET /api/locales/:id/investment` | Investment config for a locale |
 | `GET /api/locales/:id/comps` | Median sold $/sqft by city (last 12 months, min 3 sales) |
 | `GET /api/locales/:id/rent-estimates` | Cached RentCast rent estimates keyed by listing ID |
+| `GET /api/redfin/usage` | Redfin HTML-fetch health: `{ last1h, last24h, currentlyBlocked, recentBlocked[] }`. `currentlyBlocked` = last 3 fetches all blocked. |
+| `POST /api/listings/:id/brief` | Generate a brief on demand ("Generate Brief" button). Uses stored `listing_remarks`; falls back to scraping only when a listing has none. |
 | `POST /api/locales/:id/rent-estimates/refresh` | Trigger a manual rent estimate refresh |
 | `GET /email-preview?locale=&n=&theme=` | Render email digest HTML in browser (theme: dark/light) |
 | `POST /api/digest` | Trigger an immediate poll + email digest |
@@ -396,6 +434,52 @@ rentcast_usage (
 | `DB_PATH` | No | SQLite file path (default: `data/listings.db`) |
 | `RENTCAST_API_KEY` | No | RentCast API key for STL rent estimates (free tier: 50 req/30-day period) |
 | `RENTCAST_DAILY_LIMIT` | No | Max RentCast calls per day (default: 1; raise temporarily for backfill) |
+| `ANTHROPIC_API_KEY` | Yes (briefs) | Claude API key — brief generation uses Haiku 4.5 |
+| `BRIEF_FETCH_DELAY_MS` | No | Delay between brief HTML fallback fetches (default: 4500). Only affects the fallback path; remarks-backed briefs make no HTTP request. Raise for large backfills. |
+
+## AI Briefs
+
+Per-listing pre-showing analysis (`brief_short` one-liner + `brief_full` bullets), generated with
+Claude Haiku 4.5 in `src/enrichment/brief.ts`.
+
+**Source of the description — read this before changing it.** Briefs are built from
+`listing_remarks`, harvested from the `gis` **JSON API** during the poll (`fetchRegionRemarks`, one
+request per region). They are *not* scraped from the listing page. Redfin's WAF blocks HTML listing
+pages from most datacenter IPs (HTTP 405 + AWS WAF captcha) while leaving `/stingray/api/*` open, so
+a scraping-based brief path works locally and fails in production. Roughly 1 in 4 Fly egress IPs is
+clean; the app ran on a clean one for months until a capacity outage recreated the machine onto a
+flagged IP and briefs silently stopped generating.
+
+| Path | Source | HTTP requests |
+|---|---|---|
+| Primary | stored `listing_remarks` | **none** |
+| Fallback | HTML page scrape | 1/listing — only when a listing has no remarks |
+
+Both `runBriefEnrichment()` (bulk) and `generateBriefForListing()` (the "Generate Brief" button) use
+the same remarks-first path. The fallback exists because a few listings — mostly Coming Soon /
+pre-market — aren't in the JSON feed yet; they pick up remarks once active.
+
+**Guards, each of which exists because its absence caused a real bug:**
+
+- **Truncation** — Redfin caps `listingRemarks` at 699 chars, usually mid-word. Handed that raw, the
+  model reported the truncation as a property finding (*"description ends mid-sentence — check what
+  was cut off"*). `trimToCompleteSentence()` cuts back to the last complete sentence.
+- **Absent sections are omitted, never announced.** Telling the model "No sale history available"
+  invites it to report that absence as a finding. The prompt also forbids commenting on missing,
+  partial, or truncated data — those are pipeline artifacts, not facts about the house.
+- **Blocked fetches never produce a brief.** A `202` with an empty body is a 2xx, so `res.ok` alone
+  let empty HTML through and produced confident nonsense ("no description provided and no available
+  sale history") for listings that had both. `fetchListingPage` now rejects non-200 and suspiciously
+  short bodies, and a fetch yielding neither description nor history is skipped rather than sent to
+  the model.
+- **Queue order** — `getListingsMissingBrief` returns remarks-backed listings first. They need no
+  HTTP request and always succeed, so the circuit breaker (3 consecutive failures) can only trip at
+  the tail instead of aborting the run before any generatable brief is produced.
+
+Sale history is only available via the HTML page, so remarks-backed briefs are generated with an
+empty history array. Verified that this does not cause fabricated sale-history claims. The app
+already surfaces relisting and price-drop signals structurally (`prior_listing_id`, true DOM,
+RELISTING / PRICE DROP badges), so the brief is not the only place that information appears.
 
 ## Relisting Detection
 
@@ -437,5 +521,5 @@ Email uses Unicode characters (not SVG) because most email clients don't support
 
 ---
 
-**Last Updated:** May 22, 2026
+**Last Updated:** August 30, 2026
 **Author:** Daniel Wolner
