@@ -69,6 +69,23 @@ export interface BriefResult {
   full: string[];
 }
 
+/**
+ * Redfin truncates `listingRemarks` at 699 chars, often mid-word. Handing that to the model makes
+ * it report the truncation itself as a finding ("description ends mid-sentence — check what was
+ * cut off"), which is noise about our data pipeline rather than about the house. Cut back to the
+ * last complete sentence so the text simply reads as shorter.
+ */
+export function trimToCompleteSentence(text: string): string {
+  const t = text.trim();
+  if (/[.!?]["')\]]?$/.test(t)) return t; // already ends cleanly
+
+  const lastStop = Math.max(t.lastIndexOf('. '), t.lastIndexOf('! '), t.lastIndexOf('? '));
+  // Only trim when a sentence boundary exists and keeping it retains most of the text; otherwise
+  // a remark with no punctuation would be gutted.
+  if (lastStop > 0 && lastStop >= t.length * 0.4) return t.slice(0, lastStop + 1);
+  return t;
+}
+
 const anthropic = new Anthropic();
 
 export async function generateBrief(
@@ -80,22 +97,23 @@ export async function generateBrief(
   description: string | null,
   history: SaleHistoryRow[],
 ): Promise<BriefResult> {
-  const historyText = history.length
-    ? history.map(r => `${r.date}: ${r.event} ${r.price}`).join('\n')
-    : 'No sale history available.';
+  // Omit absent sections entirely rather than announcing them. Telling the model "no sale
+  // history available" invites it to report that absence as a finding, which is noise — the
+  // buyer wants analysis of what IS known, not an inventory of what we failed to fetch.
+  const sections = [
+    `Address: ${address}`,
+    `Price: $${price.toLocaleString()}`,
+    `Beds: ${beds} | Sqft: ${sqft ?? 'unknown'}`,
+    `Days on market: ${dom ?? 'unknown'}`,
+  ];
+  if (description) sections.push(`\nListing description:\n${description}`);
+  if (history.length) {
+    sections.push(`\nSale/price history:\n${history.map(r => `${r.date}: ${r.event} ${r.price}`).join('\n')}`);
+  }
 
   const prompt = `You are helping a buyer prepare for a home showing. Analyze this listing and produce a brief.
 
-Address: ${address}
-Price: $${price.toLocaleString()}
-Beds: ${beds} | Sqft: ${sqft ?? 'unknown'}
-Days on market: ${dom ?? 'unknown'}
-
-Listing description:
-${description ?? 'Not available.'}
-
-Sale/price history:
-${historyText}
+${sections.join('\n')}
 
 Respond with ONLY valid JSON in this exact shape:
 {
@@ -108,6 +126,11 @@ Rules:
 - full: 3-5 bullets covering flip/relist detection, negotiation position, inspection flags from description, price trajectory. Omit bullets with nothing notable to say.
 - Terse, analytical, no filler. Write for a buyer doing pre-showing prep.
 - full bullets must be plain strings, no markdown formatting
+- Analyze only what is given above. NEVER remark on information that is absent, partial, or
+  truncated (missing description, missing sale history, text that seems cut off, "limited
+  information"). Those are artifacts of our data pipeline, not facts about the property, and
+  reporting them as findings is actively misleading. If something is not present, say nothing
+  about it — write the brief from what IS there, even if that means fewer bullets.
 - Price trajectory context: US home values rose ~40-60% from 2019-2024 due to market conditions alone. Do NOT cite appreciation in that range as evidence of renovations or unusual quality. Only flag price history if it shows flip patterns (bought and relisted within 1-2 years at a steep markup) or appreciation dramatically above 80%+ in a short window that suggests major improvement. General long-run appreciation is baseline, not signal.`;
 
   const message = await anthropic.messages.create({
@@ -152,6 +175,29 @@ export async function runBriefEnrichment(): Promise<void> {
 
   for (const listing of listings) {
     try {
+      // Prefer the description captured from the JSON feed at poll time. It's truncated at 699
+      // chars but needs no HTTP request here, so briefs keep working when the HTML listing pages
+      // are WAF-blocked. Falling back to scraping only buys the untruncated text plus deep sale
+      // history, so it isn't worth a request (or a circuit-breaker strike) when we already have
+      // remarks — the sale history we care most about (relists, price cuts) is in our own DB.
+      const stored = listing.listing_remarks?.trim();
+      if (stored) {
+        const brief = await generateBrief(
+          `${listing.address}, ${listing.city}`,
+          listing.price,
+          listing.beds,
+          listing.sqft,
+          listing.days_on_market,
+          trimToCompleteSentence(stored),
+          [],
+        );
+        saveBrief(listing.id, brief.short, brief.full);
+        console.log(`[brief] ${listing.address}, ${listing.city} — done (stored remarks)`);
+        updated++;
+        consecutiveBlocked = 0;
+        continue;
+      }
+
       const html = await fetchListingPage(listing.url ?? '', listing.id);
       const description = extractDescription(html);
       const history = extractSaleHistory(html);

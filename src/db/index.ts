@@ -174,6 +174,10 @@ export function getDb(): Database.Database {
   if (!cols.includes('brief_full')) _db.exec(`ALTER TABLE listings ADD COLUMN brief_full TEXT`);
   if (!cols.includes('prior_listing_id')) _db.exec(`ALTER TABLE listings ADD COLUMN prior_listing_id TEXT REFERENCES listings(id)`);
   if (!cols.includes('prior_list_price'))  _db.exec(`ALTER TABLE listings ADD COLUMN prior_list_price INTEGER`);
+  // Raw agent-written description from the gis JSON API (`listingRemarks`, capped ~699 chars).
+  // Captured at poll time so brief generation doesn't need to scrape the HTML page, which is
+  // WAF-blocked from most datacenter IPs — see docs/architecture.md.
+  if (!cols.includes('listing_remarks')) _db.exec(`ALTER TABLE listings ADD COLUMN listing_remarks TEXT`);
 
   return _db;
 }
@@ -394,6 +398,7 @@ export interface ListingForEnrichment {
   school_district: string | null;
   url: string | null;
   locale_id: string;
+  listing_remarks?: string | null;
   prior_listing_id: string | null;
   prior_list_price: number | null;
 }
@@ -419,13 +424,25 @@ export function getListingsMissingSchoolDistrict(): ListingForEnrichment[] {
 export function getListingsMissingBrief(scoreThreshold: number): ListingForEnrichment[] {
   return getDb()
     .prepare(`SELECT id, address, city, state, zip, lat, lng, beds, price, sqft, lot_sqft,
-                     days_on_market, property_type, walk_score, school_district, url, locale_id
+                     days_on_market, property_type, walk_score, school_district, url, locale_id,
+                     listing_remarks
               FROM listings
               WHERE brief_short IS NULL
                 AND score >= ?
                 AND status IN ('9', '1')
                 AND superseded_by IS NULL`)
     .all(scoreThreshold) as ListingForEnrichment[];
+}
+
+/**
+ * Store the raw listing description harvested from the gis JSON feed at poll time.
+ * Only writes when the text actually changed, so re-polls don't churn the row.
+ */
+export function saveListingRemarks(id: string, remarks: string): void {
+  getDb()
+    .prepare(`UPDATE listings SET listing_remarks = ?
+              WHERE id = ? AND (listing_remarks IS NULL OR listing_remarks != ?)`)
+    .run(remarks, id, remarks);
 }
 
 export function saveBrief(id: string, briefShort: string, briefFull: string[]): void {

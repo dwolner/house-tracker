@@ -370,6 +370,65 @@ export async function fetchRegionListingsJson(
   return [...seen.values()];
 }
 
+/**
+ * Fetch listing descriptions for a region, keyed by MLS id.
+ *
+ * The gis JSON payload carries `listingRemarks` (the agent-written description) while the CSV
+ * feed does not. We harvest it separately rather than switching the CSV locales over to JSON
+ * wholesale, because the JSON feed ignores the num_beds/max_price filters and omits pending
+ * (status 130) listings — see docs/architecture.md.
+ *
+ * One request per region replaces one HTML page fetch per listing, and the HTML listing pages
+ * are WAF-blocked (HTTP 405) from most datacenter IPs while this endpoint is not.
+ *
+ * Remarks are truncated by Redfin at 699 chars. Never throws — remarks are a nice-to-have, so a
+ * failure here must not take down the poll.
+ */
+export async function fetchRegionRemarks(
+  region_id: string,
+  region_type: number,
+  minBeds: number,
+  maxPrice: number,
+  uipt: string,
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+
+  // The endpoint rejects a comma-separated status list (resultCode 101), so query each status
+  // separately — same approach as fetchRegionListingsJson.
+  await Promise.all(['9', '1', '130'].map(async status => {
+    const params = new URLSearchParams({
+      al: '1',
+      region_id,
+      region_type: String(region_type),
+      uipt,
+      status,
+      num_beds: String(minBeds),
+      max_price: String(maxPrice),
+      num_homes: '350',
+      v: '8',
+    });
+
+    try {
+      const res = await fetch(`${REDFIN_BASE}/stingray/api/gis?${params}`, { headers: HEADERS });
+      if (!res.ok) return;
+      const json = JSON.parse((await res.text()).replace(/^\{\}&&/, ''));
+      if (json.resultCode !== 0) return;
+
+      for (const h of (json.payload?.homes ?? []) as Record<string, unknown>[]) {
+        const mlsId = val<string>(h['mlsId']);
+        const remarks = h['listingRemarks'];
+        if (mlsId && typeof remarks === 'string' && remarks.trim()) {
+          out.set(String(mlsId), remarks.trim());
+        }
+      }
+    } catch {
+      // Swallow — callers treat a missing entry as "no remarks available this run".
+    }
+  }));
+
+  return out;
+}
+
 // ── CSV API path (original) ────────────────────────────────────────────────────
 
 function parseCSVLine(line: string): string[] {

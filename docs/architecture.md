@@ -81,6 +81,7 @@ pnpm poll
        rentalEstimates = getRentalEstimatesWithSqft(locale.id)  — if investmentConfig present
        for each region in locale.regions:
          fetchRegionListings() / fetchRegionListingsJson()  — Redfin CSV or JSON API
+         fetchRegionRemarks()  — listingRemarks from the gis JSON API, keyed by MLS# (never throws)
          drop listings where state ≠ locale.state
          rentResolution = resolveRentOverride(l, rentalEstimates, locale)  — 3-tier rent
          scoreWithBreakdown(l, locale, rentResolution)  — 0–100 + per-factor breakdown + rentUsed/rentSource
@@ -116,6 +117,12 @@ pnpm web  (or pnpm dev)
 ```
 
 ## Redfin APIs Used
+
+**Redfin's WAF blocks HTML listing pages from most datacenter IPs (HTTP 405 + AWS WAF CAPTCHA), but
+leaves the `/stingray/api/*` JSON endpoints open.** Roughly 1 in 4 Fly egress IPs is clean — the app
+ran for months on a clean one, then a Fly capacity outage recreated the machine onto a flagged IP and
+brief generation broke. Everything below uses the JSON APIs for that reason; don't reintroduce HTML
+scraping into a code path that has to work in production.
 
 ### Listing CSV
 ```
@@ -313,6 +320,7 @@ listings (
   next_open_house_end TEXT,
   brief_short TEXT,              -- AI-generated one-liner (Claude Haiku)
   brief_full TEXT,               -- JSON array of bullet strings
+  listing_remarks TEXT,          -- raw agent description from gis JSON (`listingRemarks`, capped 699 chars)
   superseded_by TEXT,            -- FK → listings.id for dedup chains
   prior_listing_id TEXT,         -- FK → listings.id — most-recent inactive listing at same address
   prior_list_price INTEGER       -- price_at_first_seen of prior_listing_id (stored to avoid join at score time)

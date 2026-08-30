@@ -1,6 +1,6 @@
 import 'dotenv/config';
-import { fetchRegionListings, fetchRecentlySold, fetchRegionListingsJson, fetchRecentlySoldJson } from './redfin.js';
-import { upsertListing, markListingSold, logPoll, markStaleListingsInactive, pruneOldBreakdowns, getRentalEstimatesWithSqft, getDb } from '../db/index.js';
+import { fetchRegionListings, fetchRecentlySold, fetchRegionListingsJson, fetchRecentlySoldJson, fetchRegionRemarks } from './redfin.js';
+import { upsertListing, markListingSold, logPoll, markStaleListingsInactive, pruneOldBreakdowns, getRentalEstimatesWithSqft, getDb, saveListingRemarks } from '../db/index.js';
 import { scoreWithBreakdown, setBaseRate } from '../scoring/index.js';
 import { getCurrentMortgageRate } from '../enrichment/mortgage-rate.js';
 import { runEnrichment } from '../enrichment/walk-score.js';
@@ -31,6 +31,14 @@ export async function runPoll(): Promise<{ newHighScoreIds: string[] }> {
         const listings = await (region.useJsonApi
           ? fetchRegionListingsJson(region.region_id, region.region_type, locale.minBeds, locale.maxPrice, locale.uipt ?? '1,2,3')
           : fetchRegionListings(region.region_id, region.region_type, locale.minBeds, locale.maxPrice, locale.uipt ?? '1,2,3'));
+
+        // Descriptions come from the JSON feed (the CSV feed has no remarks column). One request
+        // per region, so briefs don't need the per-listing HTML page — which Redfin's WAF blocks
+        // from most datacenter IPs. Never throws; an empty map just means "no remarks this run".
+        const remarks = await fetchRegionRemarks(
+          region.region_id, region.region_type, locale.minBeds, locale.maxPrice, locale.uipt ?? '1,2,3',
+        );
+
         let newCount = 0;
 
         const effectiveMinPrice = Math.max(locale.minPrice ?? 0, 10_000);
@@ -60,6 +68,9 @@ export async function runPoll(): Promise<{ newHighScoreIds: string[] }> {
           };
           const breakdown = scoreWithBreakdown(listingWithBrief, locale, rentResolution);
           const { isNew } = upsertListing({ ...listingWithBrief, locale_id: locale.id, score: breakdown.total, breakdown });
+
+          const listingRemarks = remarks.get(listing.id);
+          if (listingRemarks) saveListingRemarks(listing.id, listingRemarks);
 
           if (isNew) {
             newCount++;
