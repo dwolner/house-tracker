@@ -43,6 +43,10 @@ export function normalizeStatus(raw: string): string {
   if (s === 'coming soon' || s === '1') return '1';
   if (s === 'pending' || s === 'contingent' || s === 'under contract' || s === '130') return '130';
   if (s === 'sold' || s === '131') return '131';
+  // Redfin's label for a listing that isn't publicly on-market yet — same bucket as coming soon.
+  // Left unmapped it was stored raw, which silently excluded those rows from every
+  // `status IN ('9','1')` query (brief eligibility, active-listing views).
+  if (s === 'pre on-market') return '1';
   return raw; // pass through anything unrecognised
 }
 
@@ -340,14 +344,28 @@ async function fetchListingsByStatusJson(
   });
 }
 
+/**
+ * Always returns an empty array.
+ *
+ * The gis JSON endpoint **ignores the `status` parameter entirely** — `status=9`, `130`, and `131`
+ * all return the identical set of Active + Coming Soon listings. So there is no way to retrieve
+ * sold (or pending) listings through it; asking for 131 just re-fetches the active set and hands
+ * live listings to markListingSold(). That's harmless today only because markListingSold() refuses
+ * to touch rows whose status is '9'/'1' — this returns nothing rather than relying on that guard.
+ *
+ * Consequence: JSON-API locales (St. Louis) cannot detect sold or pending listings. Those listings
+ * simply drop out of the feed and are marked inactive by markStaleListingsInactive() after 36h.
+ * The CSV feed does honour `status`, but MARIS restricts it for St. Louis County (verified again
+ * Aug 2026: gis-csv returns headers and zero rows for every status).
+ */
 export async function fetchRecentlySoldJson(
-  region_id: string,
-  region_type: number,
-  minBeds: number,
-  maxPrice: number,
-  uipt: string,
+  _region_id: string,
+  _region_type: number,
+  _minBeds: number,
+  _maxPrice: number,
+  _uipt: string,
 ): Promise<RedfinListing[]> {
-  return fetchListingsByStatusJson(region_id, region_type, '131', minBeds, maxPrice, uipt);
+  return [];
 }
 
 export async function fetchRegionListingsJson(
@@ -357,17 +375,10 @@ export async function fetchRegionListingsJson(
   maxPrice: number,
   uipt: string,
 ): Promise<RedfinListing[]> {
-  const [active, comingSoon, pending] = await Promise.all([
-    fetchListingsByStatusJson(region_id, region_type, '9',   minBeds, maxPrice, uipt),
-    fetchListingsByStatusJson(region_id, region_type, '1',   minBeds, maxPrice, uipt),
-    fetchListingsByStatusJson(region_id, region_type, '130', minBeds, maxPrice, uipt),
-  ]);
-
-  const seen = new Map<string, RedfinListing>();
-  for (const listing of [...comingSoon, ...pending, ...active]) {
-    seen.set(listing.id, listing);
-  }
-  return [...seen.values()];
+  // One request, not three: this endpoint ignores `status`, so querying 9/1/130 separately
+  // returned three identical payloads (the Active + Coming Soon set) and tripled the request
+  // count per region for nothing. See fetchRecentlySoldJson for the full behaviour note.
+  return fetchListingsByStatusJson(region_id, region_type, '9', minBeds, maxPrice, uipt);
 }
 
 /**

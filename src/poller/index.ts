@@ -42,16 +42,21 @@ export async function runPoll(): Promise<{ newHighScoreIds: string[] }> {
         let newCount = 0;
 
         const effectiveMinPrice = Math.max(locale.minPrice ?? 0, 10_000);
+        // minBeds/maxPrice are sent to Redfin, but the gis JSON endpoint ignores them (the CSV
+        // endpoint honours them). Enforce locally so JSON locales don't ingest listings outside
+        // their configured criteria — this was letting ~46% of St. Louis rows exceed its price cap.
         const valid = listings.filter(l =>
           l.address.trim() !== '' &&
           l.beds > 0 &&
+          l.beds >= locale.minBeds &&
+          l.price <= locale.maxPrice &&
           l.state.toUpperCase() === locale.state.toUpperCase() &&
           (!locale.allowedZips || locale.allowedZips.includes(l.zip)) &&
           l.price >= effectiveMinPrice
         );
         const filtered = listings.length - valid.length;
         if (filtered > 0) {
-          console.log(`[poll] ${region.name}: dropped ${filtered} listings (blank address, 0 beds, wrong state, or out-of-zone ZIP)`);
+          console.log(`[poll] ${region.name}: dropped ${filtered} listings (blank address, beds/price out of range, wrong state, or out-of-zone ZIP)`);
         }
 
         for (const listing of valid) {
